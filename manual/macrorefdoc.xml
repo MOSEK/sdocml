@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<!DOCTYPE defines SYSTEM "http://sdocsml.googlecode.com/dtd/1.0a/sdocml.dtd">
+<sdocml>
+  <head>
+    <defines>
+      <incdef url="include/base.xml"/> 
+    </defines>
+    <title>Dummy Document</title>
+  </head>
+</sdocml>
+

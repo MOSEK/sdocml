@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<!DOCTYPE defines SYSTEM "sdocmldefs.dtd">
+<defines>
+  <def m="tagref" n="1"><e n="ref"><attr n="ref">section:tagref:element:{{0}}</attr><e n="tt"><d>&lt;{{0}}&gt;</d></e></e></def>
+  <def m="tag" n="1"><e n="tt"><d>&lt;{{0}}&gt;</d></e></def>
+  <def m="endtag" n="1"><e n="tt"><d>&lt;/{{0}}&gt;</d></e></def>
+
+  <def m="tagitem" n="2">
+    <e n="dt"><e n="ref"><attr n="ref">section:tagref:element:{{0}}</attr><e n="tt"><d>&lt;{{0}}&gt;</d></e></e></e>
+    <e n="dd"><d>{{1}}</d></e>
+  </def>
+  <defenv m="tagdeflist"><e n="dlist"><attr n="class">tag-list</attr><d>{{BODY}}</d></e></defenv>
+</defines>
+

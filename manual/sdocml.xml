@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE sdocml SYSTEM 
+        "http://sdocsml.googlecode.com/dtd/1.0a/sdocml.dtd">
+
+<sdocml>
+  <head>
+    <defines>
+      <incdef url="include/base.xml"/> 
+    </defines>
+  
+    <title>\sdocml Documentation</title>
+    <authors>
+      <author>
+        <firstname>Ulf</firstname>
+        <lastname>Worsøe</lastname>
+      </author>
+      <author>
+        <firstname>The self-documenting MoTeX Documentation System</firstname>
+      </author>
+    </authors>
+  </head>
+  
+  <section>
+    <head><title>Introduction</title></head>
+
+    The \sdocml documentation system defines
+    <ilist>
+      <li>A front-end XML format that allows use of pseudo-TeX macros.</li>
+      <li>A back-end format that is pure XML.</li>
+      <li>A compiler (written in Python) that translates fromt he front-end format to the back-end format.</li>
+      <li>Compilers translating the back-end format into different final formats (TeX, HTML etc.)</li>
+    </ilist>
+    The front-end format allows definition of pseudo-TeX macros and
+    environments and allows mixing of macros and XML tags.
+
+    <section>
+      <head><title>Purpose and focus</title></head>
+
+      The purpose is to provide a fully general framework for a documentation
+      system fully supporting graphics, mathematical formulas, code snippets,
+      internal cross references and external document references.
+
+      The document format is constructed to be resonably verifiable and
+      self-explanatory, and macro functionality has been severely limited
+      compared to reak TeX macros to make it more fail-safe.
+
+      Initially the focus of the implementation will be to support features
+      required to translate Mosek documentation, into HTML i.e.
+      <ilist>
+        <li>Correct expansion of all macros.</li>
+        <li>Correct and well supported math (via PDFLatex and PNG images).</li>
+        <li>Code inclusion and code snippets.</li>
+        <li>Full support for index, bibliography and cross references.</li>
+        <li>Inclusion of graphics: Raster images as PNG and JPEG, vector images as PDF or EPS.</li>
+      </ilist>
+      More generally, the aim is to provide detailed error messages and exact
+      file/line pointers to where things went wrong. The frontend should always
+      guarantee that the output is valid \tt{sdocmlx}, and the backend should always
+      produce valid output (and, whenever possible, accept any valid \tt{sdocmlx} document as input).
+    </section> 
+  </section> 
+
+  <section>
+    <head>
+      <defines><incdef url="include/defs.xml"/></defines>
+      <title>User's guide</title>
+    </head>
+
+    This chapter describes how to use the document format.
+    <section>
+      <head><title>Document structure</title></head>
+
+      The overall structure of a \sdocml document is
+      <pre type="text/xml" url="include/document-structure.xml"/>
+      Between \tagref{head} and the first \tagref{section} goes the bread text. No
+      text is allowed between or after the \tagref{section}s.
+      Additionally, authors, abstract, date etc. can appear in the header.
+
+      Each section may define or redefine a set of macros in the
+      \tagref{defines} section of the \tagref{head}. Macros defined in a section
+      head can be used in any section in the document sub-tree rooted at the
+      section.
+        
+      <section id="element:section">
+        <head><title>The \tag{section} element</title></head>
+        The \tag{section} element is the primary structural element defining the section nesting structure.
+
+        A \tag{section} element either contains a mandatory \tag{head}, some text and
+        possibly subsections, or it contains a reference to a section contained
+        in a separate file. 
+
+        The text part of a section can contain formatted text, lists, tables,
+        math etc. See the reference for \tag{section} for details. Text
+        paragraphs are implicit: One or more blank lines start a new paragraph,
+        and certain elements like \tag{pre}, \tag{ul}, \tag{table} etc. define
+        a single paragraph. 
+
+        Please note that under certain circumstances blank lines may be
+        implicitly introduced when using conditionals: When a scope is left out
+        this may leave a blank line if one is not careful.
+      </section>
+
+      <section id="element:head">
+        <head><title>The \tag{head} element</title></head>
+        
+        The \tagref{head} tag is required at the beginning of every \tagref{section}
+        element and at the beginning of the document (in the \tagref{sdocml}
+        element). The \tagref{head} tag contains a mandatory \tagref{title}
+        element as well as a list of optional tags:
+        \begin{tagdeflist}
+          \tagitem{title}
+          {
+            Defines the title for a section. This element may contain most
+            simple text elements but not structural elements, references,
+            anchors or math. See section \ref{section:simple-text}
+          }
+          \tagitem{defines}
+          {
+            This element defines new macros that can be used in the current
+            section and all child-sections. Macros may \em{not} be redefined
+            within the same \tagref{defines} element, but redefining a macro
+            defined in some parent section is allowed.  
+
+            Macros defined in the \tagref{defines} element in the \tagref{head} of the
+            \tagref{sdocml} element can be used anywhere in the document.
+
+            Please see section \ref{element:defines} for details.
+          }
+          \tagitem{abstract}
+          {
+            A simple text section that can be used as abstract. This means
+            that, in theory, each section may have it's own abstract. It is
+            entirely up to the backend to use or ignore this.
+
+            Most text elements, structural text elements and 
+          }
+          \tagitem{authors}
+          {
+            This is a structured element that allows defining authors either
+            for the entire document or for individual sections.
+
+            Please refer to section \ref{element:authors} for details.
+          }
+          \tagitem{date}
+          {
+            Date for the document or section.
+          }
+        \end{tagdeflist}
+      </section> 
+
+      <section id="element:authors">
+        <head><title>The \tag{authors} element</title></head>
+        This element contains the authors information: Address, email, institution etc. 
+      </section>
+
+      <section id="element:defines">
+        <head><title>The \tag{defines} element</title></head>
+
+        The \tagref{defines} element may contain four different types of elements:
+
+        \begin{tagdeflist}
+          \tagitem{dictentry} { Define a new dictionary entry. }
+          \tagitem{def}    { Define a new macro or overrice an existing one.  }
+          \tagitem{defenv} { Define a new environment or override an existing one.  }
+          \tagitem{incdef} { Include an external file with definitions.  }
+        \end{tagdeflist}
+
+
+        <section id="element:def">
+          <head><title>The \tag{def} element</title></head>
+          The \tagref{def} element is used to define or redefine a macro. A macro name is defined as follows
+          <pre>
+[a-zA-Z][a-zA-Z0-9@]*|["~\'`^\\][a-zA-Z]|[^\\:!]
+          </pre>
+          and furthermore, the special macros ``<tt>begin</tt>'' and
+          ``<tt>end</tt>'' are reserved and cannot be redefined.
+            
+          A macro may require a fixed number of arguments (optional arguments
+          are not supported). In the body of the macro definition, the first
+          argument can be referred to as ``<nx>{{0}}</nx>'', the second as
+          ``<nx>{{1}}</nx>'' and so forth.
+
+          Macros have limited functionality: 
+          \begin{itemize}
+            \item
+            { 
+              The body of a macro can only
+              define \emph{valid XML}, i.e. it is not possible to define only an
+              opening tag or only a closing tag.
+            }
+            \item
+            {
+              Since the arguments of the macro are processed before they are
+              passed to the macro, it is not possible to use a macro to, say,
+              force macros to not be expanded in the argments. 
+            }
+          \end{itemize}
+        </section>
+        
+        <section id="element:defenv">
+          <head><title>The \tag{defenv} element</title></head>
+
+          The \tagref{defenv} works much like the \tagref{def} element. Valid macro names are defined as follows:
+          <pre>
+[a-zA-Z][a-zA-Z0-9@]*
+          </pre>
+          
+          As with macros, it may require a fixed number of arguments, and the
+          content of the environment is passwd as an additional argument.  In
+          the body of the environment definition, the first argument can be
+          referred to as ``<nx>{{0}}</nx>'', the second as ``<nx>{{1}}</nx>''
+          and so forth, and the content of the environment can be referred to
+          as ``<nx>{{BODY}}</nx>''.
+ 
+          An environment is opened using the special ``<nx>\begin</nx>''
+          command and closed with the ``<nx>\end</nx>'' command. In the body
+        </section>
+        
+        <section id="element:incdef">
+          <head><title>The \tag{incdef} element</title></head>
+          The \tagref{incdef} element can be used to include definitions from external files.
+        </section>
+
+        <section id="element:dictentry">
+          <head>
+            <defines>
+              <def m="dictentry" n="2"><d>&lt;dictentry key="{{0}}"&gt;{{1}}&lt;/dictentry&gt;</d> </def>
+              <def m="entity" n="1"><d>&amp;{{0}};</d></def>
+            </defines>
+            <title>The \tag{dictentry} element</title>
+          </head>
+
+          This entry can be used to create dictionary entries mapping a key
+          string to a value string. Dictionary values can <em>only</em> be
+          accessed from within \tagref{def} and \tagref{defenv} elements using the
+          \tagref{lookup} element, not fom the content of a section directly.
+
+          One of of the possible uses this was created for was as a way to
+          store generated information. For example:
+          \begin{itemize}
+            \item 
+            {
+              When include source code snippets, some external program can
+              preprocess the code to be included, extract the relevant line
+              numbers and store them in the dictionary.
+            }
+            \item
+            {
+              Information like version numbers, directories etc.
+            }
+            \item
+            {
+              Some tricky accent definitions: Suppose we would like to define
+              something like an accenting macro ``<tt><nx>\c</nx></tt>'', such
+              that, say
+              <pre>
+\c{c}   -> &ccedil;
+\c{s}   -> &#x15f;
+              </pre>
+              This cannot be done using macros alone, so instead one might define dictionary mappings 
+              <pre macroexpand="yes">
+\dictentry{accent-cedilla-c}{\entity{ccedil}}
+\dictentry{accent-cedilla-s}{\entity{#x15f}}
+              </pre>
+              and define the ``<tt><nx>\c</nx></tt>'' macro as follows
+              <pre>
+&lt;def m="c" n="1"&gt;&lt;lookup&gt;accent-cedilla-{{0}}&lt;/lookup&gt;&lt;/def&gt;
+              </pre>
+            }
+          \end{itemize}
+          The scope of a dictionary entry is the document sub-tree rooted at
+          the section in which it is defined.
+        </section>
+      </section>
+      <section id="chapter:bread-text">
+        <head><title>Document text</title></head>
+        <section id="section:simple-text">
+          <head><title>Simple text elements</title></head>
+          The inline text elements available are
+          \begin{tagdeflist}
+            \tagitem{bf}{Bold face text.}
+            \tagitem{em}{Emphasize text.}
+            \tagitem{tt}{Typed text.}
+            \tagitem{sc}{Small caps text.}
+            \tagitem{br}{Line break.}
+            \tagitem{font}{Change font face.}
+            \tagitem{img}{Image from external source.}
+            \tagitem{nx}{No-expand region. Macros are not expanded within this tag.}
+            \tagitem{span}{Generic span element. Works mostly like HTML span.}
+          \end{tagdeflist}
+
+          Paragraphs are implicit; as in TeX, one or more blank lines signify a paragraph, but since we are in XML, there are a few extra notes:
+          \begin{itemize}
+            \item { Blank lines appearing at the beginning and end of an element do not create paragraphs. }
+            \item { Blank lines appearing immediately before or immediately after an element which itself generates a paragraph (\tagref{div}, \tagref{center} etc.) do not generate a paragraph. }
+            \item { Paragraphs are not generated inside inline-text elements (\tagref{span}, \tagref{tt}, \tagref{bf} etc.) }
+            \item { Paragraphs are not generated in preformatted elements. }
+          \end{itemize}
+          A generated paragraph will never contain a generated paragraph.
+        </section>
+        <section id="section:structural-text">
+          <head><title>Structural text elements</title></head>
+          The structural text elements are
+          \begin{tagdeflist}
+            \tagitem{ilist}
+            { Unordered list (e.g. bullet list.) }
+            \tagitem{dlist}
+            { Definition list. }
+            \tagitem{table}
+            { Table of values }
+            \tagitem{float}
+            { A floating element; a figure, a table etc. }
+            \tagitem{div}
+            { A logical division (works like a HTML div tag). Creates a new text paragraph. }
+            \tagitem{center}
+            { Centered paragraph. }
+            \tagitem{flushleft}
+            { Left aligned paragraph. }
+            \tagitem{flushright}
+            { Right aligned paragraph. }
+            \tagitem{pre}
+            { 
+              Preformatted paragraph. By default  
+              \begin{itemize}
+                \item{it is typeset with a fixed-size font,}
+                \item{all whitespace and all line breaks are kept,}
+                \item{macro expansion is not performed}
+              \end{itemize}
+              Furthermore, it is possible to include external text files (which
+              are escaped as necessary --- \emph{not} parsed as XML) or
+              snippets from external text files. 
+
+              This element is meant to be used for presenting source code and ASCII art.
+            }
+          \end{tagdeflist}
+        </section>
+        <section id="section:math-elements">
+          <head><title>Math elements</title></head>
+          Math elements are created to reflect TeX math to a wide extend, and
+          is slighly inspired by MathML (but it is \emph{not} MathML!).
+
+          There are three different top-level math environments:
+          \begin{tagdeflist}
+            \tagitem{m}{Inline math element.}
+            \tagitem{math}{A math paragraph. This can define an ID making it possible to refer to the equation. }
+            \tagitem{eqnarray}{A table of equations. Each equation if a three-cell row with cells aligned as right, center and left respectively. Each row can  define an ID.}
+          \end{tagdeflist}
+        </section>
+        <section id="section:macro-expansion">
+          <head><title>Macro expansion</title></head>
+          Macros and environments are processed and expanded in most Text and
+          Math contexts. A few exceptions are
+          \begin{itemize}
+            \item { Inside a \tagref{nx} (``No-eXpand'') element. }
+            \item { Inside a \tagref{pre} element, unless the <tt>macroexpand="yes"</tt> attribute was given. }
+          \end{itemize}
+          In all other contexts macros and XML text/math elements may be mixed,
+          i.e. arguments for a macro may contain XML tags. Please note that a
+          macro-group ``\tt{<nx>{ ... }</nx>}'' can only contain balanced XML
+          --- not unmatched opening or closing tags.
+
+          Though the macros look similar to TeX macros, don't let that fool you: It is not TeX. In particular,
+          \begin{itemize}
+            \item{ Whitespace and linebreaks between a macro and its arguments is ignored. }
+            \item{ Macro arguments \emph{must} be a \tt{<nx>{ ... }</nx>} group. }
+            \item{ A macro that takes no arguments does \emph{not} consume the succeeding whitespace. }
+          \end{itemize}
+
+          <section>
+            <head><title>How macros are processed</title></head>
+            Macros are not always expanded exactly in the order they appear,
+            especially if macros and tags are mixed. The \tt{<nx>{ ... }</nx>}
+            construction is denoted a \emph{group}, and basically processing of
+            XML elements appearing inside a group is delayed until the group is
+            either applied in a macro or ended without being passed as an
+            argument to a macro.
+    
+            The rules are more or less this:
+            \begin{itemize}
+              \item{ A macro not appearing inside a group and taking no arguments is immediately expanded.} 
+              \item{ A macro not appearing inside a group and taking one or more arguments is expanded when all arguments have been supplied. }
+              \item{ A macro appearing inside a group is parsed but not expanded until the group is expanded. }
+              \item{ An XML element appering inside a group is not processed until the group is either applied in a macro or ends without being passwd to a macro. }
+              \item{ Text inside an XML element appearing inside a group is not processed until the XML element is processed. }
+            \end{itemize}
+            Where \emph{processed} means that the text is parsed or XML
+            elements are added to the document structure, and \emph{expanded}
+            means that macros are converted their XML definition.
+
+            The parsing and expansion process can be explained in terms of SAX
+            events. We are dealing with two kinds of events:
+            \begin{itemize}
+              \item{Real SAX event. This occurs when the SAX parser encounters an XML tag.}
+              \item{Virtual SAX event. This occurs when the expansion of a macro produces an XML tag.}
+            \end{itemize}
+            If a real event occurs inside a group it is delayed (i.e. it does
+            not immediately contribute to the document structure); if an
+            element is delayed, all child elements are automatically delayed
+            and no text processing performed.
+
+            When the group is expanded, all delayed elements that are immediate
+            `children' of the group become virtual events, and their content
+            is processed.
+            
+            Notice that the same group may be expanded several times within a
+            macro if the macro applied the same argument several times.
+
+            For example, consider a piece of text of the form
+            <pre>
+&lt;tt&gt; \aaa { &lt;bf&gt; \bbb  &lt;/bf&gt; } &lt;/tt&gt;
+            </pre>
+            In this case the following events would take place:
+            \begin{enumerate}
+              \item{A \tag{tt} SAX event occurs. Since it is not inside a group, it is immediately added to the document structure. }
+              \item{The text immediately inside \tag{tt} is processed. A macro <tt>aaa</tt> is encountered. Since it is not inside a group and takes no arguments it is immediately expanded. }
+              \item{A group-start is encountered, opening a macro scope. }
+              \item{A \tag{bf} SAX event occurs, but since it appears inside a group, it is delayed. }
+              \item{Text inside the \tag{bf} element is not processed since \tag{bf} was delayed. }
+              \item{A \endtag{bf} SAX event occurs. This closes the \tag{bf} element but otherwise does nothing. }
+              \item
+              { This text is immediately inside \tag{tt} and is processed. A
+                group-end is encountered closing the macro scope. The content
+                of the scope, i.e. the delayed SAX events, is processed:
+                \begin{itemize}
+                  \item
+                  { A virtual \tag{bf} SAX event occurs, and since the
+                    element appears immediately inside the group being processed,
+                    it is added to the document structure. }
+                  \item
+                  { Since \tag{bf} was not delayed, the text inside the
+                    \tag{bf} element is processed: A macro <tt>bbb</tt> is encountered and immediately expanded. }
+                  \item
+                  { A \endtag{bf} is encountered, closing the \tag{bf} element.
+                  }
+                \end{itemize}
+              }
+              \item{A \endtag{tt} is encountered, closing the \tag{tt} element.}
+            \end{enumerate}
+            We notice that processing is performed in ``layers'': Had yet
+            another group containing yet another element appeared inside the
+            \tag{bf} element, this would have been delayed in the second stage,
+            until a ``<tt><nx>}</nx></tt>'' had been encountered, at which
+            point the content of that scope would be processed.
+
+            There are a few special cases to observe:
+            \begin{itemize}
+              \item
+              { A small set of special constructions are converted, specificly
+                double left-quotes, double right-quotes, two dashes and three dashes. }
+              \item
+              { Special table syntax using the constructions
+                \begin{description}
+                  \ditem{<tt><nx>\:</nx></tt>}
+                  { For the first row in a table this produces two virtual SAX events: a
+                    start-row and a start-cell. Otherwise it will produce four virtual SAX
+                    events: an end-cell, an end-row, a start-row and a start-cell.
+                  }
+                  \ditem{<tt><nx>\!</nx></tt>}
+                  {
+                    This evaluates to a two virtual SAX events: an end-cell and a start-cell
+                  }
+                  \ditem{end-of-table}
+                  {
+                    Finally, at the end of table, two virtual events are generated: An end-cell and an end-row. 
+                  }
+                \end{description}
+              }
+              \item
+              {
+                The <tt><nx>\begin ... \end</nx></tt> constructions, which work
+                almost as macros: the <tt><nx>\begin</nx></tt> opens a group
+                and <tt><nx>\end</nx></tt> ends a group.
+              }
+            \end{itemize}
+          </section>
+        </section>
+      </section>
+    </section>
+    <section>
+      <head><title>Special elements</title></head>
+      There are a set of special tags meant to be used in the documentation
+      writing and building process. These are
+      \begin{tagdeflist}
+        \tagitem{warning}
+        {
+          Print a warning to the display when a condition is met.
+        }
+        \tagitem{error}
+        {
+          Write a message and halt the translation if a condition is met.
+        }
+        \tagitem{note}
+        {
+          Produces a ``margin-note'' for proof-readers.
+        }
+        \tagitem{texml:conditional}
+        {
+          A special preprocessor-like tag: If the given condition is met, the
+          content of the element will be parsed as if it had appeared directly
+          in the text rather than in a \tagref{texml:conditional}. If the
+          condition is not met, the content will be completly ignored (i.e.: It
+          must still be valid XML, but no validation is performed and all text
+          and elements are thrown away.)
+        }
+      \end{tagdeflist}
+
+      Furthermore, several elements accept a ``<tt>cond</tt>'' attribute
+      defining a condition under which the element should be included in the
+      document. If a condition element evaluated to <tt>False</tt>, the element
+      will be ignored as if it had appeard inside a \tagref{texml:conditional}
+      element.
+    </section>
+  </section>
+  <section url="../build/output/tagsref.xml" cond="true"/>
+  <section url="../build/output/macroref.xml" cond="final"/>
+
+  <bibliography>
+    <bibitem key='bibtexml:07'>
+      BibTeXML, ``BibTeX as XML markup'', <tt>http://bibtexml.sourceforge.net/</tt>
+    </bibitem>
+  </bibliography>
+</sdocml>
+

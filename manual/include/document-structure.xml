@@ -1,0 +1,34 @@
+<?xml version="1.0" ?>
+<!DOCTYPE sdocml SYSTEM 
+          "https://odense.mosek.com/intranet/specs/texml/1.0/texmldoc.dtd">
+
+<sdocml>
+  <head>
+    <defines>
+      <!-- Global definitions go here -->
+    </defines>
+  
+    <title>The Title</title>
+  </head>
+  
+  <section>
+    <head><title>Introduction</title></head>
+    
+    Here goes some introductory blabla
+
+    <section>
+      <head><title>This is a subsection!</title></head>
+      Subsection  text goes here.
+    </section> 
+  </section> 
+
+  <section>
+    <head><title>Another section</title></head>
+
+    And section text
+    
+    <section url="external-section.xml"/>
+  </section>
+</sdocml>
+
+

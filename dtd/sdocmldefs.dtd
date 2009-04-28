@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Include global entity definitions -->
+<!ENTITY % HTMLsymbol  SYSTEM "external/HTMLsymbol.ent">  <!-- Original source: "http://www.w3.org/TR/html4/HTMLsymbol.ent"  -->
+<!ENTITY % HTMLspecial SYSTEM "external/HTMLspecial.ent"> <!-- Original source: "http://www.w3.org/TR/html4/HTMLspecial.ent" -->
+<!ENTITY % HTMLlat1    SYSTEM "external/HTMLlat1.ent">    <!-- Original source: "http://www.w3.org/TR/html4/HTMLlat1.ent"    -->
+%HTMLsymbol;
+%HTMLspecial;
+%HTMLlat1;
+
+<!ELEMENT defines ((def|incdef)*)>
+
+<!ELEMENT def ((e|c|d)*)>
+<!ATTLIST def m     CDATA #REQUIRED
+              n     CDATA "0">
+    <!ELEMENT d (#PCDATA)>
+    <!ELEMENT c (arg*)>
+    <!ATTLIST c n CDATA #REQUIRED>
+        <!ELEMENT arg ((e|c|d)*)>
+    <!ELEMENT e ((attr)*,(e|c|d)*)>
+    <!ATTLIST e n CDATA #REQUIRED>
+    <!ELEMENT attr EMPTY>
+    <!ATTLIST attr n NMTOKEN #REQUIRED
+                   v CDATA   #REQUIRED>
+
+<!ELEMENT incdef EMPTY>
+<!ATTLIST incdef url CDATA #REQUIRED
+                 type CDATA #FIXED "text/mtkdef">
