@@ -691,7 +691,6 @@ class SectionNode(Node):
             res.tagend('div')
     def makeFooter(self,res):
         res.extend([tag('div',{ 'class' : 'page-footer'}),self.__manager.getTimeStamp(),tag('br'),
-                    'Copyright ',entity('copy'),' 2009 Mosek ApS, all rights reserved.',
                     tagend('div')])
     def makeNavigation(self,res,prev=None,next=None,up=None,top=None,index=None,position='top'):
         def makeIconNavBar():

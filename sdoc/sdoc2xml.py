@@ -165,7 +165,7 @@ if __name__ == "__main__":
                                     'makedoc'      : config.UniqueEntry('makedoc',  default=None),
                                     'macroref'     : config.UniqueEntry('macroref',default=None),
                                     'macroreftitle' : config.UniqueEntry('macroreftitle',default="Macro reference"),
-                                    'define'       : config.DefinitionListEntry('define'),
+                                    'define'       : config.BoolDefListEntry('define'),
                                     'maxsectiondepth' : config.UniqueIntEntry('macsectiondepth','4'),
                                 })
     while args:
