@@ -48,14 +48,18 @@
       <desc>Define a hyperlink to an external resource and use the link itself as link text. </desc>
       <e n="href"><attr n="url">{{0}}</attr></e>
     </def>
-    <def m="hreft" n="2">
+    <def m="url"  n="1"> 
+      <desc>Alias for \href. </desc>
+      <e n="href"><attr n="url">{{0}}</attr><d>{{0}}</d></e>
+    </def>
+     <def m="hreft" n="2">
       <desc>Define a hyperlink to an external resource and use the second argument as link text. </desc>
       <e n="href"><attr n="url">{{0}}</attr><d>{{1}}</d></e>
     </def>
 
     <def m="cite"  n="1">
       <desc>Define a bibliography link to an unresolved source. The external resource identifier is fixed to "bibdb", and the class is "cite". </desc>
-      <e n="ref"><attr n="class">cite</attr><attr n="exuri">bibdb</attr><attr n="ref">{{0}}</attr></e>
+      <e n="ref"><attr n="class">cite</attr><attr n="type">cite</attr><attr n="ref">{{0}}</attr></e>
     </def>
 
     <def m="tt"   n="1"><e n="tt"><d>{{0}}</d></e></def> <!-- Typed text-->

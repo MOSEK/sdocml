@@ -50,30 +50,30 @@ class ListItem:
 
 
 class _BibEntry:
-    bibitems = { 'address'   : UniqueItem,
-                 'annote'    : UniqueItem,
-                 'author'    : ListItem,
-                 'booktitle' : UniqueItem,
-                 'chapter'   : UniqueItem,
-                 'crossref'  : UniqueItem,
-                 'edition'   : UniqueItem,
-                 'editor'    : ListItem,
-                 'howpublished' : UniqueItem,
-                 'institution' : UniqueItem,
-                 'journal'   : UniqueItem,
-                 #key
-                 'month'     : UniqueItem,
-                 'note'      : ListItem,
-                 'number'    : UniqueItem,
-                 'organization' : UniqueItem,
-                 'pages'     : UniqueItem,
-                 'publisher' : UniqueItem,
-                 'school'    : UniqueItem,
-                 'series'    : UniqueItem,
-                 'title'     : UniqueItem,
-                 'type'      : UniqueItem,
-                 'volume'    : UniqueItem,
-                 'year'      : UniqueItem,
+    bibitems = { 'address'       : UniqueItem,
+                 'annote'        : UniqueItem,
+                 'author'        : ListItem,
+                 'booktitle'     : UniqueItem,
+                 'chapter'       : UniqueItem,
+                 'crossref'      : UniqueItem,
+                 'edition'       : UniqueItem,
+                 'editor'        : ListItem,
+                 'howpublished'  : UniqueItem,
+                 'institution'   : UniqueItem,
+                 'journal'       : UniqueItem,
+                 'key'           : UniqueItem,
+                 'month'         : UniqueItem,
+                 'note'          : ListItem,
+                 'number'        : UniqueItem,
+                 'organization'  : UniqueItem,
+                 'pages'         : UniqueItem,
+                 'publisher'     : UniqueItem,
+                 'school'        : UniqueItem,
+                 'series'        : UniqueItem,
+                 'title'         : UniqueItem,
+                 'type'          : UniqueItem,
+                 'volume'        : UniqueItem,
+                 'year'          : UniqueItem,
                  }
     accepts = None
     def __init__(self,eid,node):
@@ -108,7 +108,9 @@ class _BibEntry:
                 return None
             else:
                 raise BibKeyError('Unrecognized key "%s" in %s' % (key,self.id))
-
+    def has_key(self,key):
+        #print "*** bib has key: %s? %s" % (key, self.__d.has_key(key))
+        return self.__d.has_key(key)
 class Article(_BibEntry):
     name = 'article'
     accepts = { 'author'   : Required, 
@@ -271,8 +273,8 @@ class BibDB:
 
     def __init__(self,url):
         urlbits = urlparse.urlparse(url)
-        if   urlbits.scheme in ['file','']:
-            filename = urlbits.path
+        if   urlbits[0] in ['file','']:
+            filename = urlbits[2]
         else:
             assert 0
 
@@ -296,6 +298,8 @@ class BibDB:
         return self.__db[key]
     def __iter__(self):
         return iter(self.__db.values())
+    def has_key(self,key):
+        return self.__db.has_key(key)
 
     
 

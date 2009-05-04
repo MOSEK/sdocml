@@ -624,7 +624,7 @@ class SectionNode(Node):
                             attrs,
                             filename,
                             line)
-            #self.__sections.append(n) # ignore bibliographuy
+            self.__sections.append(n)
         else:
             print "INVALID in section: ",name
             assert 0
@@ -989,11 +989,14 @@ class BibliographyNode(SectionNode):
                  line):
         SectionNode.__init__(self,manager,parent,(),0,True,attrs,filename,line)
         self.__manager = manager
-        self.__nodeIndex = manager.nextNodeIndex()
-        self.__sectionLinkName = 'section-node-%s' % self.__nodeIndex
+        #self.__nodeIndex = manager.nextNodeIndex()
+        #self.__sectionLinkName = 'section-node-%s' % self.__nodeIndex
+
+        self.__items = []
 
         if separatefile:
-            self.__nodefilename = 'node%0.4d.html' % self.__nodeIndex
+            self.__nodefilename = self.getSectionFilename()
+            #'node%0.4d.html' % self.__nodeIndex
         else:
             self.__nodefilename = parent.getSectionFilename()
     def getTitle(self):
@@ -1001,8 +1004,14 @@ class BibliographyNode(SectionNode):
 
     def handleText(self,data,filename,line):
         pass
+
     def newChild(self,name,attrs,filename,line):
-        return dummy('bibliography')(self.__manager, self, attrs,filename,line)
+        if name == 'bibitem':
+            n = BibItemNode(self.__manager, self,attrs,filename,line)
+            self.__items.append(n)
+        else:
+            n = SectionNode.newChild(self,name,attrs,filename,line)
+        return n
 
     def toHTMLFile(self,prevNode,nextNode,parentNode,topNode,indexFile):
         r = htmlCollector()
@@ -1024,8 +1033,12 @@ class BibliographyNode(SectionNode):
         ################################################################################
         r.append(hr_delim)
         r.div("document-bibliography")
-       
-       
+
+        r.tag('dl',{ 'class' : 'bibliography-item-list'})
+        for n in self.__items:
+            n.toHTML(r)
+            
+        r.tagend('dl')
         
         r.tagend('div')
 
@@ -1044,6 +1057,24 @@ class BibliographyNode(SectionNode):
 
 class BibItemNode(Node):
     nodeName = 'bibitem'
+    
+    def __init__(self,manager,parent,attrs,filename,line):
+        Node.__init__(self,manager,parent,attrs,filename,line)
+        self.__citeidx = manager.getNewCiteIdx()
+        self.__citelabel = u'[%d]' % (self.__citeidx+1)
+        self.__anchorname = '@cite-%s' % attrs['key']
+
+        manager.addIDTarget(self.__anchorname,self)
+    def linkText(self):
+        return self.__citelabel
+
+    def toHTML(self,r):
+        r.tag('dt').tag('a',{ 'name' : self.__anchorname}).append(self.__citelabel).tagend('a').tagend('dt')
+        r.tag('dd')
+        Node.toHTML(self,r)
+        r.tagend('dd')
+        return r
+
 
 class _IndexNode(SectionNode):
     def __init__(self,
@@ -1319,7 +1350,10 @@ class ReferenceNode(Node):
             self.__ref   = attrs['ref']
         else:
             self.__exuri = None
-            self.__ref   = manager.getIDTarget(attrs['ref'],self)
+            if attrs.has_key('type'):
+                self.__ref = manager.getIDTarget('@%s-%s' % (attrs['type'], attrs['ref']),self)
+            else:
+                self.__ref   = manager.getIDTarget(attrs['ref'],self)
     def toHTML(self,r):
         if self.__exuri:
             r.append('[??]')
@@ -2224,6 +2258,8 @@ class Manager:
         self.__topdir = topdir
         self.__iddict = {}
 
+        self.__citeidx = counter()
+        self.__citeanchors = {}
         self.__eqnlist = []
         self.__eqndict = {}
         self.__eqnsrcdict = {}
@@ -2274,16 +2310,24 @@ class Manager:
         else:
             self.__appicon = None
 
+        iconsadded = {}
         for key,icon in icons.items():
             if icon is not None:
                 iconbasename = os.path.basename(icon)
                 iconfile = 'imgs/%s' % iconbasename
                 self.__icons[key] = iconfile
-                msg('Adding Icon : %s' % iconfile)
-                self.__zipfile.write(icon,'%s/%s' % (topdir,iconfile))
+                if not iconsadded.has_key(iconbasename):
+                    iconsadded[iconbasename] = None
+                    msg('Adding Icon : %s' % iconfile)
+                    self.__zipfile.write(icon,'%s/%s' % (topdir,iconfile))
+        del iconsadded
+
 
     def doDebug(self):
         return self.__debug
+
+    def getNewCiteIdx(self):
+        return self.__citeidx.next()
     
     def addDefaultHeader(self,r):
         r.tag('meta', { 'http-equiv' : "Content-Type", 'content' : "text/html; charset=UTF-8" })

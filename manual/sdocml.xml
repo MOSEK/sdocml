@@ -57,7 +57,21 @@
       file/line pointers to where things went wrong. The frontend should always
       guarantee that the output is valid \tt{sdocmlx}, and the backend should always
       produce valid output (and, whenever possible, accept any valid \tt{sdocmlx} document as input).
-    </section> 
+    </section>
+
+    <section>
+      <head><title>Brief history</title></head>
+      This project was started to replace the documentation system (based on
+      PyLaTeX \cite{pylatex} and plasTeX \cite{plastex:09}) we are currently
+      using at MOSEK.
+
+      The original idea was to use a format that was easy to edit for humans
+      while defining rigid structure for sections, list, tables etc. DocBook
+      (\cite{docbook:09}) was considered, but that would have required adding a
+      significant number of features which are not (it seems) immediately
+      supported by any DocBook tools.
+
+    </section>
   </section> 
 
   <section>
@@ -83,16 +97,16 @@
         
       <section id="element:section">
         <head><title>The \tag{section} element</title></head>
-        The \tag{section} element is the primary structural element defining the section nesting structure.
+        The \tagref{section} element is the primary structural element defining the section nesting structure.
 
-        A \tag{section} element either contains a mandatory \tag{head}, some text and
+        A \tagref{section} element either contains a mandatory \tagref{head}, some text and
         possibly subsections, or it contains a reference to a section contained
         in a separate file. 
 
         The text part of a section can contain formatted text, lists, tables,
-        math etc. See the reference for \tag{section} for details. Text
+        math etc. See the reference for \tagref{section} for details. Text
         paragraphs are implicit: One or more blank lines start a new paragraph,
-        and certain elements like \tag{pre}, \tag{ul}, \tag{table} etc. define
+        and certain elements like \tagref{pre}, \tagref{ul}, \tagref{table} etc. define
         a single paragraph. 
 
         Please note that under certain circumstances blank lines may be
@@ -475,6 +489,93 @@
           </section>
         </section>
       </section>
+      <section>
+        <head><title>The \tag{bibliography} element</title></head>
+        The \tagref{bibliography} element defines the special top-level
+        bibliography section. The content of the section is either explicitly
+        written as a list of \tagref{bibitem} elements or generated from an
+        external bibliography database defined by the <tt>url</tt> attribute if \tagref{bibliography}.
+
+        Bibliography items can be linked to by using the \tagref{ref} element with
+        the attribute <tt>type="cite"</tt>. Bibliography references are resolved as follows:
+        <ilist>
+          <li> 
+            If the \tagref{bibliography} section contains an explicitly defined
+            \tagref{bibitem} with the relevant key, this will be used as target
+            for the reference,
+          </li>
+          <li> 
+            otherwise, the relevant item is located in the external bibliography
+            database, and a suitable \tagref{bibitem} will be generated from the
+            external info.
+          </li>
+        </ilist>
+        The explicitly written \tagref{bibitem}s are simple formatted text
+        entries, while the external bibliography database file is defined  in
+        BibTeXML format (see \cite{bibtexml:07}) --- e.g. the file used for
+        this manual looks like this:
+        <pre url="bibdb.xml"/>
+        
+        <section>
+          <head><title>Bibliography entry formatting</title></head>
+          Currently the bibliography entry formatting is hardcoded into
+          <tt>sdoc2xml.py</tt> (specificly, in the <tt>BibItemNode</tt> class),
+          but it is parameterized and will, ultimately, be moved to a
+          configuration file of some sort.
+
+          For each bibliography entry type (\tag{book}, \tag{inbook},
+          \tag{article} etc.) there is a formatting string describing how the
+          entry should be formatted. The string is interpreted as follows:
+          
+          <dlist>
+            <dt><nx><tt>${N1|N2|...}</tt></nx></dt>
+            <dd>
+              This expand to the content of the first field <tt>N1</tt>,
+              <tt>N2</tt> etc. defined in the bibliography entry. At least one
+              of the fields must be defined. Formatting is context sensitive,
+              so e.g. multiple authors will be expanded to a meaningful list:
+              <ilist>
+                <li>``John Doe''</li>
+                <li>``John Doe and Jane Doe''</li>
+                <li>``John Doe, Jane Doe and Gene Generic''</li>
+              </ilist>
+            </dd>
+            <dt><nx><tt>$[COND]{blabla}{yadayada}</tt></nx></dt>
+            <dd>
+              This is an \emph{if-then-else} expression --- the second brace
+              (the else-clause) may be empty or left out completely.
+              
+              The cond is a logical expression made from field names --- a name
+              <tt>N</tt> evaluates to <tt>true</tt> if and only if the database
+              entry contains a field <tt>N</tt>.
+            </dd>
+          </dlist>
+          
+          For example a <tt>book</tt> entry, where the fields <tt>title</tt>,
+          <tt>year</tt> and <tt>publisher</tt> are mandatory, either
+          <tt>author</tt> or <tt>editor</tt> must be defined, either
+          <tt>volume</tt> and <tt>number</tt> must be defined, and
+          <tt>series</tt> and <tt>address</tt>  (and several other fields) are optional.
+          <pre>
+${author|editor}. ``${title}''$[series]{, \emph{${series}}, 
+  $[volume]{vol. ${volume}}{no. ${number}}}, ${year}. 
+  ${publisher}$[address]{, ${address}}.
+          </pre>
+          This string might expand to something like this:
+          <pre>
+John Doe, Jane Doe and Gene Generic. 
+  ``Staying Anonymous'', \emph{Paranoid's handbooks}, vol. 4, 1984. 
+  Doe &amp; Doe Publishing, Delusional Street, San Fransisco.
+          </pre>
+
+          The condition syntax is as follows: Each logical expression is either logical OR list, ``<tt>N1|N2|...</tt>'', or a logical AND list,``<tt>N1&amp;N2&amp;...</tt>'', where each <tt>N*</tt> is either a field name or a logical sub-expression, ``<tt>(X)</tt>'', where <tt>X</tt> is a logical expression. For example:
+          <pre>
+author|editor
+series&amp;(volume|number)
+organization&amp;publisher&amp;address
+          </pre>
+        </section>
+      </section>
     </section>
     <section>
       <head><title>Special elements</title></head>
@@ -514,10 +615,6 @@
   <section url="../build/output/tagsref.xml" cond="true"/>
   <section url="../build/output/macroref.xml" cond="final"/>
 
-  <bibliography>
-    <bibitem key='bibtexml:07'>
-      BibTeXML, ``BibTeX as XML markup'', <tt>http://bibtexml.sourceforge.net/</tt>
-    </bibitem>
-  </bibliography>
+  <bibliography url="bibdb.xml"/>
 </sdocml>
 

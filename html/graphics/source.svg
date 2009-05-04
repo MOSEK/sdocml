@@ -35,15 +35,15 @@
      objecttolerance="10"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.979899"
-     inkscape:cx="124.31512"
-     inkscape:cy="922.81855"
+     inkscape:zoom="1.4823386"
+     inkscape:cx="377.44412"
+     inkscape:cy="917.42167"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="true"
-     inkscape:window-width="1530"
-     inkscape:window-height="1177"
-     inkscape:window-x="66"
+     inkscape:window-width="1600"
+     inkscape:window-height="1200"
+     inkscape:window-x="1600"
      inkscape:window-y="0"
      showguides="true"
      inkscape:guide-bbox="true">
@@ -312,7 +312,10 @@
          transform="matrix(0,-1,1,0,-702.24784,252.36218)" />
     </g>
     <g
-       id="g3214">
+       id="g3214"
+       inkscape:export-filename="/home/ulfw/mount/mosek/stuff/sdocml/html/graphics/contentbutton.png"
+       inkscape:export-xdpi="18"
+       inkscape:export-ydpi="18">
       <rect
          y="7.3621826"
          x="150"
@@ -337,7 +340,10 @@
     </g>
     <g
        id="g3219"
-       transform="translate(0,45)">
+       transform="translate(0,45)"
+       inkscape:export-filename="/home/ulfw/mount/mosek/stuff/sdocml/html/graphics/nocontentbutton.png"
+       inkscape:export-xdpi="18"
+       inkscape:export-ydpi="18">
       <path
          id="rect3227"
          style="fill:#595959;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dashoffset:0;stroke-opacity:1"

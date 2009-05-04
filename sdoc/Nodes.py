@@ -182,6 +182,18 @@ class Attr:
         else:
             self.descr = descr
 
+class DfltDict(UserDict):
+    def __init__(self,cons=lambda: None):
+        UserDict.__init__(self)
+        self.__cons = cons
+    def __ensurekey(self,k):
+        if not self.data.has_key(k):
+            self.data[k] = self.__cons()
+    def __getitem__(self,k):
+        self.__ensurekey(k)
+        return self.data[k]
+
+
 class Attrs(UserDict):
     def __init__(self,items={}):
         UserDict.__init__(self,[ (item.name, item) for item in items])
@@ -798,6 +810,7 @@ class Node:
             manager.saveId(attrs['id'],self)
         if attrs.has_key('ref'):
             manager.refId(attrs['ref'],self)
+
             
         
 
@@ -2072,21 +2085,363 @@ class BibliographyNode(_SectionBaseElement):
     macroMode   = MacroMode.Invalid
     acceptAttrs = Attrs([Attr('id'), 
                          Attr('url',descr='Adderess of the external bibliography database to use.'),
+                         #Attr('xmlns:bib',default="http://bibtexml.sf.net/",descr="For convenience, define namespace of BibTeXML."),
                          Attr('cond')])
+    #contIter    = ' <head>  <bibitem> * '
     contIter    = ' <bibitem> * '
 
-    def __init__(self,
-                 manager,
-                 parent,
-                 cmddict,
-                 nodeDict,
-                 attrs,
-                 filename,
-                 line):
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
         _SectionBaseElement.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,filename,line)
         self.__bibdb = None
+        self.__cmddict = cmddict
+        self.__nodedict = nodeDict
+        self.__manager = manager
+
         if self.hasAttr('url'):
-          self.__bibdb = BibDB(self.getAttr('url'))
+            biburl = manager.findFile(self.getAttr('url'),filename)
+            self.__bibdb = BibDB(biburl)
+        else:
+            self.__bibdb = None
+        
+        self.__genitems = []
+        self.__pp = False # postprocessed
+        self.__endpos = None
+    
+    def end(self,filename,line):
+        self.__endpos = filename,line
+
+    def createTextNode(self,*args):
+        assert 0
+
+    def postprocess(self): 
+        print "PostProcess Bibliograpy Node"
+        if not self.__pp:
+            self.__pp = True
+            if self.__bibdb:
+                bibkeys = [ i.getAttr('key') for i in self if i.nodeName == 'bibitem' and i.hasAttr('key') ]
+                cites = []
+                citedb = DfltDict(list) 
+                for k,n in self.__manager.getCiteRefs():
+                    #print "-- Lookup cite key '%s'" % k
+                    if k not in bibkeys:
+                        #print "-- Cite key %s must be externally resolved" % k
+
+                        if not citedb.has_key(k):
+                            cites.append(k)
+                        citedb[k].append(n)
+                    else:
+                        #print "-- Cite key %s found in local definitions" % k
+                        pass
+
+                for k in cites:
+                    if not self.__bibdb.has_key(k):
+                        Warning('No bib item found for "%s". Referenced at: \n\t%s' % (k, '\n\t'.join([ '%s:%d' % n.pos for n in citedb[k]])))
+                    else:
+                        item = self.__bibdb[k]
+                        
+                        #print "-- Adding bibitem node for cite key %s" % k
+                        node = BibItemNode(self.__manager,
+                                           self,
+                                           self.__cmddict,
+                                           self.__nodedict,
+                                           { 'key' : k },
+                                           self.__endpos[0],
+                                           self.__endpos[1])
+
+                        node.formatBibEntry(item)
+                        self.__genitems.append(node)
+            else:
+                Warning('No bibliography database found')
+
+
+    def toXML(self,doc):
+        node = doc.createElement(self.nodeName)
+        if 1:
+            n = doc.createElement('head')
+            cn = doc.createElement('title')
+
+            cn.appendChild(doc.createTextNode('Bibliography'))
+            n.appendChild(cn)
+            node.appendChild(n)
+
+        
+        self.postprocess() 
+        num = 0
+        for i in self:
+            if i.nodeName == 'bibitem':
+                n = i.toXML(doc)
+                if n is not None:
+                    node.appendChild(n)
+                num += 1
+                    
+        for i in self.__genitems:
+            n = i.toXML(doc)
+            if n is not None:
+                node.appendChild(n)
+
+        return node
+
+class BibItemNode(Node):
+    nodeName = 'bibitem'
+    contIter = ' [ T %s <href> <m> ] * ' % _simpleTextNodes
+    acceptAttrs = Attrs([Attr('key',descr="The cite key.") ])
+    macroMode = MacroMode.Text
+    paragraphElement = False 
+
+    bibtemplate = { 'article'       : '${author}. ${title}. ${journal}$[month]{ ${month}}$[(number|volume)]{ ${number|volume}$[pages]{:${pages}}{}}{$[pages]{p. ${pages}}{}}.$[note]{ ${note}}}',
+                    'book'          : '${author|editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
+                    'booklet'       : '$[author]{${author}. }${title}. $[howpublished]{${howpublished}$[year]{, ${year}.}}{$[year]{$year}.$[note]{ ${note}}}',
+                    'conference'    : '${author}. ${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
+                    'inbook'        : '${author|editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
+                    'incollection'  : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[chapter|pages]{ $[chapter]{chapter ${chapter}}{p. ${pages}}}, ${year}. ${publisher}$[address]{, ${address}}.',
+                    'inproceedings' : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}. ${publisher}$[address]{, ${address}}.',
+                    'manual'        : '$[author]{${author}. }${title}$[edition]{, ${edition} edition}$[year]{, ${year}}.$[organization]{ ${organization}$[address]{, ${address}}.}$[note]{ ${note}',
+                    'mastersthesis' : '${author}. $[type]{${type}}{Masters thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
+                    'misc'          : '$[author]{${author}. }$[title]{${title}. }$[howpublished]{${howpublished}. }$[note]{${note}.}',
+                    'phdthesis'     : '${author}. $[type]{${type}}{PhD thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
+                    'proceedings'   : '$[author]{${author}. }{$[editor]{${editor}. }}${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
+                    'techreport'    : '${author}. $[type]{${type}: }${title}$[number]{ no. ${number}}, ${year}. ${institution}$[address]{, ${address}}.$[note]{ ${note}',
+                    'unpublished'   : '${author}. ${title}$[year]{, ${year}}. ${note}.',
+                    }  
+
+    fmtre = re.compile(r'\$\{(?P<ref>[a-z\|]+)\}|\$\[(?P<cond>[a-z\|&\(\)]+)\]|(?P<endbrace>\})|(?P<beginbrace>\{)')
+    bracere = re.compile(r'(?P<endbrace>})|(?P<beginbrace>{)')
+    condre = re.compile(r'([()&|])|([^()&|]+)')
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
+        Node.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,filename,line)
+        self.__manager = manager
+
+    def handleText(self,text,filename,line):
+        #print '-- handleText: "%s"' % text
+        Node.handleText(self,unicode(text),filename,line)
+    def __handleText(self,text):
+        self.handleText(text,self.pos[0],self.pos[1])
+    def formatBibEntry(self,node):
+        #
+        #!!TODO!! Bib entry formatting should be handled in a more flexible way.
+        #
+        d = node
+        #print node
+        #for n in node.childNodes:
+        #    if n.nodeType == n.ELEMENT_NODE:
+        #        cn = n.firstChild
+        #        if cn:
+        #            d[n.nodeName].append(cn.data)
+        filename,line = self.pos
+        
+        def formatentry(k):
+            #print "-- formatentry: %s" % k
+            
+            items = d[k]
+            if isinstance(items,str) or isinstance(items,unicode):
+                n = self.newChild('span',{ 'class' : 'bib-item-%s' % k},filename,line)
+                n.handleText(items,filename,line)
+                n.endOfElement(filename,line)
+            else:
+                
+                assert len(items) > 0
+                #print "-- formatentry. items = %s" % str(items)
+                    
+                n = self.newChild('span',{ 'class' : 'bib-item-%s' % k},filename,line)
+                n.handleText(items[0],filename,line)
+                n.endOfElement(filename,line)
+                if   len(items) > 1:
+                    for sep,i in zip([ ', '] * (len(items)-2) + [' and '],items[1:]):
+                        self.handleText(sep,filename,line)
+                        n = self.newChild('span',{ 'class' : 'bib-item-%s' % k},filename,line)
+                        n.handleText(i,filename,line)
+                        n.endOfElement(filename,line)
+
+        def formatref(ref):
+            refs = [ r for r in ref.split('|') if d.has_key(r) ]
+            assert refs
+            formatentry(refs[0])
+
+
+        def ignoregroup(s,p):
+            #print "-- ignoregroup: |%s" % s[p:]
+            if not s[p] == '{':
+                # syntax error
+                assert 0
+            p += 1
+            lvl = 1
+            while lvl > 0:
+                o = self.bracere.search(s,p)  
+                if o is not None:
+                    p = o.end(0)
+                    if o.group('beginbrace'):
+                        lvl += 1
+                    else:
+                        lvl -= 1
+                else:
+                    # format string syntax error - unbalanced parens
+                    assert 0
+            return p
+
+        def parsecond(s):
+            """
+            I've been cutting some corners in this function. It should work,
+            but it might not catch all errors, and all errors are reported with
+            assert. Not very elegant.
+
+            parse a condition of the form:
+              cond     = "(" subcond ")"
+                       |  subcond
+              subcond  = conditem "&" and_cond
+                       | conditem "|" or_cond
+              conditem = TERM
+                       | "(" subcond ")"
+              and_cond = conditem
+                       | conditem "&" and_cond
+              or_cond  = conditem
+                       | conditem "|" or_cond
+            """
+            #print "-- parsecond: %s" % s
+            
+            def parseandlist(cl):
+                #print "-- parseandlist: %s" % cl
+                assert cl
+                if cl and cl[0][0] == '&':
+                    cl.pop(0)
+                    assert cl and cl[0][1] # syntax error
+                    v = cl.pop(0)
+                    return parseolist(cl) and d.has_key(v[1])
+                else:
+                    return True
+            def parseorlist(cl):
+                #print "-- parseorlist: %s" % cl
+                assert cl
+                if cl and cl[0][0] == '|':
+                    cl.pop(0)
+                    assert cl and cl[0][1] # syntax error
+                    v = cl.pop(0)
+                    return parseolist(cl) or d.has_key(v[1])
+                else:
+                    return False
+            def parsesubcond(cl):
+                #print "-- parsesubcond: %s" % cl
+                assert cl
+                if cl[0][0] == '(':
+                    r = parsepargroup(cl)
+                else:
+                    r = d.has_key(cl.pop(0)[1])
+                
+                if cl:
+                    if cl[0][0] == '|':
+                        r = parseorlist(cl) or r
+                    elif cl[0][0] == '&':
+                        r = parseandlist(cl) and r
+                    elif cl[0][0] in [ '(',')']:
+                        assert 0 # syntax error
+                else:
+                    pass
+                #print "--  parsesubcond res = %s" % r
+                return r
+                    
+            def parsepargroup(cl):
+                print "-- parsepargroup: %s" % cl
+                assert cl and cl.pop(0)[0] == '('
+                r = parsesubcond(cl)
+                assert cl and cl.pop(0)[0] == ')'
+                return r
+                
+            cl = self.condre.findall(s)
+            r = parsesubcond(cl)
+            assert not cl
+            return r
+           
+        def parsegroup(s,p):
+            #print "-- parsegroup: |%s" % s[p:]
+            assert s[p] == '{'
+
+            p += 1
+            lvl = 1
+            while lvl > 0:
+                o = self.fmtre.search(s,p)  
+                if p < o.start(0):
+                    self.__handleText(s[p:o.start(0)])
+                if o is not None:
+                    #print "-- parsegroup: ...%s" % str(o.groups())
+                    #print "               ...%s" % str(s[p:])
+                    if o.group('ref'):
+                        formatref(o.group('ref'))
+                        p = o.end(0)
+                    elif o.group('cond'):
+                        r = parsecond(o.group('cond'))
+                        #print "-- parsegroup: %s" % s[o.end(0):]
+                        if r:
+                            p = parsegroup(s,o.end(0))
+                            p = ignoregroup(s,p)
+                        else:
+                            p = ignoregroup(s,o.end(0))
+                            p = parsegroup(s,p)
+                    elif o.group('beginbrace'):
+                        p = o.end(0)
+                        lvl += 1
+                        self.__handleText('{')
+                    elif o.group('endbrace'):
+                        p = o.end(0)
+                        lvl -= 1
+                        if lvl > 0:
+                            self.__handleText('}')
+                    else:
+                        # format string syntax error
+                        assert 0 
+                else:
+                    # format string syntax error - unbalanced parens
+                    assert 0
+            #if p < len(s):
+            #    self.__handleText(s[p:])
+            return p
+               
+        def parsefmtstr(s,p):
+            while True and p < len(s):
+                #print "-- parsefmtstr: |%s" % s[p:]
+                o = self.fmtre.search(s,p)  
+                if o is not None:
+                    if p < o.start(0):
+                        self.__handleText(s[p:o.start(0)])
+                    #print o.groups()
+                    if o.group('ref'):
+                        refs = [ r for r in o.group('ref').split('|') if d.has_key(r) ]
+                        assert refs
+                        formatentry(refs[0])
+                        p = o.end(0)
+                    elif o.group('cond'):
+                        r = parsecond(o.group('cond'))
+                        #print "-- parsegroup: %s" % s[o.end(0):]
+                        if r:
+                            p = parsegroup(s,o.end(0))
+                            if len(s) > p and s[p] == '{':
+                                p = ignoregroup(s,p)
+                        else:
+                            #print "STR: '%s'" % s
+                            #print "   : '%s'" % s[p:]
+                            #print "   : '%s'" % s[o.end(0):]
+                            p = ignoregroup(s,o.end(0))
+                            if len(s) > p and s[p] == '{':
+                                p = parsegroup(s,p)
+                    else:
+                        # format string syntax error
+                        print "STR = '%s', at: '%s'" % (s,s[p:])
+                        assert 0 
+                else:
+                    break
+            if p < len(s):
+                #print "-- rest of s = |%s" % s[p:]
+                self.handleText(s[p:])
+
+        if node.name in [  'article', 'book', 'inbook', 'incollection', 'inproceedings', 'manual', 'mastersthesis', 'misc', 'phdthesis', 'techreport', 'unpublished',]:
+            parsefmtstr(self.bibtemplate[node.name], 0)
+        else:
+            assert 0
+            
+    
+
+        self.handleText('BIB:UNIMPLEMENTED',self.pos[0],self.pos[1])
+
+        
+
 
 class _SectionNode(_SectionBaseElement):
     comment     = '''
@@ -2350,13 +2705,6 @@ class NoteNode(Node):
     paragraphElement = True
     traceInfo    = True
 
-class BibItemNode(_SimpleTextElement):
-    comment     = '''
-                    A single bibliography entry.
-                  '''
-    nodeName    = 'bibitem'
-    macroMode   = MacroMode.Text
-    acceptAttrs = Attrs([Attr('key',descr='The cite key.'), Attr('cond')])
 
 class TexmlConditionalNode(Node):
     # This class exists only for documentation purposes.
@@ -2764,6 +3112,8 @@ class ReferenceNode(Node):
     <!ATTLIST ref
               class CDATA #IMPLIED
               ref   IDREF #REQUIRED -- The ID if the target --
+              type  (cite|default) "default" 
+                                    -- Reference type. 
               exuri CDATA #IMPLIED  -- If not given, the ref must be resolved within the document,
                                        otherwise it defines a resource containing the ID. In this case it is
                                        up to the output backend to interpret the reference. 
@@ -2795,8 +3145,9 @@ class ReferenceNode(Node):
     nodeName    = 'ref'
     macroMode   = MacroMode.Text
     acceptAttrs = Attrs([ Attr('class'), 
-                    Attr('ref'),
-                    Attr('exuri'),
+                          Attr('ref'),
+                          Attr('type'),
+                          Attr('exuri'),
                   ]) 
     traceInfo   = True
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
@@ -3218,6 +3569,10 @@ class Manager:
         self.__ids = {} # all IDs necountered
         self.__reqids = [] # ID references encountered
 
+    def getCiteRefs(self):
+        #print  [ (k,n.getAttr('type')) for (k,n) in self.__reqids ]
+        return [ (k,n) for (k,n) in self.__reqids if n.getAttr('type') == 'cite' ] 
+
     def expandURL(self,url,baseurl):
         return self.findFile(url,baseurl)
     def getEntityResolver(self):
@@ -3258,7 +3613,7 @@ class Manager:
             #print "look for: %s" % path
             if baseurl is not None:
                 base = urlparse.urlparse(baseurl)
-                fullname = os.path.join(os.path.dirname(base.path),path)
+                fullname = os.path.join(os.path.dirname(base[2]),path)
                 #print "check: %s" % fullname
                 if os.path.exists(fullname):
                     return fullname
@@ -3364,11 +3719,13 @@ class Manager:
 ######################################################################
 #  Node dictionary      
 ######################################################################
+#from BibNode import *
 
 globalNodeDict =  { 'sdocml'   : DocumentRoot,
                     'section'  : SectionNode,
                     'bibliography' : BibliographyNode,
                     'bibitem'  : BibItemNode,
+
                     'head'     : HeadNode,
                     'abstract' : AbstractNode, 
                     'defines'  : DefinesNode,
@@ -3419,7 +3776,6 @@ globalNodeDict =  { 'sdocml'   : DocumentRoot,
                     'linktext' : LinkTextNode,
                     'href'     : HyperRefNode,
                     'a'        : AnchorNode,
-
 
                     # Structural text elements
                     'ilist'    : ItemListNode,
@@ -3475,4 +3831,5 @@ globalNodeDict =  { 'sdocml'   : DocumentRoot,
                     'warning'  : WarningNode,
                     'error'    : ErrorNode,
                     'note'     : NoteNode,
+
                     }

@@ -29,6 +29,8 @@
     
     <section url="external-section.xml"/>
   </section>
+
+  <bibliography url="mybibdb.xml"/>
 </sdocml>
 
 

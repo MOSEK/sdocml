@@ -74,7 +74,7 @@ class DefinitionListEntry(_anyEntry):
 
 class BoolDefListEntry(DefinitionListEntry):
     def convertValue(self,value):
-        k,v = DefinitionListEntry.convertValue(value)
+        k,v = DefinitionListEntry.convertValue(self,value)
         v = v.lower() in [ 'yes', 'true', 'on' ]
         return k,v
         

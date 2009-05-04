@@ -27,7 +27,7 @@ class entityhandler(xml.sax.handler.EntityResolver):
         #print "ENTITY RESOLVER. \n\tPublic ID: %s\n\tSystem ID: %s" % (pubid,sysid)
         
         p = urlparse.urlparse(sysid)
-        basename = p.path.split('/')[-1].lower()
+        basename = p[2].split('/')[-1].lower()
         #print "\tBASENAME: %s" % basename
         for p in self.__paths:
             fullname = os.path.join(p,basename)

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<file xmlns="http://bibtexml.sf.net/">
+  <entry id="bibtexml:07">
+    <misc>
+      <author>Vidar Bronken Gundersen</author>
+      <author>Zeger W. Hendrikse</author>
+      <title>BibTeX as XML markup</title>
+      <note>\url{http://bibtexml.sourceforge.net/}</note>
+      <year>2009</year>
+    </misc>
+  </entry>
+  <entry id="plastex:09">
+    <misc>
+      <title>plasTeX --- LaTeX Processing Document Framework</title>
+      <note>\url{http://plastex.sourceforge.net/}</note>
+      <year>2009</year>
+    </misc>
+  </entry>
+  <entry id="pylatex">
+    <misc>
+      <title>pyLaTeX</title>
+      <note>\url{http://pylatex.sourceforge.net/} (abandoned project)</note>
+    </misc>
+  </entry>
+  <entry id="docbook:09">
+    <misc>
+      <title>DocBook.org</title>
+      <note>\url{http://docbook.org/}</note>
+      <year>2009</year>
+    </misc>
+  </entry>
+</file>
+
