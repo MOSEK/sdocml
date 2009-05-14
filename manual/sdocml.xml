@@ -209,6 +209,27 @@
               force macros to not be expanded in the argments. 
             }
           \end{itemize}
+
+          In math mode a macro may accept subscript and/or superscript arguments, i.e.
+          <pre>
+\sum^{X}_{i=0} x_i
+          </pre>
+          will be interpreted as the macro <tt>sum</tt> with superscript
+          argument <tt>X</tt> and subscript argument <tt>i=0</tt>. Using the
+          definition of <tt><nx>\sum</nx></tt> from <tt>base.xml</tt>, this will be rendered as
+          <math>
+\sum^{X}_{i=0} x_i
+          </math>
+
+          To indicate
+          that the macro accepts superscript and subscript, use
+          <tt>superscript-arg="yes"</tt> and <tt>subscript-arg="yes"</tt>.
+          To refer to the subscript and superscript arguments inside the can be
+          referred to with ``<nx>{{SUBSCRIPT}}</nx>'' and
+          ``<nx>{{SUPERSCRIPT}}</nx>''.
+
+          Both subscript and superscript are optional. If a macro allows an
+          argument, but it is not given, it simply expands to an empty string. 
         </section>
         
         <section id="element:defenv">
@@ -484,6 +505,65 @@
                 The <tt><nx>\begin ... \end</nx></tt> constructions, which work
                 almost as macros: the <tt><nx>\begin</nx></tt> opens a group
                 and <tt><nx>\end</nx></tt> ends a group.
+              }
+              \item
+              { Superscript and subscript notation in math mode. These are parsed
+                \begin{description}
+                  \ditem{ <tt><nx>_{ ... }</nx></tt> and <tt><nx>^{ ... }</nx></tt> }
+                  {
+                    Subscript and superscript where the right-hand operand is a group.
+                  }
+                  \ditem{ <tt><nx>_.</nx></tt> and <tt><nx>^.</nx></tt> }
+                  {
+                    Subscript and superscript where the right-hand operand is a single char, e.g. <nx><tt>x^i</tt></nx>
+                  }
+                \end{description}
+                The right-hand operand can \em{not} be a macro.
+               
+                The left-hand operand must be present (i.e. it may not be
+                immediately preceeded by XML markup) and it may be a character,
+                a macro, a group or another inorder group.
+                \begin{itemize}
+                  \item{ If the preceeding item is a macro that accepts subscript or superscript, the right-hand operand is passed to it.}
+                  \item{ If the preceeding item is a group or a macro that does not accept the optional argument, it will be used as left-hand operand. }
+                  \item{ If the preceeding item is a character, the left-hand operand will be a group consisting of that character. }
+                \end{itemize}
+                
+                Notice that both subscript and superscript is allowed for the
+                same left-hand operand, i.e. in ``<nx>x_i^k</nx>'', <tt>i</tt>
+                is passed as subscript argument to <tt>x</tt> and <tt>k</tt> is
+                passed as superscript argument to <tt>x</tt>. 
+                On the other hand, if the left-hand operand is a macro, say
+                <nx><tt>\mymacro</tt></nx>, that accepts only subscript, then
+                <pre>
+\mymacro_x^y
+                </pre>
+                is interpreted as
+                <pre>
+{\mymacro_x}^y
+                </pre>
+                while
+                <pre>
+\mymacro^y_x
+                </pre>
+                is interpreted as
+                <pre>
+{\mymacro}^y_x
+                </pre>
+                i.e. neither <tt>x</tt> or <tt>y</tt> are passed to the macro. 
+
+                A noticable difference from TeX arises here. Suppose <tt><nx>\mymacro</nx></tt> takes one argument and subscript; then 
+                <pre>
+\mymacro{QWE}_x
+                </pre>
+                is equivalent to
+                <pre>
+\mymacro_x{QWE}
+                </pre>
+                Furthermore, notice that primes must be used with care, e.g.
+                ``<tt><nx>x'_i</nx></tt>'' is interpreted as
+                ``<tt><nx>{x'}_i</nx></tt>'' which may not give the expected
+                result.
               }
             \end{itemize}
           </section>

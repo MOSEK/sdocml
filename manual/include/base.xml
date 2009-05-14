@@ -114,7 +114,13 @@
     <def m="cdot"><e n="mo"><d>&sdot;</d></e></def>
     <def m="times"><e n="mo"><d>&times;</d></e></def>
     <def m="forall"> <e n="mo"><d>&forall;</d></e></def>
-    <def m="sum">    <e n="mo"><attr n="op">sum</attr></e></def>
+    <def m="sum" superscript-arg="yes" subscript-arg="yes">
+      <e n="msubsup">
+        <e n="mo"><attr n="op">sum</attr></e>
+        <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
+        <e n="mrow"><d>{{SUPERSCRIPT}}</d></e>
+      </e>
+    </def>
     <def m="limits"> <e n="mo"><attr n="op">limits</attr></e></def>
     <def m="in">     <e n="mo"><d>&isin;</d></e></def>
     <def m="notin">  <e n="mo"><d>&notin;</d></e></def>

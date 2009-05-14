@@ -7,8 +7,7 @@
     Copyright (c) 2009 Mosek ApS 
 """
 
-import xml.sax.handler
-import xml.dom.minidom
+import xml.sax
 import re
 import sys,os
 import urlparse

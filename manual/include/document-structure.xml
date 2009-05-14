@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE sdocml SYSTEM 
-          "https://odense.mosek.com/intranet/specs/texml/1.0/texmldoc.dtd">
+          "texmldoc.dtd">
 
 <sdocml>
   <head>

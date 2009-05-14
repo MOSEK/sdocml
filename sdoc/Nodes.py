@@ -293,7 +293,10 @@ class MacroEvent_NoExpandText(MacroEvent_Text):
     pass
 
 class UnexpandedItem:
-    pass 
+    def acceptsSubscript(self):
+        return False
+    def acceptsSuperscript(self):
+        return False
 
 class LazyElement(UnexpandedItem,UserList):
     def __init__(self,name,attrs,filename,line,ev_close=None):
@@ -319,7 +322,7 @@ class LazyElement(UnexpandedItem,UserList):
         node = MacroEvent_ExpandText(data,filename,line)
         self.data.append(node)
     
-    def linearize(self,res,args):
+    def linearize(self,res,args,kwds):
         res.append(MacroEvent_StartTag(self.__name,self.__attrs,self.__filename,self.__line))
         debug('LazyElement %s: Linearize' % (self.__name))
 
@@ -327,7 +330,7 @@ class LazyElement(UnexpandedItem,UserList):
             if isinstance(i,MacroEvent_ExpandText):
                 res.append(i)
             else:
-                i.linearize(res,args)
+                i.linearize(res,args,kwds)
         
         res.append(MacroEvent_EndTag(self.__name,self.__filename, self.__line))
         return res
@@ -348,13 +351,13 @@ class Group(UserList,UnexpandedItem):
         UserList.__init__(self)
         self.pos = filename,line
         self.__closed = False
-    def linearize(self,res,args):
+    def linearize(self,res,args,kwds):
         try:
             for i in self:
                 if isinstance(i,unicode):
                     res.append(MacroEvent_NoExpandText(i,self.pos[0],self.pos[1]))
                 else:
-                    i.linearize(res,args)
+                    i.linearize(res,args,kwds)
             return res
         except MacroArgErrorX, e:
             raise MacroArgError('%s at %s:%d' % (e.msg,self.pos[0],self.pos[1]))
@@ -377,10 +380,10 @@ class LazyTableItem(Group):
     def __init__(self,name,filename,line):
         Group.__init__(self,filename,line)
         self.name       = name
-    def linearize(self,res,args):
+    def linearize(self,res,args,kwds):
         #print "LINEARIZE TABLE ITEM %s" % self.__class__.__name__
         res.append(MacroEvent_StartTag(self.name,{},self.pos[0],self.pos[1]))
-        Group.linearize(self,res,args)
+        Group.linearize(self,res,args,kwds)
         res.append(MacroEvent_EndTag(self.name,self.pos[0],self.pos[1]))
         return res
     
@@ -401,9 +404,9 @@ class UnexpandedEnvironment(UnexpandedItem):
         self.pos       = pos
         self.__macro   = env
         
-        self.__args    = [] # actual arguments
-        self.__data    = [] # the environment content
-
+        self.__args     = [] # actual arguments
+        self.__data     = [] # the environment content
+    
     def append(self,value):
         debug("Env argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
         assert not isinstance(value,ContentManager)
@@ -424,22 +427,23 @@ class UnexpandedEnvironment(UnexpandedItem):
     def nArgs(self):
         return self.__macro.nArgs()
 
-    def linearize(self,res,args): # args is a dummy - we will never use it
+    def linearize(self,res,args,kwds): # args is a dummy - we will never use it
         if len(self.__args) < self.__macro.nArgs():
             raise MacroError("Too few arguments for environment '%s' at %s:%d" % (self.__macro.macroName(),self.pos[0],self.pos[1]))
         args = []
         for a in self.__args:
             debug("  Expand arg: ",repr(a))
-            args.append(a.linearize([],[]))
+            args.append(a.linearize([],[],{}))
+        
         cont = []
-        args.append(cont)
+        kwds['BODY'] = cont
         for a in self.__data:
             if isinstance(a,unicode):
                 cont.append(MacroEvent_NoExpandText(a,self.pos[0],self.pos[1]))
             else:
-                a.linearize(cont,[])
+                a.linearize(cont,[],{})
         debug('UnexpandedMacro.linearize. Before: ',repr(res))
-        self.__macro.linearize(res,args,self.pos[0],self.pos[1])
+        self.__macro.linearize(res,args,kwds,self.pos[0],self.pos[1])
     
         return res
     def envName(self):
@@ -458,49 +462,69 @@ class UnexpandedMacro(UnexpandedItem):
         self.pos     = pos
         self.__macro   = macro
         self.__onclose = onclose_action
-        self.__data = []
+        self.__args = []
+        self.__subscript   = None
+        self.__superscript = None
 
+    def acceptsSubscript(self):
+        return self.__macro.acceptsSubscript() and self.__subscript is None
+    def acceptsSuperscript(self):
+        return self.__macro.acceptsSuperscript() and self.__superscript is None
+    def putSubscript(self,a):
+        if not self.acceptsSubscript():
+            raise MacroError('Subscript not accepted by macro at %s:%d' % self.pos)
+        self.__subscript = a
+    def putSuperscript(self,a):
+        if not self.acceptsSuperscript():
+            raise MacroError('Superscript not accepted by macro at %s:%d' % self.pos)
+        self.__superscript = a
+    
     def append(self,value):
         debug("Macro argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
         assert not isinstance(value,ContentManager)
 
-        
         if (isinstance(value,unicode) or isinstance(value,str)) and not value.strip():
             pass
         else:
             if not isinstance(value,BraceGroup):
                 raise MacroError('Expected an argument for macro at %s:%d' % self.pos)
-            elif  len(self.__data) < self.__macro.nArgs():
-                self.__data.append(value)
+            elif  len(self.__args) < self.__macro.nArgs():
+                self.__args.append(value)
                 
-                if len(self.__data) == self.__macro.nArgs() and self.__onclose is not None:
+                if len(self.__args) == self.__macro.nArgs() and self.__onclose is not None:
                     self.__onclose()
             else:
                 raise MacroError('too many arguments for macro at %s:%d' % self.pos)
         if False and self.__macro.macroName() == 'frac':
             print "nargs = ",self.nArgs()
-            print 'got = ',len(self.__data)
+            print 'got = ',len(self.__args)
 
 
     def isFinished(self):
-        return len(self.__data) == self.__macro.nArgs()
+        return len(self.__args) == self.__macro.nArgs()
     
     def nArgs(self):
         return self.__macro.nArgs()
 
-    def linearize(self,res,args): # args is a dummy - we will never use it
-        if len(self.__data) < self.__macro.nArgs():
+    def linearize(self,res,args_,kwds_): # args_ and kwds_ are dummies - we will never use them
+        if len(self.__args) < self.__macro.nArgs():
             raise MacroError("Too few arguments for macro '%s' at %s:%d" % (self.__macro.macroName(),self.pos[0],self.pos[1]))
         args = []
-        for a in self.__data:
+        for a in self.__args:
             debug("  Expand arg: ",a)
             try:
-                args.append(a.linearize([],[]))
+                args.append(a.linearize([],[],{}))
             except MacroArgErrorX,e:
                 raise MacroArgError(e.msg + ' in \\%s at %s:%d' % (self.__macroName,self.pos[0],self.pos[1]))
+        kwds = { }
+        if self.__subscript is not None:
+            kwds['SUBSCRIPT'] = self.__subscript.linearize([],[],{})
+        if self.__superscript is not None:
+            kwds['SUPERSCRIPT'] = self.__superscript.linearize([],[],{})
         debug('UnexpandedMacro.linearize. Before: ',res)
+        
         try:
-            self.__macro.linearize(res,args,self.pos[0],self.pos[1])
+            self.__macro.linearize(res,args,kwds,self.pos[0],self.pos[1])
         except MacroArgErrorX,e:
             raise MacroArgError(e.msg + ' in \\%s at %s:%d' % (self.__macro.macroName(),self.pos[0],self.pos[1]))
     
@@ -540,7 +564,7 @@ class UnexpandedInorderop(UnexpandedItem):
         else:
             assert 0 
 
-    def linearize(self,res, args): # args is a dummy
+    def linearize(self,res, args,kwds): # args is a dummy
         if self.__subscr is not None and self.__superscr is not None:
             # Expand as <msubsup> 
             res.append(MacroEvent_StartTag('msubsup',{},self.pos[0],self.pos[1]))
@@ -549,14 +573,14 @@ class UnexpandedInorderop(UnexpandedItem):
             if isinstance(self.__base,unicode):
                 res.append(MacroEvent_NoExpandText(self.__base,self.pos[0],self.pos[1]))
             else:
-                self.__base.linearize(res,[])
+                self.__base.linearize(res,[],{})
             res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
             
             res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
             if isinstance(self.__subscr,unicode):
                 res.append(MacroEvent_NoExpandText(self.__subscr,self.pos[0],self.pos[1]))
             else:
-                self.__subscr.linearize(res,[])
+                self.__subscr.linearize(res,[],{})
 
             res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
 
@@ -564,7 +588,7 @@ class UnexpandedInorderop(UnexpandedItem):
             if isinstance(self.__superscr,unicode):
                 res.append(MacroEvent_NoExpandText(self.__superscr,self.pos[0],self.pos[1]))
             else:
-                self.__superscr.linearize(res,[])
+                self.__superscr.linearize(res,[],{})
             res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
 
             res.append(MacroEvent_EndTag('msubsup',self.pos[0],self.pos[1]))
@@ -576,14 +600,14 @@ class UnexpandedInorderop(UnexpandedItem):
             if isinstance(self.__base,unicode):
                 res.append(MacroEvent_NoExpandText(self.__base,self.pos[0],self.pos[1]))
             else:
-                self.__base.linearize(res,[])
+                self.__base.linearize(res,[],{})
             res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
             
             res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
             if isinstance(self.__subscr,unicode):
                 res.append(MacroEvent_NoExpandText(self.__subscr,self.pos[0],self.pos[1]))
             else:
-                self.__subscr.linearize(res,[])
+                self.__subscr.linearize(res,[],{})
             res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
 
             res.append(MacroEvent_EndTag('msub',self.pos[0],self.pos[1]))
@@ -595,19 +619,19 @@ class UnexpandedInorderop(UnexpandedItem):
             if isinstance(self.__base,unicode):
                 res.append(MacroEvent_NoExpandText(self.__base,self.pos[0],self.pos[1]))
             else:
-                self.__base.linearize(res,[])
+                self.__base.linearize(res,[],{})
             res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
             
             res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
             if isinstance(self.__superscr,unicode):
                 res.append(MacroEvent_NoExpandText(self.__superscr,self.pos[0],self.pos[1]))
             else:
-                self.__superscr.linearize(res,[])
+                self.__superscr.linearize(res,[],{})
             res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
 
             res.append(MacroEvent_EndTag('msup',self.pos[0],self.pos[1]))
         else:
-            self.__base.linearize(res,[],self.pos[0],self.pos[1])
+            self.__base.linearize(res,[],{},self.pos[0],self.pos[1])
 
         return res
 
@@ -651,8 +675,8 @@ class ContentManager:
 
     def append(self,item):
         debug("ContentManager (mode=%s) got (%s): %s" % (MacroMode.toStr(self.__mode),repr(type(item)),repr(item)))
-        
         if isinstance(item,SubSuperBraceGroup):
+            debug('\tlast = %s' % str(self.__last))
             if self.__last is None:
                 raise MacroError('Invalid use of inorder operation %s at %s:%d' % (item.op,item.pos[0],item.pos[1]))
             elif isinstance(self.__last,UnexpandedInorderop):
@@ -668,8 +692,17 @@ class ContentManager:
                 self.__last = UnexpandedInorderop(c,item.pos)
                 self.__last.append(item)
             elif isinstance(self.__last,UnexpandedItem):
-                self.__last = UnexpandedInorderop(self.__last,item.pos)
-                self.__last.append(item)
+                debug("Accepts subscript ? %s" % self.__last.acceptsSubscript())
+                debug("Accepts superscript ? %s" % self.__last.acceptsSuperscript())
+                if isinstance(item,SubBraceGroup) and self.__last.acceptsSubscript():
+                    debug("Put subscript.")
+                    self.__last.putSubscript(item)      
+                elif isinstance(item,SuperBraceGroup) and self.__last.acceptsSuperscript():
+                    debug("Put superscript.")
+                    self.__last.putSuperscript(item)
+                else:
+                    self.__last = UnexpandedInorderop(self.__last,item.pos)
+                    self.__last.append(item)
             else:
                 print('Unexpected type: ',self.__last) 
                 assert 0
@@ -975,7 +1008,7 @@ class Node:
                     print "SELF:",self
                     raise
         elif isinstance(item,UnexpandedItem):
-            res = item.linearize([],[])
+            res = item.linearize([],[],{})
             debug('Node.append: handlig events',res)
             self.__handleSAXEvents(res,item.pos[0],item.pos[1])
         else:
@@ -1020,6 +1053,146 @@ class Node:
                 pass
         else:
             self.appendItem(data,filename,line)
+
+    def __handleText_Math(self,data,filename,line):
+        pos = 0
+        for o in self.mathmodemacro_regex.finditer(data):
+            if (o.group('tr') or o.group('td')):
+                if not self.allowTableSyntax:
+                    continue
+
+            if pos < o.start(0):
+                self.__cstack[-1].append(data[pos:o.start(0)])
+                debug('Added math data: ',data[pos:o.start(0)])
+            pos = o.end(0)
+
+            debug('Got math item: ',repr(o.group(0)))
+            if   o.group('macro'):
+                macroname = o.group('macro')
+                try: macro = self.__cmddict[macroname]
+                except KeyError: 
+                    raise NodeError('Undefined macro "%s" at %s:%d' % (macroname,filename, line))
+
+                if macro.nArgs() > 0:
+                    def popMacro():
+                        g = self.__cstack.pop()
+                        assert self.__cstack
+                        self.__cstack[-1].append(g)
+
+                    self.__cstack.append(UnexpandedMacro(macro, (filename,line), popMacro))
+                else:
+                    self.__cstack[-1].append(UnexpandedMacro(macro, (filename,line)))
+
+            elif o.group('brace'):
+                if o.group('brace') == '{':
+                    self.__cstack.append(ContentManager(BraceGroup(filename,line)))
+                else: # '}'
+                    if not isinstance(self.__cstack[-1],ContentManager) or not isinstance(self.__cstack[-1].Managed(),BraceGroup):
+                        raise NodeError('Unmatched end-group } at %s:%d' % (filename,line))
+                    g = self.__cstack.pop()
+                    g.flush()
+                    assert self.__cstack
+                    self.__cstack[-1].append(g.Managed())
+            elif o.group('subsupgrp'):
+                op = o.group('subsupgrp')
+                if op == '_{':
+                    g = SubBraceGroup(filename,line)
+                else:
+                    g = SuperBraceGroup(filename,line)
+                self.__cstack.append(ContentManager(g))
+            elif o.group('subsupc'):
+                op = o.group('subsupc')[0]
+                c  = o.group('subsupc')[1]
+
+                if op == '_':
+                    g = SubBraceGroup(filename,line)
+                else:
+                    g = SuperBraceGroup(filename,line)
+
+                g.append(c) 
+                g.end()
+                self.__cstack[-1].append(g)
+
+            elif o.group('tr'):
+                # if special table syntax is used, this must be used
+                # for _all_ rows and cells. This means that table
+                # syntax elements must appear _only_ at the top-level
+                # of a table and not be preceded by anything.
+              
+                if   len(self.__cstack) == 1: # we are at top-level, must be the first row.
+                    self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
+                    self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
+                elif len(self.__cstack) == 3 and \
+                     isinstance(self.__cstack[-1],ContentManager):
+                    topcell = self.__cstack[-1].Managed()
+                    if isinstance(topcell,LazyTableCell):
+                        # end the current cell
+                        item = self.__cstack.pop()
+                        item.flush()
+                        self.__cstack[-1].append(item.Managed())
+                        # Then end the current row
+                        top = self.__cstack[-1]
+                        if isinstance(top,ContentManager) and \
+                           isinstance(top.Managed(), LazyTableRow):
+                            item = self.__cstack.pop()
+                            item.flush()
+                            self.__cstack[-1].append(item.Managed())
+                            # Finally start a new row and a new cell 
+                            self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
+                            self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
+                        else:
+                            raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
+                    else:
+                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
+                else:
+                    raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
+            elif o.group('td'):
+                if len(self.__cstack) == 3 and \
+                     isinstance(self.__cstack[-1],ContentManager):
+                    topcell = self.__cstack[-1].Managed()
+                    if isinstance(topcell,LazyTableCell):
+                        # end the current cell
+                        item = self.__cstack.pop()
+                        item.flush()
+                        self.__cstack[-1].append(item.Managed())
+                        self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
+                    else:
+                        print "len cstack:",len(self.__cstack)
+                        print 'cstack top:',self.__cstack[-1]
+                        print 'topcell:',topcell
+                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
+                else:
+                    print "len cstack:",len(self.__cstack)
+                    print 'cstack top:',self.__cstack[-1]
+                    raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
+            elif o.group('env'):
+                macroname = o.group('envname')
+                try: macro = self.__cmddict[macroname]
+                except KeyError: 
+                    raise NodeError('Undefined environment "%s" at %s:%d' % (macroname,filename, line))
+                if not isinstance(macro,DefEnvNode):
+                    raise NodeError('Tried to use "%s" as environment at %s:%d' % (macroname,filename, line))
+
+                if o.group('env') == 'begin' :
+                    self.__cstack.append(UnexpandedEnvironment(macro, (filename,line)))
+                else: # o.group('env') == 'end'
+                    top = self.__cstack.pop() 
+                    if not isinstance(top,UnexpandedEnvironment):
+                        raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
+                    elif top.envName() != macroname:
+                        raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
+                    else:
+                        top.end()
+                        self.__cstack[-1].append(top)
+            elif o.group('nbspace'):
+                self.__cstack[-1].append(u'\u00a0') # &nbsp;
+            else:
+                print "GOT: ",o.group(0)
+                assert 0
+        if pos < len(data):
+            self.__cstack[-1].append(data[pos:])
+            debug('Added math data: ',data[pos:])
+
 
     ##\brief Handle text. Called by the SAX parser to pass a text string.
     #  
@@ -1156,143 +1329,7 @@ class Node:
                 debug('Node.handleText (remaining) append :',repr(data[pos:]))
                 self.__cstack[-1].append(data[pos:])
         elif self.macroMode in [ MacroMode.Math, MacroMode.SimpleMath ]:
-            pos = 0
-            for o in self.mathmodemacro_regex.finditer(data):
-                if (o.group('tr') or o.group('td')):
-                    if not self.allowTableSyntax:
-                        continue
-
-                if pos < o.start(0):
-                    self.__cstack[-1].append(data[pos:o.start(0)])
-                    debug('Added math data: ',data[pos:o.start(0)])
-                pos = o.end(0)
-
-                debug('Got math item: ',repr(o.group(0)))
-                if   o.group('macro'):
-                    macroname = o.group('macro')
-                    try: macro = self.__cmddict[macroname]
-                    except KeyError: 
-                        raise NodeError('Undefined macro "%s" at %s:%d' % (macroname,filename, line))
-
-                    if macro.nArgs() > 0:
-                        def popMacro():
-                            g = self.__cstack.pop()
-                            assert self.__cstack
-                            self.__cstack[-1].append(g)
-
-                        self.__cstack.append(UnexpandedMacro(macro, (filename,line), popMacro))
-                    else:
-                        self.__cstack[-1].append(UnexpandedMacro(macro, (filename,line)))
-
-                elif o.group('brace'):
-                    if o.group('brace') == '{':
-                        self.__cstack.append(ContentManager(BraceGroup(filename,line)))
-                    else: # '}'
-                        if not isinstance(self.__cstack[-1],ContentManager) or not isinstance(self.__cstack[-1].Managed(),BraceGroup):
-                            raise NodeError('Unmatched end-group } at %s:%d' % (filename,line))
-                        g = self.__cstack.pop()
-                        g.flush()
-                        assert self.__cstack
-                        self.__cstack[-1].append(g.Managed())
-                elif o.group('subsupgrp'):
-                    op = o.group('subsupgrp')
-                    if op == '_{':
-                        g = SubBraceGroup(filename,line)
-                    else:
-                        g = SuperBraceGroup(filename,line)
-                    self.__cstack.append(ContentManager(g))
-                elif o.group('subsupc'):
-                    op = o.group('subsupc')[0]
-                    c  = o.group('subsupc')[1]
-
-                    if op == '_':
-                        g = SubBraceGroup(filename,line)
-                    else:
-                        g = SuperBraceGroup(filename,line)
-
-                    g.append(c) 
-                    g.end()
-                    self.__cstack[-1].append(g)
-
-                elif o.group('tr'):
-                    # if special table syntax is used, this must be used
-                    # for _all_ rows and cells. This means that table
-                    # syntax elements must appear _only_ at the top-level
-                    # of a table and not be preceded by anything.
-                  
-                    if   len(self.__cstack) == 1: # we are at top-level, must be the first row.
-                        self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
-                        self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                    elif len(self.__cstack) == 3 and \
-                         isinstance(self.__cstack[-1],ContentManager):
-                        topcell = self.__cstack[-1].Managed()
-                        if isinstance(topcell,LazyTableCell):
-                            # end the current cell
-                            item = self.__cstack.pop()
-                            item.flush()
-                            self.__cstack[-1].append(item.Managed())
-                            # Then end the current row
-                            top = self.__cstack[-1]
-                            if isinstance(top,ContentManager) and \
-                               isinstance(top.Managed(), LazyTableRow):
-                                item = self.__cstack.pop()
-                                item.flush()
-                                self.__cstack[-1].append(item.Managed())
-                                # Finally start a new row and a new cell 
-                                self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
-                                self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                            else:
-                                raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                        else:
-                            raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                    else:
-                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                elif o.group('td'):
-                    if len(self.__cstack) == 3 and \
-                         isinstance(self.__cstack[-1],ContentManager):
-                        topcell = self.__cstack[-1].Managed()
-                        if isinstance(topcell,LazyTableCell):
-                            # end the current cell
-                            item = self.__cstack.pop()
-                            item.flush()
-                            self.__cstack[-1].append(item.Managed())
-                            self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                        else:
-                            print "len cstack:",len(self.__cstack)
-                            print 'cstack top:',self.__cstack[-1]
-                            print 'topcell:',topcell
-                            raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                    else:
-                        print "len cstack:",len(self.__cstack)
-                        print 'cstack top:',self.__cstack[-1]
-                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                elif o.group('env'):
-                    macroname = o.group('envname')
-                    try: macro = self.__cmddict[macroname]
-                    except KeyError: 
-                        raise NodeError('Undefined environment "%s" at %s:%d' % (macroname,filename, line))
-                    if not isinstance(macro,DefEnvNode):
-                        raise NodeError('Tried to use "%s" as environment at %s:%d' % (macroname,filename, line))
-
-                    if o.group('env') == 'begin' :
-                        self.__cstack.append(UnexpandedEnvironment(macro, (filename,line)))
-                    else: # o.group('env') == 'end'
-                        top = self.__cstack.pop() 
-                        if not isinstance(top,UnexpandedEnvironment):
-                            raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
-                        elif top.envName() != macroname:
-                            raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
-                        else:
-                            top.end()
-                            self.__cstack[-1].append(top)
-                elif o.group('nbspace'):
-                    self.__cstack[-1].append(u'\u00a0') # &nbsp;
-                else:
-                    print "GOT: ",o.group(0)
-                    assert 0
-            if pos < len(data):
-                self.__cstack[-1].append(data[pos:])
-                debug('Added math data: ',data[pos:])
+            self.__handleText_Math(data,filename,line)
 
     def getID(self):
         return self.__id
@@ -1647,12 +1684,12 @@ class DefElementNode(Node):
     contIter    = ' <attr>* [ <e> <d> <c> <lookup> ]*'
     structuralElement = True
     
-    def linearize(self,res,args,filename,line,dolookup):
+    def linearize(self,res,args,kwds,filename,line,dolookup):
         attrs = {}
         content = []
         for i in self:
             if isinstance(i,DefElementAttrNode):
-                r = i.linearize([],args,filename,line,dolookup)
+                r = i.linearize([],args,kwds,filename,line,dolookup)
                 try:
                     attrs[i.getName()] = ''.join([ d.data for d in r ])
                 except:
@@ -1665,7 +1702,7 @@ class DefElementNode(Node):
         elmname = self.getAttr('n')
         res.append(MacroEvent_StartTag(elmname, attrs,filename,line ))
         for i in content:
-            i.linearize(res,args,filename,line,dolookup)
+            i.linearize(res,args,kwds,filename,line,dolookup)
         res.append(MacroEvent_EndTag(elmname,filename,line))
     
     def __repr__(self):
@@ -1678,14 +1715,14 @@ class _DefDataNode(Node):
     macroMode   = MacroMode.NoExpand
     contIter    = ' [ T <lookup> ]* '
 
-    argre = re.compile(r'{{([0-9]+|BODY)}}')
+    argre = re.compile(r'{{(?:([0-9]+)|(BODY|SUBSCRIPT|SUPERSCRIPT))}}')
     structuralElement = True
 
-    def linearize(self,res,args,filename,line,dolookup):
+    def linearize(self,res,args,kwds,filename,line,dolookup):
         debug("%s: %s" % (self.__class__.__name__,repr([repr(s) for s in self])))
         for data in self:
             if isinstance(data,LookupNode):
-                data.linearize(res,args,filename,line,dolookup)
+                data.linearize(res,args,kwds,filename,line,dolookup)
             else:
                 pos = 0
                 for o in self.argre.finditer(data):
@@ -1694,10 +1731,12 @@ class _DefDataNode(Node):
                     pos = o.end(0)
 
                     try:
-                        if o.group(1) == 'BODY':
-                            res.extend(args[-1])
-                        else:
+                        if o.group(1) is not None:
                             res.extend(args[int(o.group(1))])
+                        else:
+                            k = o.group(2)
+                            if kwds.has_key(k):
+                                res.extend(kwds[k])
                     except IndexError:
                         raise MacroArgErrorX('Tried to refer to non-existant macro argument %s' % o.group(1))
                 if pos < len(data):
@@ -1730,9 +1769,9 @@ class LookupNode(_DefDataNode):
     def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
         Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
         self.__cmddict = cmddict
-    def linearize(self,res,args,filename,line,dolookup):
+    def linearize(self,res,args,kwds,filename,line,dolookup):
         r = []
-        _DefDataNode.linearize(self,r,args,filename,line,dolookup)
+        _DefDataNode.linearize(self,r,args,kwds,filename,line,dolookup)
         for i in r:
             if not isinstance(i,MacroEvent_NoExpandText):
                 raiseMacroArgError('Invalid use of <lookup> at %s:%d' % (filename,line))
@@ -1812,10 +1851,10 @@ class DefMacroRefNode(Node):
         Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
         self.__macro = cmddict[self.getAttr('n')]
     
-    def linearize(self,res,args,filename,line,dolookup):
+    def linearize(self,res,args,kwds,filename,line,dolookup):
         largs = []
         for i in self:
-            largs.append(i.linearize(args,[],filename,line,dolookup))
+            largs.append(i.linearize(args,[],kwds,filename,line,dolookup))
         self.__macro.linearize(res,largs,filename,line,dolookup)
         debug("DefMacroRefNode: ", repr(res))
 
@@ -1829,7 +1868,7 @@ class DefMacroArgNode(Node):
     contIter    = ' [ <d> <e> <c> <lookup> ]* '
     structuralElement = True
 
-    def linearize(self,res,args,filename,line,dolookup):
+    def linearize(self,res,args,kwds,filename,line,dolookup):
         for i in self:
             i.linearize(res,args,filename,line,dolookup)
         return res
@@ -1838,12 +1877,17 @@ class DefNode(Node):
     comment     = """
                   Define a new macro.
 
-                  The placeholders "{{0}}", "{{1}}"... can be used in the body of the macro to
+                  The placeholders "\\{\\{0\\}\\}", "\\{\\{1\\}\\}"... can be used in the body of the macro to
                   refer to argument 0, 1...
+                  
+                  In math mode subscript and superscript can be referred to
+                  using "\\{\\{SUBSCRIPT\\}\\}" and "\\{\\{SUBSCRIPT\\}\\}".
                   """
     nodeName    = 'def'
     acceptAttrs = Attrs([Attr('m',descr="Name of the macro."),
                          Attr('n',default='0', descr='Number of arguments required by the macro.'),
+                         Attr('subscript-arg',   default='no', descr='(yes|no) The macro accepts subscript. Only relevant in math mode.'),
+                         Attr('superscript-arg', default='no', descr='(yes|no) The macro accepts superscript. Only relevant in math mode.'),
                          Attr('cond')])
     macroMode   = MacroMode.Invalid
     contIter    = ' <desc>? [ <d> <e> <c> <lookup>]* '
@@ -1860,7 +1904,14 @@ class DefNode(Node):
         Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
         self.__cmddict = cmddict
         self.__name = attrs['m']
+        self.__accept_subscr = attrs.has_key('subscript-arg')   and attrs['subscript-arg'].lower()   == 'yes'
+        self.__accept_supscr = attrs.has_key('superscript-arg') and attrs['superscript-arg'].lower() == 'yes'
         self.__descr = None
+    
+    def acceptsSubscript(self):
+        return self.__accept_subscr
+    def acceptsSuperscript(self):
+        return self.__accept_supscr
 
     def getDescr(self):
         return self.__descr and ''.join(self.__descr)
@@ -1868,14 +1919,14 @@ class DefNode(Node):
     def macroName(self):
         return self.getAttr('m')
 
-    def linearize(self,res,args,filename,line,dolookup=True):
+    def linearize(self,res,args,kwds,filename,line,dolookup=True):
         for i in self:
             if not isinstance(i,DescriptionNode):
-                i.linearize(res,args,filename,line,dolookup)
+                i.linearize(res,args,kwds,filename,line,dolookup)
         return res
 
     def docExpandMacro(self):
-        events = self.linearize([],[ [MacroEvent_NoExpandText('{{%d}}' % i,'??',0) ] for i in range(self.nArgs()) ],'??',0,False)
+        events = self.linearize([],[ [MacroEvent_NoExpandText('{{%d}}' % i,'??',0) ] for i in range(self.nArgs()) ],{},'??',0,False)
         r = []
         for e in events:
             if isinstance(e,MacroEvent_Text):
@@ -1967,16 +2018,16 @@ blabla
     def macroName(self):
         return self.getAttr('m')
 
-    def linearize(self,res,args,filename,line,dolookup=True):
+    def linearize(self,res,args,kwds,filename,line,dolookup=True):
         for i in self:
             if not isinstance(i,DescriptionNode):
-                i.linearize(res,args,filename,line,dolookup)
+                i.linearize(res,args,kwds,filename,line,dolookup)
         return res
 
     def docExpandMacro(self):
         args = [ [MacroEvent_NoExpandText(u'{{%d}}' % i,'??',0) ] for i in range(self.nArgs()) ]
-        args.append([MacroEvent_NoExpandText(u'{{BODY}}','??',0)])
-        events = self.linearize([],args,'??',0,False)
+        kwds = { 'BODY' : [MacroEvent_NoExpandText(u'{{BODY}}','??',0)] }
+        events = self.linearize([],args,kwds,'??',0,False)
         r = []
         for e in events:
             if isinstance(e,MacroEvent_Text):
@@ -2188,18 +2239,19 @@ class BibItemNode(Node):
     macroMode = MacroMode.Text
     paragraphElement = False 
 
+    # These need a serious hand, possibly more features.
     bibtemplate = { 'article'       : '${author}. ${title}. ${journal}$[month]{ ${month}}$[(number|volume)]{ ${number|volume}$[pages]{:${pages}}{}}{$[pages]{p. ${pages}}{}}.$[note]{ ${note}}}',
-                    'book'          : '${author|editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
+                    'book'          : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
                     'booklet'       : '$[author]{${author}. }${title}. $[howpublished]{${howpublished}$[year]{, ${year}.}}{$[year]{$year}.$[note]{ ${note}}}',
                     'conference'    : '${author}. ${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
-                    'inbook'        : '${author|editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
+                    'inbook'        : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
                     'incollection'  : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[chapter|pages]{ $[chapter]{chapter ${chapter}}{p. ${pages}}}, ${year}. ${publisher}$[address]{, ${address}}.',
                     'inproceedings' : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}. ${publisher}$[address]{, ${address}}.',
                     'manual'        : '$[author]{${author}. }${title}$[edition]{, ${edition} edition}$[year]{, ${year}}.$[organization]{ ${organization}$[address]{, ${address}}.}$[note]{ ${note}',
                     'mastersthesis' : '${author}. $[type]{${type}}{Masters thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
                     'misc'          : '$[author]{${author}. }$[title]{${title}. }$[howpublished]{${howpublished}. }$[note]{${note}.}',
                     'phdthesis'     : '${author}. $[type]{${type}}{PhD thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
-                    'proceedings'   : '$[author]{${author}. }{$[editor]{${editor}. }}${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
+                    'proceedings'   : '$[author]{${author}. }{$[editor]{${editor}, editor. }}${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
                     'techreport'    : '${author}. $[type]{${type}: }${title}$[number]{ no. ${number}}, ${year}. ${institution}$[address]{, ${address}}.$[note]{ ${note}',
                     'unpublished'   : '${author}. ${title}$[year]{, ${year}}. ${note}.',
                     }  
@@ -3361,7 +3413,18 @@ class MathFracNode(_MathNode):
 
 class MathFencedNode(_MathNode):
     nodeName = 'mfenced'
-    acceptAttrs = Attrs([ Attr('class'), Attr('open'), Attr('close') ])
+    comment = '''
+                A group surrounded by parentheses.
+
+                The frontend does nothing with the open and close attributes
+                --- these are simply passed to the backend. The ``ceil'' value
+                should be interpreted as <tt>lceil</tt> and <tt>rceil</tt> for
+                the left and right side of the group, and likewise for
+                ``floor''.
+              '''
+    acceptAttrs = Attrs([ Attr('class'), 
+                          Attr('open', default="", descr='Left parenthesis. The following should be recognized: "(", "[", "\\{", "|", "&lt;", "|", "||", "ceil", "floor" and ".". These are passed verbatim to the backend. '), 
+                          Attr('close', default="", descr='Left parenthesis. The following should be recognized: ")", "]", "\\}", "|", "&gt;", "|", "||", "ceil", "floor" and ".". These are passed verbatim to the backend. ') ])
 
 class MathTableNode(_MathNode):
     comment     = '''
@@ -3801,11 +3864,12 @@ globalNodeDict =  { 'sdocml'   : DocumentRoot,
 
 
                     # Math stuff
+                    ## Environments
                     'm'        : InlineMathNode,
                     'math'     : MathEnvNode,
                     'eqnarray' : MathEqnArrayNode,
                     'eqn'      : MathEqnNode,
-
+                    ## Elements
                     "mroot"    : MathRootNode,
                     "msqrt"    : MathSquareRootNode,
                     'mfenced'  : MathFencedNode,
