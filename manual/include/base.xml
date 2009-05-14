@@ -116,7 +116,7 @@
     <def m="forall"> <e n="mo"><d>&forall;</d></e></def>
     <def m="sum" superscript-arg="yes" subscript-arg="yes">
       <e n="msubsup">
-        <e n="mo"><attr n="op">sum</attr></e>
+        <e n="mrow"><e n="mo"><attr n="op">sum</attr></e></e>
         <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
         <e n="mrow"><d>{{SUPERSCRIPT}}</d></e>
       </e>

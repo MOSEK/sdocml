@@ -3338,12 +3338,23 @@ class InlineMathNode(_MathNode):
     traceInfo        = True
     paragraphElement = False
 
+    comment          = '''
+                         Inline math element. This is placed as an element in
+                         the text rather than in a separate paragraph.
+                       '''
+
 class MathEnvNode(_MathNode):
     nodeName    = 'math'
     traceInfo   = True
     acceptAttrs = Attrs([ Attr('class'), 
                     Attr('id'),
                     Attr('numbered') ])
+    comment     = '''
+                    A math paragraph. Id the id attribute is defined, a number
+                    is generated, which can be used when referring to the
+                    paragraph. 
+                  '''
+
 
 class MathEqnNode(_MathNode):
     nodeName = 'eqn'
@@ -3374,42 +3385,99 @@ class MathTextNode(Node):
     contIter  = ' [ T %s ]* ' % _simpleTextNodes
     paragraphElement = False
 
+    comment   = '''
+                  An element behaving as a normal inline text element. 
+                '''
+
+
+
 class MathRowNode(_MathNode):
     nodeName = 'mrow'
+    comment   = '''
+                  A structural grouping element for math mode. This is used to
+                  group text and elements when writing fractions, subscripts
+                  etc. It has no visual effect.
+                '''
 
 class MathOperatorNode(_MathNode):
     nodeName = 'mo'
     macroMode = MacroMode.SimpleMath
     acceptAttrs = Attrs([ Attr('class'), 
-                          Attr('op') ])
+                          Attr('op', default='', descr='(sum|prod|int) Denotes a symbolic operator.') ])
+    comment   = '''
+                  Math operator. This is mostly a logical element telling that
+                  a certain group is an mathematical operator like ``+'',
+                  ``-'', ``='' etc. This may affect the typesetting. 
+
+                  The ``op'' attribute can be used to insert a symbolic
+                  operator in which case the element should be empty.
+                '''
 
 class MathIdentifierNode(_MathNode):
     nodeName = 'mi'
     macroMode = MacroMode.SimpleMath
     acceptAttrs = Attrs([ Attr('class') ])
+    comment   = '''
+                  Denotes a math identifier. All letters in math mode is
+                  treated as single-char identifiers unless the markup
+                  indicates otherwise. This element can be used to make
+                  multi-char identifiers (which may affect the typesetting).
+                '''
 
 class MathNumberNode(_MathNode):
     nodeName = 'mn'
     macroMode = MacroMode.SimpleMath
     acceptAttrs = Attrs([ Attr('class') ])
+    comment   = '''
+                  Denotes a number. This may affect the typesetting.
+                '''
 
 class MathSubscriptNode(_MathNode):
     nodeName = 'msub'
+    comment   = '''
+                  Denotes a subscript. This contains exactly two \\tagref{mrow}
+                  elements; the base and the operand.
+                '''
+    contIter = ' <mrow> <mrow> '
 
 class MathSuperscriptNode(_MathNode):
     nodeName = 'msup'
+    comment   = '''
+                  Denotes a superscript. This contains exactly two \\tagref{mrow}
+                  elements; the base and the operand.
+                '''
+    contIter = ' <mrow> <mrow> '
 
 class MathSubSuperscriptNode(_MathNode):
     nodeName = 'msubsup'
+    comment   = '''
+                  Denotes a superscript+subscript. This contains exactly three \\tagref{mrow}
+                  elements; the base, the sub operand and the super operand.
+                '''
+    contIter = ' <mrow> <mrow> <mrow>'
 
 class MathSquareRootNode(_MathNode):
     nodeName = 'msqrt'
+    
+    comment   = '''
+                  Denotes a square root.
+                '''
 
 class MathRootNode(_MathNode):
     nodeName = 'mroot'
+    comment   = '''
+                  Denotes an n-root. This contains exactly two operands; the n and the operand.
+                '''
+    contIter = ' <mrow> <mrow> '
 
 class MathFracNode(_MathNode):
     nodeName = 'mfrac'
+    comment   = '''
+                  Denotes an fraction; a horizontal line with one operand above
+                  and one below. This contains exactly two operands; the
+                  numerator and the denominator.
+                '''
+    contIter = ' <mrow> <mrow> '
 
 class MathFencedNode(_MathNode):
     nodeName = 'mfenced'
