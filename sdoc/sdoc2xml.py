@@ -154,6 +154,8 @@ def decodeDefineString(s):
 if __name__ == "__main__":
     P = xml.sax.make_parser()
 
+    sdocbase = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]),'..'))
+
     args  = sys.argv[1:]
 
     conf = config.Configuration({   'infile'       : config.UniqueEntry('infile'),
@@ -165,8 +167,11 @@ if __name__ == "__main__":
                                     'macroref'     : config.UniqueEntry('macroref',default=None),
                                     'macroreftitle' : config.UniqueEntry('macroreftitle',default="Macro reference"),
                                     'define'       : config.BoolDefListEntry('define'),
+                                    #'nodefaultinc' : config.UniqueEntry('nodefaultinc'),
                                     'maxsectiondepth' : config.UniqueIntEntry('macsectiondepth','4'),
                                 })
+    conf.update('dtdpath',os.path.join(sdocbase,'dtd'))
+
     while args:
         arg = args.pop(0)
         if   arg == '-o':
@@ -187,11 +192,13 @@ if __name__ == "__main__":
             conf.update('macroref',args.pop(0))
         elif arg == '-macroreftitle':
             conf.update('macroreftitle',args.pop(0))
+        #elif arg == '-nodefaultinc':
+        #    conf.update('nodefaultinc',args.pop(0))
         else:
             conf.update('infile',arg)
 
     outputfile = conf['outfile']
-    inputfile  = conf['infile']
+    inputfile  = conf['infile']  
 
     msg('Configuration:')
     msg('+--------------------')

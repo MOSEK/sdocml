@@ -3689,7 +3689,11 @@ class ExternalDefineRoot(_RootNode):
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,file,line)
 
 class Manager:
-    def __init__(self,conds={},incpaths=[],maxsectdepth=None,dtdpaths=[]):
+    def __init__(self,
+                 conds={},
+                 incpaths=[],
+                 maxsectdepth=None,
+                 dtdpaths=[]):
         self.__conds = dict([ (k,bool(v)) for k,v in conds.items()])
         self.__conds['true'] = True
         self.__conds['false'] = False

@@ -2447,7 +2447,8 @@ class Manager:
         text = ''.join([ asUTF8(l) for l in lines])
         print "Adding to archive: %s" % filename
         zi = zipfile.ZipInfo(self.__topdir + '/' + filename, self.__timestamp)
-        #zi.external_attr = (08644 << 16)
+        zi.internal_attr |= 1 # text file
+        zi.external_attr = 0x81a40001 #0x80000001 + (0688 << 16). Permissions
         self.__zipfile.writestr(zi, text)
     def writeTexMath(self,filename):
         if self.__eqnlist:
@@ -2585,14 +2586,14 @@ class XMLHandler(xml.sax.handler.ContentHandler):
 if __name__ == "__main__":
     args = sys.argv[1:]
 
-    conf = config.Configuration({   'infile' : config.UniqueEntry('infile'),
-                                    'outfile' : config.UniqueEntry('outfile'),
-                                    'stylesheet' : config.ListEntry('stylesheet'),
-                                    'javascript' : config.ListEntry('javascript'),
-                                    'incpath'    : config.ListEntry('incpath'),
+    conf = config.Configuration({   'infile'     : config.UniqueEntry('infile'),
+                                    'outfile'    : config.UniqueEntry('outfile'),
+                                    'stylesheet' : config.DirListEntry('stylesheet'),
+                                    'javascript' : config.DirListEntry('javascript'),
+                                    'incpath'    : config.DirListEntry('incpath'),
                                     'docdir'     : config.UniqueEntry('docdir',default="doc"),
-                                    'appicon'    : config.UniqueEntry('appicon'),
-                                    'icon'       : config.DefinitionListEntry('icon'),
+                                    'appicon'    : config.UniqueDirEntry('appicon'),
+                                    'icon'       : config.DefinitionListDirEntry('icon'),
      })
    
     debug = False

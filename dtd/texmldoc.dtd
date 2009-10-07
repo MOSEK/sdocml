@@ -1,0 +1,349 @@
+<!-- 
+A lot the interpretation of the format is up to the back-end. The format itself
+defines only the overall structure and the macro expansion. 
+
+=DEFINES=
+ We use pseudo-TeX style macro notation in the text for convenience. In reality
+ the functionality is severely limited compared to true TeX; Ultimately we will
+ expand all macros to XML. All macro definitions are scoped and all macros are
+ expanded in the environment in which they were defined (meaning that the only
+ ways to change what a macro expands to is to 1) pass arguments to the
+ expansion, or 2) redefine it). 
+
+ Macros are limited and differ from true TeX, e.g.:
+  - A macro using arguments _requires_ braces.
+  - A macro can only define complete valid XML scopes.
+ Macros and XML can be mixed, i.e. XML can be used in macro elements (though still 
+ only complete valid XML). 
+
+ Macros can be defined in the header elements only, and are valid within the 
+ section or document in which it is defined (including the header elements).
+ Macros can be defined in external files and included.
+
+=Contexts=
+The two major context are Math and Text, both of which may in either full or inline mode.
+Text full mode: 
+    All text elements, images, structural math environments etc are allowed.
+Text inline mode:
+    Only style elements, links etc may be used. No structural tags are allowed. Math inline element is allowed.
+Math full mode:
+    Any math is allowed. Rendering should use display style.
+Math inline mode:       
+    Any math is allowed. Rendering should use inline style.
+    
+
+=References=
+Many elements accept an 'id' attribute that must be globally unique and can
+be used to make a hyperlink to the element. Additionally, the <a> element can
+be used to surround text to generate a link target.
+
+A link target consists of: A point in the text (or implicitly a paragraph) that
+is the target of the link and a link-text. The link text is text that can be
+inserted at the point of a reference. E.g. if we define 
+    <section id="mysection"><head><title>blabla</title></head> ... </section>
+The link text might implicitly be defined as "blabla", and a reference to "mysection" might use the text "blabla" as hyperref text, e.g. in HTML
+    <a href="somedocument.html#mysection">blabla</a>
+Likewise, equations can define a number or something similar.
+The <a> element may contain a <linktext> element that explicitly defines the link text, or it may surround a part of the text, and this text can be used as link text.
+
+=Style=
+A few explicit text style elements are defined: <em>, <bf>, <tt> etc., the <*size> elements, and the <font> which can replace all the previous. These define an constant formatting. Most elements accept a 'class' attribute which can implicitly tell the back-end how a specific element should be rendered.
+
+=EXTENSION (vague ideas)=
+ Some kind of support for using externally defined tags (and macros?), e.g. MathML 
+ or something similar. This would be a nice way to define TeX code and macros in a 
+ generic way.
+-->
+
+
+
+
+
+<!-- Following hack should pick up predefined symbol tables for HTML 4 -->
+<!ENTITY % HTMLsymbol  SYSTEM "https://odense.mosek.com/intranet/specs/texml/1.0/external/HTMLsymbol.ent">  <!-- Original source: "http://www.w3.org/TR/html4/HTMLsymbol.ent"  -->
+<!ENTITY % HTMLspecial SYSTEM "https://odense.mosek.com/intranet/specs/texml/1.0/external/HTMLspecial.ent"> <!-- Original source: "http://www.w3.org/TR/html4/HTMLspecial.ent" -->
+<!ENTITY % HTMLlat1    SYSTEM "https://odense.mosek.com/intranet/specs/texml/1.0/external/HTMLlat1.ent">    <!-- Original source: "http://www.w3.org/TR/html4/HTMLlat1.ent"    -->
+%HTMLsymbol;
+%HTMLspecial;
+%HTMLlat1;
+
+
+<!ENTITY % InlineStyleElements "em|tt|bf|sc|font|normalsize|small|xsmall|xxsmall|large|xlarge|xxlarge|smaller|larger">
+<!ENTITY % InlineTextElements  "%InlineStyleElements;|nx">
+<!ENTITY % MathEnvElements     "math|m|eqnarray">
+<!ENTITY % StructTextElements  "ilist|dlist|table|a|ref|href|float|noexpand|img">
+<!ENTITY % MathElements        "mrow|msup|msub|msubsup|mfenced|mi|mo|mn|mtable|mvector|mfont|mtext|mfrac|mroot|msqrt">
+<!ENTITY % TextContent         "%InlineTextElements;|%MathEnvElements;|%StructTextElements;">
+
+<!ENTITY % SizeConstants       "(xxsmal|xsmall|small|normal|large|xlarge|xxlarge|smaller|larger)">
+
+<!-- ################################################################################ -->
+
+<!-- ################################################################################ -->
+<!-- Primart structural document elements -->
+
+<!-- <!ENTITY % SectionContent  "head,%TextContent;,section"> -->
+<!ENTITY % SectionContent  "%TextContent;">
+
+<!ELEMENT texmldoc (head,(em|tt|bf|sc|font|normalsize|small|xsmall|xxsmall|large|xlarge|xxlarge|smaller|larger|math|m|eqnarray|ilist|dlist|table|a|ref|href|float|noexpand|img),section*)>
+<!ATTLIST texmldoc xmlns CDATA #FIXED "http://doc.mosek.com/xml/texmldoc.dtd">
+<!ELEMENT section (%SectionContent;)>
+<!ATTLIST section id    ID    #IMPLIED
+                  class CDATA #IMPLIED
+                  url   CDATA #IMPLIED> <!-- src denotes the location of an externally defined section -->
+
+<!-- ################################################################################ -->
+<!-- Document and Section head stuff. -->
+
+<!-- NOTE: We may want to add some bibliography somewhere in the head... -->
+<!ELEMENT head (defines?,title,authors?,abstract?)>
+<!ELEMENT title ((m|%InlineTextElements;)*)> <!-- May contain any inline elements, but wee cannot define that here -->
+
+<!-- ################################################################################ -->
+<!-- Macro definition elements -->
+
+<!ELEMENT defines ((def|defenv|incdef)*)>
+<!ELEMENT def     ((e|c|d)*)>            <!-- And PCDATA, of course -->
+<!ATTLIST def 
+          m       CDATA #REQUIRED
+          n       CDATA "0">
+<!ELEMENT defenv  ((e|c|d)*)> 
+<!ATTLIST defenv 
+          m       CDATA #REQUIRED  
+          n       CDATA "0">
+<!ELEMENT d       (#PCDATA)>           <!-- Pure text and argument refs : "{{" [0-9]+ "}}" -->
+<!ELEMENT c       (arg*)>              <!-- Expand a command -->
+<!ATTLIST c 
+          n       CDATA #REQUIRED>   <!-- Command arguments -->
+<!ELEMENT arg     ((e|c|d)*)>
+<!ELEMENT e       ((attr)*,(e|c|d)*)>  <!-- Expand to element -->
+<!ATTLIST e 
+          n       CDATA #REQUIRED>
+<!ELEMENT attr    (#PCDATA)>
+<!ATTLIST attr 
+          n       NMTOKEN #REQUIRED>
+<!ELEMENT incdef  EMPTY>
+<!ATTLIST incdef 
+          url     CDATA #REQUIRED
+          type    CDATA #FIXED "text/mtkdef">
+
+<![IGNORE[
+<!-- externalmacro: A possible way to define functions implemented elsewhere...
+     I don't like this idea, but it may be necessary one day. Or not. -->
+<!ELEMENT externalmacro EMPTY>
+<!ATTLIST externalmacro
+          nargs    NMTOKEN "0"
+          name     CDATA #REQUIRED
+          location CDATA #REQUIRED>
+]]>
+
+<!ELEMENT abstract ((%TextContent;)*)>
+<!ATTLIST abstract 
+          id       ID    #IMPLIED
+          class    CDATA #IMPLIED>
+<!ELEMENT authors ((author|editor)+)> 
+
+<!-- ################################################################################ -->
+<!-- AUTHORS element. Inlined from author.dtd -->
+
+<!ELEMENT author (title?,((firstname,lastname)|name),address?,email?,institution?)>
+<!ELEMENT editor (title?,((firstname,lastname)|name),address?,email?,institution?)>
+
+<!ELEMENT title     (#PCDATA)>
+<!ELEMENT name      (#PCDATA)>
+<!ELEMENT firstname (#PCDATA)>
+<!ELEMENT lastname  (#PCDATA)>
+<!ELEMENT address   (#PCDATA)>
+<!ELEMENT email     (#PCDATA)>
+<!ELEMENT phone     (#PCDATA)>
+<!ELEMENT fax       (#PCDATA)>
+
+<!ELEMENT institution (name,address)>
+
+<!-- ################################################################################ -->
+
+<!-- NOTE: I'm not entirely sure what to do with this yet... 
+     Ideas: Verbatim input, input processed text etc? Maybe this should be
+     something handled by the output backend...
+-->
+<!ELEMENT input EMPTY>
+<!ATTLIST input url   CDATA #REQUIRED
+                type  CDATA #IMPLIED
+                class CDATA #IMPLIED>
+
+<!-- Structural text elements -->
+<!ELEMENT dlist ((dd|dt)+)>
+<!ATTLIST dlist
+          class CDATA #IMPLIED>
+<!ELEMENT dt ((%TextContent;)*)>
+<!ATTLIST dt
+          class CDATA #IMPLIED>
+<!ELEMENT dd ((%TextContent;)*)>
+<!ATTLIST dd
+          class CDATA #IMPLIED>
+<!ELEMENT ilist (li+)>
+<!ATTLIST ilist
+          class CDATA #IMPLIED>
+<!ELEMENT li  ((%TextContent;)*)>
+<!ATTLIST li
+          class CDATA #IMPLIED>
+<!ELEMENT table (columns?,tr*)>
+<!ATTLIST table  
+          class       CDATA #IMPLIED
+          orientation (rows|columns) "rows"
+          cellvalign  CDATA #IMPLIED
+          cellhalign  CDATA #IMPLIED>          
+<!ELEMENT tr (td*)>
+<!ATTLIST tr 
+          class      CDATA #IMPLIED
+          cellvalign CDATA #IMPLIED
+          cellhalign CDATA #IMPLIED>
+<!ELEMENT td (#PCDATA)>
+<!ATTLIST td 
+          class CDATA #IMPLIED>
+
+<![IGNORE[
+<!ELEMENT div (#PCDATA)> <!-- Do-nothing element. Use this name? -->
+]]>
+
+<!ELEMENT float (floatbody,caption?)> <!-- I am not quite certain how this should work yet..., it may contain a caption-->
+<!ELEMENT floatbody ((%TextContent;)*)>
+<!ELEMENT caption ((%InlineTextElements;|m)*)> <!-- caption for a float -->
+
+<!-- Formatting elements -->
+<!ELEMENT noexpand (%TextContent;)> <!-- preformatted, but tags are still . -->
+<!ATTLIST noexpand 
+          class CDATA #IMPLIED> 
+
+<!-- Text style elements -->
+<!ELEMENT font ((%TextContent;)*)>
+<!ATTLIST font
+          class  CDATA #IMPLIED
+          style  CDATA #IMPLIED 
+          family CDATA #IMPLIED
+          size   CDATA #IMPLIED> <!-- the font name... times, courier, etc. etc. -->
+<!ELEMENT em (#PCDATA)>
+<!ELEMENT bf (#PCDATA)>
+<!ELEMENT tt (#PCDATA)>
+<!ELEMENT it (#PCDATA)>
+<!ELEMENT sc (#PCDATA)>
+
+<!ELEMENT normalsize (#PCDATA)>
+<!ELEMENT small   (#PCDATA)>
+<!ELEMENT xsmall  (#PCDATA)>
+<!ELEMENT xxsmall (#PCDATA)>
+<!ELEMENT large   (#PCDATA)>
+<!ELEMENT xlarge  (#PCDATA)>
+<!ELEMENT xxlarge (#PCDATA)>
+<!ELEMENT smaller (#PCDATA)>
+<!ELEMENT larger  (#PCDATA)>
+
+<!--Reference elements.
+    <a> Is NOT a HTML anchor. It defines a point in the text that can be
+        referred to from other locations. The first element in the
+        <a>-scope may be <linktext>.
+    Examples:
+        <a id="mylink">Some linked text</a>
+            Generate a link target where "Some linked text" is both inlined in the context and used as link text.
+        <a id="mylink"><linktext>Link text</linktext>Text appering in the current context</a>
+            Generate a link target where "Link text" is used as link text, and the rest is inlined in the context.
+        <a id="mylink"/>
+            Generate a point-link without any link text.
+  -->
+<!ELEMENT a        (linktext?,ANY*)>  <!-- Really: (linktext?,ANY) -->
+<!ATTLIST a
+          id       ID    #IMPLIED            
+          class    CDATA #IMPLIED>
+<!ELEMENT linktext (#PCDATA)>           <!-- The text that will appear at the point of reference. -->
+<!--<ref> Refer to a globally unique id. If no linktext element is given, use the link target's linktext. -->
+<!ELEMENT ref      (ANY*)>        
+<!ATTLIST ref                           
+          class    CDATA #IMPLIED
+          ref      IDREF #REQUIRED>
+<!ELEMENT href     (linktext,ANY*)>               
+<!ATTLIST href     url   CDATA #REQUIRED
+                   class CDATA #IMPLIED>
+
+<!ELEMENT img EMPTY>
+<!ATTLIST img url    CDATA #REQUIRED
+              type   CDATA #REQUIRED
+              scale  CDATA "1.0"
+              width  CDATA #IMPLIED
+              height CDATA #IMPLIED
+              id     ID #IMPLIED
+              class  CDATA #IMPLIED>
+
+<!-- ################################################################################ -->
+<!ELEMENT math ((%MathElements;)*)>
+<!ATTLIST math 
+          id       ID    #IMPLIED 
+          class    CDATA #IMPLIED
+          numbered (true|false) "true">
+<!ELEMENT eqnarray (eqn*)>
+<!ATTLIST eqnarray
+          class    CDATA #IMPLIED
+          numbered (true|false) "true">
+<!ELEMENT eqn ((%MathElements;)*)>
+<!ATTLIST eqn 
+          id       ID    #IMPLIED 
+          class    CDATA #IMPLIED
+          numbered (true|false) "true" >
+
+<!ELEMENT m ((%MathElements;)*)>
+<!ATTLIST m>
+
+<!ELEMENT mfont ((%MathElements;)*)>
+<!ATTLIST mfont 
+          style  CDATA #IMPLIED 
+          family CDATA #IMPLIED
+          size   %SizeConstants; #IMPLIED> 
+<!ELEMENT mtext (#PCDATA)>
+
+
+<!ELEMENT mfrac   ((%MathElements;),(%MathElements;))> 
+<!ELEMENT mroot   (%MathElements;)> 
+<!ELEMENT mfenced ((%MathElements;)*)>
+<!ATTLIST mfenced
+          open CDATA ""
+          close CDATA "">
+<!ELEMENT mi      ((%MathElements;)*)>
+<!ATTLIST mi 
+          class CDATA #IMPLIED>
+<!ELEMENT mn      ((%MathElements;)*)>
+<!ATTLIST mn 
+          class CDATA #IMPLIED>
+<!ELEMENT mo      ((%MathElements;)*)>
+<!ATTLIST mo 
+          class CDATA #IMPLIED>
+<!ELEMENT mrow    ((%MathElements;)*)>
+<!ATTLIST mrow 
+          class CDATA #IMPLIED>
+<!ELEMENT msub    ((%MathElements;),(%MathElements;))>
+<!ATTLIST msub 
+          class CDATA #IMPLIED>
+<!ELEMENT msup    ((%MathElements;),(%MathElements;))>
+<!ATTLIST msup 
+          class CDATA #IMPLIED>
+<!ELEMENT msubsup ((%MathElements;),(%MathElements;),(%MathElements;))>
+<!ATTLIST msubsup 
+          class CDATA #IMPLIED>
+<!ELEMENT mtd     ((%MathElements;)*)>
+<!ATTLIST mtd 
+          class CDATA #IMPLIED>
+<!ELEMENT mtext   ((%InlineTextElements;)*)>
+<!ATTLIST mtext 
+          class CDATA #IMPLIED>
+<!ELEMENT mtable  (mtr*)>
+<!ATTLIST mtable 
+          class      CDATA #IMPLIED
+          cellvalign CDATA #IMPLIED
+          cellhalign CDATA #IMPLIED>
+<!ELEMENT mtr     (mtd*)>
+<!ELEMENT mvector (mtd*)>
+<!ATTLIST mvector
+          class      CDATA #IMPLIED
+          cellhalign (left|center|right) "left"
+          cellvalign (top|middle|bottom) "middle">
+
+
+
