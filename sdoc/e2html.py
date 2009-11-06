@@ -1903,12 +1903,12 @@ class MathNumberNode(_MathNode):
 
 class MathOperatorNode(_MathNode):
     def toTeX(self,r):
-        if self.hasAttr('op'):
+        if self.hasAttr('op') and len(self.getAttr('op')) > 0:
             op = self.getAttr('op')
             if op in [ 'sum','lim','prod','sup','inf' ]:
                 r.append('\\%s' % op)
             else:
-                raise MathNodeError('Unknown opearator %s' % op) 
+                raise MathNodeError('Unknown opearator "%s" @ %s:%d' % (op,self.pos[0],self.pos[1])) 
         else:
             self.contentToTeX(r)
         return r
@@ -2359,7 +2359,6 @@ class Manager:
         proto,server,address,_,_ = urlparse.urlsplit(url)
        
         address = str(address)
-
         for p in self.__searchpaths:
             try:
                 fn = os.path.join(p,address)

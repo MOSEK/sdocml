@@ -17,8 +17,9 @@ class _anyEntry:
         self.name = name
         self.doc = doc
     def convertValue(self,value):
-        o = re.match(r'\s*(?:"(?P<dqstr>[^"\\]|(?:\\"))*"|\'(?P<sqstr>[^\'\\]|(?:\\\'))*\'|(?P<name>\S+))\s*$', value)
-        print '############# string = "%s"' % value
+        #o = re.match(r'\s*(?:"(?P<dqstr>[^"\\]|(?:\\"))*"|\'(?P<sqstr>[^\'\\]|(?:\\\'))*\'|(?P<name>\S+))\s*$', value)
+        o = re.match(r'\s*(?:"(?P<dqstr>(?:\\"|[^"\n])*)"|\'(?P<sqstr>(?:\\\'|[^\'\n])*)\'|(?P<name>\S+))\s*$', value)
+        print '############# string = >>>%s<<<' % value
         res = o.group('dqstr') or o.group('sqstr') or o.group('name')
         print "match =",','.join([ '"%s"' % g for g in o.groups() ])
         print "res = '%s'" % res
@@ -73,6 +74,7 @@ class DirListEntry(_anyEntry):
         if not os.path.isabs(val):
             val = os.path.normpath(os.path.join(base,val))
         self.value.append(val)
+        print 'added:',self.value[-1]
 
 class DefinitionListEntry(_anyEntry):
     def __init__(self,name,doc=None):

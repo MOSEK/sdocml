@@ -160,8 +160,8 @@ if __name__ == "__main__":
 
     conf = config.Configuration({   'infile'       : config.UniqueEntry('infile'),
                                     'outfile'      : config.UniqueEntry('outfile'),
-                                    'incpath'      : config.ListEntry('incpath'),
-                                    'dtdpath'      : config.ListEntry('dtdpath'),
+                                    'incpath'      : config.DirListEntry('incpath'),
+                                    'dtdpath'      : config.DirListEntry('dtdpath'),
                                     'trace'        : config.UniqueBoolEntry('trace',default=False),
                                     'makedoc'      : config.UniqueEntry('makedoc',  default=None),
                                     'macroref'     : config.UniqueEntry('macroref',default=None),
