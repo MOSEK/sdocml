@@ -191,7 +191,7 @@ if __name__ == "__main__":
         elif arg == '-macroref':
             conf.update('macroref',args.pop(0))
         elif arg == '-macroreftitle':
-            conf.update('macroreftitle',args.pop(0))
+            conf.update('macroreftitle','"%s"' % args.pop(0))
         #elif arg == '-nodefaultinc':
         #    conf.update('nodefaultinc',args.pop(0))
         else:

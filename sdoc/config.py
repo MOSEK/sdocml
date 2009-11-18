@@ -19,10 +19,10 @@ class _anyEntry:
     def convertValue(self,value):
         #o = re.match(r'\s*(?:"(?P<dqstr>[^"\\]|(?:\\"))*"|\'(?P<sqstr>[^\'\\]|(?:\\\'))*\'|(?P<name>\S+))\s*$', value)
         o = re.match(r'\s*(?:"(?P<dqstr>(?:\\"|[^"\n])*)"|\'(?P<sqstr>(?:\\\'|[^\'\n])*)\'|(?P<name>\S+))\s*$', value)
-        print '############# string = >>>%s<<<' % value
+        #print '############# string = >>>%s<<<' % value
         res = o.group('dqstr') or o.group('sqstr') or o.group('name')
-        print "match =",','.join([ '"%s"' % g for g in o.groups() ])
-        print "res = '%s'" % res
+        #print "match =",','.join([ '"%s"' % g for g in o.groups() ])
+        #print "res = '%s'" % res
         return res
 
 class UniqueEntry(_anyEntry):
@@ -117,10 +117,9 @@ class Configuration:
         self.__accepts = {}
         self.__accepts.update(accepts)
     def update(self,key,value):
-        self.__accepts[key].update(value)
+        self.__accepts[key].update('%s' % value)
     def updateFile(self,filename):
         configbase = os.path.dirname(filename)
-        print "config base = '%s'" % configbase
         for l in open(filename,'rt'):
             if l.strip() and l[0] != '#':
                 o = re.match(r'([a-z\-\.]+)\s*:(.*)',l)

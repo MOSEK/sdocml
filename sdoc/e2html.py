@@ -1291,6 +1291,9 @@ class ParagraphNode(Node):
     def toHTML(self,res):
         assert 0
 
+class DivNode(_StructuralNode):
+    htmlTag = 'div'
+
 class _SimpleNode(Node):
     def __init__(self,manager,parent,attrs,filename,line):
         Node.__init__(self,manager,parent,attrs,filename,line)
@@ -1352,8 +1355,10 @@ class ReferenceNode(Node):
             self.__exuri = None
             if attrs.has_key('type'):
                 self.__ref = manager.getIDTarget('@%s-%s' % (attrs['type'], attrs['ref']),self)
-            else:
+            elif attrs.has_key('ref'):
                 self.__ref   = manager.getIDTarget(attrs['ref'],self)
+            else:
+                raise NodeError("Missing attribute 'type' or 'ref' at %s:%d" % (filename,line))
     def toHTML(self,r):
         if self.__exuri:
             r.append('[??]')
@@ -2075,6 +2080,7 @@ globalNodeDict = {  'sdocmlx'      : DocumentNode,
 
                     # Paragraph element
                     'p'            : ParagraphNode,
+                    'div'          : DivNode,
                     # Plain text elements
                     'span'         : SpanNode,
                     'em'           : EmphasizeNode,

@@ -34,7 +34,7 @@ def debug(*args):
         sys.stderr.write('\n')
 
 simpleTextNodeList = [ 'em','tt','bf','sc','font','nx','span','br', 'note' ]
-structTextNodeList = [ 'ilist','dlist','table','float','img','noexpand','pre','center','flushleft','flushright' ]
+structTextNodeList = [ 'ilist','dlist','div','table','float','img','noexpand','pre','center','flushleft','flushright' ]
 linkNodeList       = [ 'a','ref','href' ]
 mathEnvNodeList    = [ 'math','m','eqnarray' ]
 textNodeList       = [ 'ilist','dlist','table','a','ref','href','float', 'img' ] + simpleTextNodeList + mathEnvNodeList
@@ -1608,7 +1608,7 @@ class DictEntryNode(Node):
         self.__cmddict = cmddict
     def end(self,filename,line):
         key = self.getAttr('key')
-        self.value = ''.join(self)
+        self.value = u''.join(self)
         self.__cmddict.dictSet(key,self)
 
         
@@ -2987,7 +2987,7 @@ class TableCellNode(Node):
     macroMode = MacroMode.Text
     contIter  = ' [ T %s %s %s %s ]* ' % (_simpleTextNodes, _structTextNodes, _linkNodes, _mathEnvNodes)
     acceptAttrs = Attrs([ Attr('id'), Attr('class') ])
-    paragraphElement = False
+    paragraphElement = True
 
 class DocumentNode(_SectionNode):
     nodeName   = 'sdocmlx'
@@ -3813,7 +3813,7 @@ class Manager:
                 if conds.has_key(exp):
                     return conds[exp]
                 else:
-                    raise CondError('Undefined condition key "%s" at %s:%d' % (root,filename,line))
+                    raise CondError('Undefined condition key "%s" at %s:%d' % (exp,filename,line))
             else:
                 oprs = dict([ (v,v) for v in exp if isinstance(v,CondOpr) and v is not Cond.Not]).keys()
                 if len(oprs) > 1:
