@@ -944,100 +944,6 @@ class SectionNode(Node):
                                       self.__sections[1:] + [None]):
                 sect.toHTMLFile(prev,next,self,topNode,indexFile)
        
-        return 
-        
-        
-        stylesheet = self.__manager.getMainStylesheet()
-
-        res.tag('html')
-        res.tag('head')
-        manager.addDefaultHeader(res)
-        res.tag('title')
-        self.getTitle().toPlainText(res)
-        res.tagend('title')
-        res.extend([tag('style'), style, tagend('style')])
-        res.extend([tagend('head'),
-                    tag('body'),
-                    tag('div', { 'id' : 'main-div'})])
-        ################################################################################
-        self.makeNavigation(res,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html')
-        ###############################################################################
-        #res.append(hr_delim)
-
-        res.tag('table', { 'id' : 'top-level-content-table', 'height' : '100%', 'width' : '100%' } )
-        res.tag('tr')
-
-        # Sidebar cell
-        res.tag('td', { 'id' : 'sidebar-cell'})
-        #res.tag('table', {'id' : 'sidebar-area'}).tag('tr').tag('td')
-        res.tag('div', { 'id' : 'sidebar-area', 'height' : '100%'})
-        self.makeSidebarArea(res,topNode) 
-        res.tagend('div')
-        #res.tagend('td').tagend('tr').tagend('table')
-        #res.tag('div',{ 'id' : 'debug-area' }).tagend('div')
-        res.tagend('td')
-
-        # Divider cell
-        res.tag('td', { 'id' : 'sidebar-divider-cell', 'onclick' : 'toggleSidebar()'})
-        res.entity('nbsp')
-
-        res.tagend('td')
-
-        # Content cell
-        res.tag('td', { 'id' : 'content'})
-       
-        res.tag('center')
-        res.tag('h1', { 'class' : 'node-file-header' })
-        self.getTitle().toHTML(res)
-        if self.__manager.doDebug():
-            sfilename = self.getAttr('filename')
-            sline     = self.getAttr('line')
-
-            if sfilename and sline:
-                res.append(u'(%s:%d)' % (sfilename,sline))
-
-        res.tagend('h1')
-        res.tagend('center')
-        ################################################################################
-        if self.__sections:
-            res.append(hr_delim)
-            res.tag('div',{ 'class' : 'toc'})
-            self.makeContents(res,1,3)
-            res.tagend('div')
-
-        ################################################################################
-
-        if self.__body.data or (self.__sections and not self.__childrenInSepFiles):
-            res.append(hr_delim)
-            cls = self.getAttr('class')
-            if cls is not None:
-                res.tag('div',{ 'class' : cls })
-
-            self.__body.contentToHTML(res)
-            
-            if not self.__childrenInSepFiles:
-                for sect in self.__sections:
-                    sect.toHTML(res,1)
-
-            if cls is not None:
-                res.tagend('div')
-        ################################################################################
-        res.tagend('td').tagend('tr').tagend('table')
-        #res.append(hr_delim)
-        self.makeNavigation(res,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html',position='bottom')
-        ################################################################################
-        self.makeFooter(res)
-        res.extend([tagend('div'),tagend('body'),tagend('html')])
-
-        self.__manager.writelinesfile(filename,res)
-        
-        del res
-
-        if self.__childrenInSepFiles:
-            for prev,sect,next in zip([None] + self.__sections[:-1],
-                                      self.__sections,
-                                      self.__sections[1:] + [None]):
-                sect.toHTMLFile(prev,next,self,topNode,indexFile)
 
 class BibliographyNode(SectionNode):
     nodeName = 'bibliography'
@@ -1119,51 +1025,6 @@ class BibliographyNode(SectionNode):
 
         self.__manager.writeHTMLfile(self.__nodefilename,d)  
 
-        return
-        
-        
-        
-        
-        r = htmlCollector()
-        r.tag('html')
-        r.tag('head')
-        manager.addDefaultHeader(r)
-        r.tag('title').append('Bibliography').tagend('title')
-        r.extend([tag('style'),style,tagend('style')])
-        r.tagend('head')
-        r.tag('body')
-
-        ################################################################################
-        self.makeNavigation(r,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index=indexFile)
-        ################################################################################
-        r.append(hr_delim)
-        r.tag('center')
-        r.extend([tag('h1'),'Bibliography',tagend('h1')])
-        r.tagend('center')
-        ################################################################################
-        r.append(hr_delim)
-        r.div("document-bibliography")
-
-        r.tag('dl',{ 'class' : 'bibliography-item-list'})
-        for n in self.__items:
-            n.toHTML(r)
-            
-        r.tagend('dl')
-        
-        r.tagend('div')
-
-        ################################################################################
-        r.append(hr_delim)
-        self.makeNavigation(r,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index=indexFile,position='bottom')
-        ###############################################################################
-        self.makeFooter(r)
-        ###############################################################################
-
-
-        r.tagend('body')
-        r.tagend('html')
-        
-        self.__manager.writelinesfile(self.__nodefilename,r)
 
 class BibItemNode(Node):
     nodeName = 'bibitem'
@@ -1281,74 +1142,6 @@ class _IndexNode(SectionNode):
         r.tagend('div')
         
         manager.writelinesfile('xref.html',d)
-
-        return
-
-
-
-        r.tag('html')
-        r.tag('head')
-        manager.addDefaultHeader(r)
-        r.extend([tag('title'), 'Index', tagend('title') ])
-        r.extend([tag('style'),style,tagend('style')])
-
-        r.tagend('head')
-        r.tag('body')
-        ################################################################################
-        self.makeNavigation(d,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html')
-        ################################################################################
-        r.append(hr_delim)
-        r.tag('center')
-        r.extend([tag('h1'),'Index',tagend('h1')])
-        r.tagend('center')
-        ################################################################################
-        r.append(hr_delim)
-        r.div("document-index")
-        
-        # List of all letters 
-        keys = adict.keys()
-        keys.sort()
-        def _alphaindexlink(k):
-            if adict[k]:
-                r.tag('a',{ 'href' : '#@index-letter-%s' % k}).append('%s' % k.upper()).tagend('a')
-            else:
-                r.append('%s' % (k or '.').upper())
-        r.div('index-summary')
-        _alphaindexlink(keys[0])
-        for k in keys[1:]:
-            r.append(' | ')
-            _alphaindexlink(k)
-        r.tagend('div')
-        
-        r.div('index-list')
-        for k in keys:
-            l = adict[k]
-            if l:
-                r.div('index-letter')
-                r.tag('h1').tag('a',{ 'name' : '@index-letter-%s' % k }).append(k.upper()).tagend('a').tagend('h1')
-                r.tag('ul')
-                for label,n in l:
-                    link = '%s#%s' % (n.getFilename(),n.getAnchorID())
-                    r.tag('li').tag('a', { 'href' : link })
-                    n.anchorTextToPlainHTML(r)
-                    r.tagend('a').tagend('li')
-                r.tagend('ul')
-                r.tagend('div')
-        r.tagend('div')
-
-        r.tagend('div')
-
-        ################################################################################
-        r.append(hr_delim)
-        self.makeNavigation(r,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html',position='bottom')
-        ###############################################################################
-        self.makeFooter(r)
-        ###############################################################################
-        r.tagend('body')
-        r.tagend('html')
-        
-        manager.writelinesfile('xref.html',r)
-
 
 class DocumentNode(SectionNode):
     nodeName = 'sdocmlx'
@@ -2635,30 +2428,7 @@ class Manager:
                     self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
                 else:
                     self.__linkmap[lnk] = mappedlinks[p]
-        if 0:
-            if stylesheet:
-                for f in stylesheet:
-                    basename = os.path.basename(f)
-                    intname = 'style/%s' % basename
-                    self.__stylesheet.append(intname)
-                    self.__zipfile.write(f,'%s/%s' % (topdir,intname))
-            if self.__javascript:
-                for js in self.__javascript:
-                    basename = os.path.basename(js)
-                    intname = 'script/%s' % basename
-                    self.__javascript.append(intname)
-                    self.__zipfile.write(js,'%s/%s' % (topdir,intname))
-
         self.__searchpaths = searchpaths
-
-        if 0:
-            if appicon is not None:
-                appiconbasename = os.path.basename(appicon)
-                self.__appicon = 'imgs/%s' % appiconbasename
-                msg('Adding AppIcon : %s' % self.__appicon)
-                self.__zipfile.write(appicon,'%s/%s' % (topdir,self.__appicon))
-            else:
-                self.__appicon = None
 
         iconsadded = {}
         for key,icon in icons.items():

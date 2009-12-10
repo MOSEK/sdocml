@@ -1,0 +1,206 @@
+<html>
+<head>
+    <title> <sdoc:item key="title:plain"> </title>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <style>
+        ul.enumerate        {
+                                    list-style-type : decimal;
+                            }
+        h2                  {       font-family : sans-serif; }
+        h3                  {       font-family : sans-serif; }
+        h4                  {       font-family : sans-serif; }
+        h5                  {       font-family : sans-serif; }
+
+    </style>
+
+    <script>
+        function _showItem(id)
+        {
+            var elm = document.getElementById(id);
+            elm.style.display = "block";
+        }
+        function _hideItem(id)
+        {
+            var elm = document.getElementById(id);
+            elm.style.display = "none";
+        }
+
+        function showSidebarIndex()
+        {
+            _hideItem('sidebar-contents')
+            _showItem('sidebar-index')
+        }
+        function showSidebarContents()
+        {
+            _hideItem('sidebar-index')
+            _showItem('sidebar-contents')
+        }
+
+        function toggleSidebar()
+        { 
+            var elm = document.getElementById("sidebar-area");
+            if (elm.style.display != "none")
+            {
+                elm.style.display = "none";
+            }
+            else
+            {
+                elm.style.display = "block";
+            }
+        }
+        
+        function toggleDisplayBlock(id)
+        { 
+            var elm = document.getElementById(id);
+            if (elm.style.display != "none")
+            {
+                elm.style.display = "none";
+            }
+            else
+            {
+                elm.style.display = "block";
+            }
+        }
+
+        function toggleLineNumbers(id)
+        {
+            var elm = document.getElementById(id);
+            
+            for (n=elm.firstChild; n != null; n = n.nextSibling)
+            {
+                if (n.nodeName == "SPAN"
+                    && n.attributes.getNamedItem("class").value == "line-no"
+                    )
+                {
+                    if (n.style.display == "none")
+                        n.style.display = "inline";
+                    else
+                        n.style.display = "none";
+                }
+            }
+        }
+    </script>
+    
+    <link href="../html/graphics/appicon.png" rel="shortcut icon">
+    <link href="../html/style/style.css"      rel="stylesheet" type="text/css">
+    <link href="../html/style/refstyle.css"   rel="stylesheet" type="text/css">
+</head>
+    <div id="main-div">
+        <div class="navigation-top">
+            <div class="iconbar-navigation">
+                <table>
+                    <tr>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:prev"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:up"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:next"></td>
+                        <td class="iconbar-doctitle" width="100%" align="center"><sdoc:item key="title:html"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:dummy"/></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:contents"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:index"></td>
+                    </tr>
+                </table>                     
+            </div>
+            <div class="navigation">
+                <table>
+                    <tr>
+                        <td><sdoc:item key="navbutton:prev"></td>
+                        <td><sdoc:item key="navbutton:up"></td>
+                        <td><sdoc:item key="navbutton:next"></td>
+                        <td><sdoc:item key="navbutton:contents"></td>
+                        <td><sdoc:item key="navbutton:index"></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+            <table id="top-level-content-table" height="100%" width="100%">
+            <tr>
+                <td id="sidebar-cell">
+                    <div id="sidebar-area" height="100%">
+                        <table width="100%" stype="border-spacing:0px;">
+                            <tr>
+                                <td class="sidebar-table-cell sidebar-head-cell"><a href="javascript:showSidebarContents()">Contents</a></td>
+                                <td class="sidebar-head-sep"/>
+                                <td class="sidebar-table-cell sidebar-head-cell"><a href="javascript:showSidebarIndex()">Index</a></td>
+                                <td width="100%"/>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="sidebar-table-cell">
+                                    <!--<div style="width:200px; display=none;">-->
+                                    <div style="width:200px;">
+                                        <div id="sidebar-contents"><sdoc:item key="sidebar:contents"></div>
+                                        <div id="sidebar-index" style="display:none;"><sdoc:item key="sidebar:index"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr><td colspan="4" class="sidebar-table-cell"></td></tr>
+                        </table>
+                    </div>
+                </td>
+                <td id="sidebar-divider-cell" onclick="toggleSidebar()">&nbsp;</td>
+                <td id="content">
+                    <center><h1 class="node-file-header"><sdoc:item key="title:html"></h1></center>
+                    <hr>
+                    <sdoc:if has="toc:local">
+                        <sdoc:item key="toc:local">
+                        <hr>
+                    </sdoc:if>
+                    <sdoc:if has="body">
+                        <sdoc:item key="body">
+                    </sdoc:if>
+                </td>   
+            </tr>
+        </table>
+        
+
+        <div class="navigation-bottom">   
+            <div class="iconbar-navigation">
+                <table>
+                    <tr>                    
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:prev"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:up"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:next"></td>
+                        <td class="iconbar-doctitle" width="100%" align="center"><sdoc:item key="title:html"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:dummy"></td>     
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:contents"></td>
+                        <td class="nav-button"><sdoc:item key="navbutton:icon:index"></td>
+                    </tr>
+                </table> 
+            </div>
+            <div class="navigation">
+                <table>
+                    <tr>
+                        <td><sdoc:item key="navbutton:prev"></td>
+                        <td><sdoc:item key="navbutton:up"></td>
+                        <td><sdoc:item key="navbutton:next"></td>
+                        <td><sdoc:item key="navbutton:contents"></td>
+                        <td><sdoc:item key="navbutton:index"></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <div class="page-footer"><sdoc:item key="footer"></div>
+    </div> 
+
+    <!-- Google Analytics tracking stuff-->
+    <script type="text/javascript">
+        var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+        document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+    </script>
+    <script type="text/javascript">
+        try
+        {
+            var pageTracker = _gat._getTracker("UA-3864116-1");
+            pageTracker._trackPageview();
+        } 
+        catch(err) 
+        {}
+    </script>
+
+<body>
+    
+
+</body>
+</html>
