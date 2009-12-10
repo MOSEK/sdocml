@@ -17,6 +17,7 @@ import re
 import sys
 import time
 import os
+import HTMLParser
 
 style = \
 """
@@ -692,112 +693,103 @@ class SectionNode(Node):
     def makeFooter(self,res):
         res.extend([tag('div',{ 'class' : 'page-footer'}),self.__manager.getTimeStamp(),tag('br'),
                     tagend('div')])
-    def makeNavigation(self,res,prev=None,next=None,up=None,top=None,index=None,position='top'):
-        def makeIconNavBar():
-            res.extend([tag('div', { 'class' : 'iconbar-navigation' }), tag('table'), tag('tr')])
+    def makeNavigation(self,d,prev=None,next=None,up=None,top=None,index=None,position='top'):
+        #res.extend([tag('div', { 'class' : 'iconbar-navigation' }), tag('table'), tag('tr')])
+        assert isinstance (d,dict)
 
-            if prev is None:
-                icon = self.__manager.getIcon('prev-passive')
-                res.extend([tag('td', { 'class' : "inactive icon" }), tag('img',{ 'src' : icon}),tagend('td')])
-            else:
-                icon = self.__manager.getIcon('prev')
-                res.extend([tag('td',  { 'class' : "active icon" }), 
-                            tag('a',   { 'href' : prev.getSectionFilename() }),
-                            tag('img', { 'src' : icon }),
-                            tagend('a'),
-                            tagend('td'), ])
-            if up is None:
-                icon = self.__manager.getIcon('up-passive')
-                res.extend([tag('td', { 'class' : "inactive icon" }), tag('img',{ 'src' : icon }), tagend('td')])
-            else:
-                icon = self.__manager.getIcon('up')
-                res.extend([tag('td', { 'class' : "active icon" }), 
-                            tag('a', { 'href' : up.getSectionFilename() }),
-                            tag('img',{ 'src' : icon }),
-                            tagend('a'),
-                            tagend('td')])
-            if next is None:
-                icon = self.__manager.getIcon('next-passive')
-                res.extend([tag('td', { 'class' : "inactive icon" }), tag('img',{ 'src' : icon }),tagend('td')])
-            else:
-                icon = self.__manager.getIcon('next')
-                res.extend([tag('td', { 'class' : "active icon" }), 
-                            tag('a', { 'href' : next.getSectionFilename() }),
-                            tag('img',{ 'src' : icon }), 
-                            tagend('a'),
-                            tagend('td')])
-            
-            res.tag('td',{ 'class' : 'iconbar-doctitle' })
-            if root is not None:
-                root.getTitle().toHTML(res)
-            res.tagend('td')
-
-            # Add a dummy cell to place the title at the center
-            res.extend([tag('td', { 'class' : "inactive icon" }), tag('img',{ 'src' : self.__manager.getIcon('passive')
-     }),tagend('td')])
-            if root is None:
-                icon = self.__manager.getIcon('passive')
-                res.extend([tag('td', { 'class' : "inactive icon" }), tag('img',{ 'src' : icon }),tagend('td')])
-            else:
-                icon = self.__manager.getIcon('content')
-                res.extend([tag('td',{'class' : "active icon" }), 
-                            tag('a',{ 'href':top.getSectionFilename()}),
-                            tag('img',{ 'src' : icon }),
-                            tagend('a'),
-                            tagend('td')])
-            
-            if index is None:
-                icon = self.__manager.getIcon('passive')
-                res.extend([tag('td', { 'class' : "inactive icon" }), tag('img',{ 'src' : icon }),tagend('td')])
-            else:
-                icon = self.__manager.getIcon('index')
-                res.extend([tag('td',{'class' : "active icon" }), 
-                            tag('a',{ 'href': index}),
-                            tag('img',{ 'src' : icon }),
-                            tagend('a'),
-                            tagend('td')])
-            res.extend([tagend('tr'),tagend('table'),tagend('div')])
-
-        def makeTextNavBar():
-            res.extend([tag('div', { 'class' : 'navigation' }), tag('table'), tag('tr')])
-            if prev is not None:
-                res.extend([tag('td', { 'class' : "active" }), 'Prev: ', tag('a', { 'href' :prev.getSectionFilename() })])
-                prev.getTitle().toHTML(res)
-                res.extend([tagend('a'),tagend('td')])
-
-            if up is not None:
-                res.extend([tag('td', { 'class' : "active" }), 'Up: ',tag('a', { 'href' : up.getSectionFilename() })])
-                up.getTitle().toHTML(res)
-                res.extend([tagend('a'),tagend('td')])
-            if next is not None:
-                res.extend([tag('td', { 'class' : "active" }), 'Next: ', tag('a', { 'href' : next.getSectionFilename() })])
-                next.getTitle().toHTML(res)
-                res.extend([tagend('a'),tagend('td')])
-            
-            
-            if root is not None:
-                res.extend([tag('td',{'class' : "active" }), 
-                            tag('a',{ 'href' : top.getSectionFilename()}),
-                            'Contents',
-                            tagend('a'),
-                            tagend('td')])
-            
-            if index is not None:
-                res.extend([tag('td',{'class' : "active" }), 
-                            tag('a',{ 'href' : index}),
-                            'Index',
-                            tagend('a'),
-                            tagend('td')])
-
-            res.extend([tagend('tr'),tagend('table'),tagend('div')])
-        res.div('navigation-%s' % position)
-        if position == 'top':
-            makeIconNavBar()
-            makeTextNavBar()
+        if prev is None:
+            icon = self.__manager.getIcon('prev-passive')
+            d['navbutton:icon:prev'].extend([tag('img',{ 'src' : icon})])
         else:
-            makeTextNavBar()
-            makeIconNavBar()
-        res.tagend('div')
+            icon = self.__manager.getIcon('prev')
+
+            d['navbutton:icon:prev'].extend([tag('a',   { 'href' : prev.getSectionFilename() }),
+                                             tag('img', { 'src' : icon }),
+                                             tagend('a'),
+                                             ])
+        if up is None:
+            icon = self.__manager.getIcon('up-passive')
+            d['navbutton:icon:up'].extend([tag('img',{ 'src' : icon })])
+        else:
+            icon = self.__manager.getIcon('up')
+            d['navbutton:icon:up'].extend([tag('a', { 'href' : up.getSectionFilename() }),
+                                           tag('img',{ 'src' : icon }),
+                                           tagend('a'),
+                                           ])
+        res = d['navbutton:icon:next']
+        if next is None:
+            icon = self.__manager.getIcon('next-passive')
+            res.extend([tag('img',{ 'src' : icon })])
+        else:
+            icon = self.__manager.getIcon('next')
+            res.extend([ tag('a', { 'href' : next.getSectionFilename() }),
+                        tag('img',{ 'src' : icon }), 
+                        tagend('a'),
+                        ])
+        
+        #res.tag('td',{ 'class' : 'iconbar-doctitle' })
+        #if root is not None:
+        #    root.getTitle().toHTML(res)
+        #res.tagend('td')       
+
+        res = d['navbutton:icon:contents']
+        if root is None:
+            icon = self.__manager.getIcon('passive')
+            res.extend([tag('img',{ 'src' : icon })])
+        else:
+            icon = self.__manager.getIcon('content')
+            res.extend([ tag('a',{ 'href':top.getSectionFilename()}),
+                        tag('img',{ 'src' : icon }),
+                        tagend('a'),
+                        ])
+
+        res = d['navbutton:icon:index']            
+        if index is None:
+            icon = self.__manager.getIcon('passive')
+            res.extend([tag('img',{ 'src' : icon })])
+        else:
+            icon = self.__manager.getIcon('index')
+            res.extend([ tag('a',{ 'href': index}),
+                        tag('img',{ 'src' : icon }),
+                        tagend('a') ])
+        #res.extend([tagend('tr'),tagend('table'),tagend('div')])
+
+        #res.extend([tag('div', { 'class' : 'navigation' }), tag('table'), tag('tr')])
+        res = d['navbutton:prev'] 
+        if prev is not None:
+            res.extend(['Prev: ', tag('a', { 'href' :prev.getSectionFilename() })])
+            prev.getTitle().toHTML(res)
+            res.extend([tagend('a')])
+
+        res = d['navbutton:up'] 
+        if up is not None:
+            res.extend(['Up: ',tag('a', { 'href' : up.getSectionFilename() })])
+            up.getTitle().toHTML(res)
+            res.extend([tagend('a')])
+        res = d['navbutton:next'] 
+        if next is not None:
+            res.extend(['Next: ', tag('a', { 'href' : next.getSectionFilename() })])
+            next.getTitle().toHTML(res)
+            res.extend([tagend('a')])
+        
+        
+        res = d['navbutton:contents'] 
+        if root is not None:
+            res.extend([tag('a',{ 'href' : top.getSectionFilename()}),
+                        'Contents',
+                        tagend('a'),
+                        ])
+        
+        res = d['navbutton:index'] 
+        if index is not None:
+            res.extend([ tag('a',{ 'href' : index}),
+                        'Index',
+                        tagend('a'),
+                        ])
+
+        #res.extend([tagend('tr'),tagend('table'),tagend('div')])
+    
+
 
     def makeContents(self,res,curlvl,maxlvl,fullLinks=False,index=None):
         if len(self.__sections) > 0 and curlvl <= maxlvl:
@@ -828,13 +820,17 @@ class SectionNode(Node):
                 res.tag('li')
                 sidx = s.getSectionIndex()
                 #res.span('sidebar-content-list-button-div')
-                res.tag('div',{ 'style' : 'float:left; width:0px;' })
-                res.tag('div',{ 'style' : 'float:right;' })
-                if s.numChildSections() > 0:
-                    res.tag('a',{ 'href' : 'javascript:toggleDisplayBlock(\'sidebar-content-subsec-%d\')' % subsecidx }).tag('img', { 'src' : self.__manager.getIcon('content-expand-button'),'style' : 'vertical-align : middle;' }).tagend('a').entity('nbsp')
-                else:
-                    res.tag('img', { 'src' : self.__manager.getIcon('content-noexpand-button'),'style' : 'vertical-align : middle;' }).entity('nbsp')
-                res.tagend('div').tagend('div')
+                enable_expandable_toc = False
+                
+                if enable_expandable_toc:
+                    res.tag('div',{ 'style' : 'float:left; width:0px;' })
+                    res.tag('div',{ 'style' : 'float:right;' })
+                    if s.numChildSections() > 0:
+                        res.tag('a',{ 'href' : 'javascript:toggleDisplayBlock(\'sidebar-content-subsec-%d\')' % subsecidx }).tag('img', { 'src' : self.__manager.getIcon('content-expand-button'),'style' : 'vertical-align : middle;' }).tagend('a').entity('nbsp')
+                    else:
+                        res.tag('img', { 'src' : self.__manager.getIcon('content-noexpand-button'),'style' : 'vertical-align : middle;' }).entity('nbsp')
+                    res.tagend('div').tagend('div')
+                
                 if sidx:
                     res.append('.'.join([ str(v+1) for v in s.getSectionIndex() ]) + '. ')
 
@@ -842,7 +838,10 @@ class SectionNode(Node):
                 res.tag('a',{ 'href' : link })
                 s.getTitle().toPlainHTML(res)
                 res.tagend('a')
-                res.tag('div',{ 'id' : 'sidebar-content-subsec-%d' % subsecidx, 'style' : 'display:none;' }).append('\n')
+                if enable_expandable_toc:
+                    res.tag('div',{ 'id' : 'sidebar-content-subsec-%d' % subsecidx, 'style' : 'display:none;' }).append('\n')
+                else:
+                    res.tag('div',{ 'id' : 'sidebar-content-subsec-%d' % subsecidx }).append('\n')
                 s.makeSidebarContents(res,cnt)
                 res.tagend('div')
                 res.tagend('li')
@@ -866,7 +865,7 @@ class SectionNode(Node):
         r.tag('td', { 'class' : 'sidebar-head-sep'}).tagend('td')
         r.tag('td', { 'class' : 'sidebar-table-cell sidebar-head-cell'}).tag('a', { 'href' : 'javascript:showSidebarIndex()' }).append('Index').tagend('a').tagend('td')
         r.tag('td',{ 'width' : '100%'}).tagend('td')
-        r.tagend('tr').tag('tr',)
+        r.tagend('tr').tag('tr')
         r.tag('td', { 'colspan' : '4', 'class' : 'sidebar-table-cell' })
         r.tag('div', { 'style' : 'width:200px;' }).tagend('div')
         r.tag('div', { 'id' : 'sidebar-contents' })
@@ -884,8 +883,70 @@ class SectionNode(Node):
     def toHTMLFile(self,prevNode,nextNode,parentNode,topNode,indexFile):
         assert self.__separatefile
         filename = self.getSectionFilename()
-        res = htmlCollector()
 
+        d = {
+                'title:plain'             : htmlCollector(),
+                'title:html'              :  htmlCollector(),
+
+                'navbutton:icon:prev'     : htmlCollector(),
+                'navbutton:icon:next'     : htmlCollector(),
+                'navbutton:icon:up'       : htmlCollector(),
+                'navbutton:icon:index'    : htmlCollector(),
+                'navbutton:icon:contents' : htmlCollector(),
+                'navbutton:icon:dummy'    : htmlCollector(),
+                'navbutton:prev'          : htmlCollector(),
+                'navbutton:next'          : htmlCollector(),
+                'navbutton:up'            : htmlCollector(),
+                'navbutton:index'         : htmlCollector(),
+                'navbutton:contents'      : htmlCollector(),
+                
+                'sidebar:contents'        : htmlCollector(),
+                'sidebar:index'           : htmlCollector(),
+                
+                'footer'                  : htmlCollector(),
+            }
+        self.getTitle().toPlainText(d['title:plain']) 
+        self.getTitle().toHTML(d['title:html'])
+        self.makeSidebarIndex(d['sidebar:index'])
+        topNode.makeSidebarContents(d['sidebar:contents'])
+
+        d['navbutton:icon:dummy'].extend([tag('img',{ 'src' : self.__manager.getIcon('passive') })])
+        
+        self.makeNavigation(d,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html')
+
+        if self.__sections:
+            d['toc:local'] = htmlCollector()
+            self.makeContents(d['toc:local'],1,3)
+        
+        if self.__body.data or (self.__sections and not self.__childrenInSepFiles):
+            d['body'] = htmlCollector()
+            res = d['body']
+            cls = self.getAttr('class')
+            if cls is not None:
+                res.tag('div',{ 'class' : cls })
+
+            self.__body.contentToHTML(res)
+            
+            if not self.__childrenInSepFiles:
+                for sect in self.__sections:
+                    sect.toHTML(res,1)
+
+            if cls is not None:
+                res.tagend('div')
+        
+        self.makeFooter(d['footer'])
+        
+        self.__manager.writeHTMLfile(filename,d)  
+        
+        if self.__childrenInSepFiles:
+            for prev,sect,next in zip([None] + self.__sections[:-1],
+                                      self.__sections,
+                                      self.__sections[1:] + [None]):
+                sect.toHTMLFile(prev,next,self,topNode,indexFile)
+       
+        return 
+        
+        
         stylesheet = self.__manager.getMainStylesheet()
 
         res.tag('html')
@@ -1014,6 +1075,55 @@ class BibliographyNode(SectionNode):
         return n
 
     def toHTMLFile(self,prevNode,nextNode,parentNode,topNode,indexFile):
+        d = {
+                'title:plain'             : htmlCollector(),
+                'title:html'              : htmlCollector(),
+
+                'navbutton:icon:prev'     : htmlCollector(),
+                'navbutton:icon:next'     : htmlCollector(),
+                'navbutton:icon:up'       : htmlCollector(),
+                'navbutton:icon:index'    : htmlCollector(),
+                'navbutton:icon:contents' : htmlCollector(),
+                'navbutton:icon:dummy'    : htmlCollector(),
+                'navbutton:prev'          : htmlCollector(),
+                'navbutton:next'          : htmlCollector(),
+                'navbutton:up'            : htmlCollector(),
+                'navbutton:index'         : htmlCollector(),
+                'navbutton:contents'      : htmlCollector(),
+                
+                'sidebar:contents'        : htmlCollector(),
+                'sidebar:index'           : htmlCollector(),
+                
+                'footer'                  : htmlCollector(),
+                'body'                    : htmlCollector(),
+            }
+        
+        d['title:plain'].append('Bibliography')
+        self.getTitle().toHTML(d['title:html'])
+        self.makeSidebarIndex(d['sidebar:index'])
+        topNode.makeSidebarContents(d['sidebar:contents'])
+
+        d['navbutton:icon:dummy'].extend([tag('img',{ 'src' : self.__manager.getIcon('passive') })])
+        
+        r = d['body']
+        
+        r.div("document-bibliography")
+
+        r.tag('dl',{ 'class' : 'bibliography-item-list'})
+        for n in self.__items:
+            n.toHTML(r)
+            
+        r.tagend('dl')
+        
+        r.tagend('div')
+
+        self.__manager.writeHTMLfile(self.__nodefilename,d)  
+
+        return
+        
+        
+        
+        
         r = htmlCollector()
         r.tag('html')
         r.tag('head')
@@ -1090,8 +1200,40 @@ class _IndexNode(SectionNode):
     def getSectionURI(self):
         return self.getSectionFilename()
     def toHTMLFile(self,prevNode,nextNode,parentNode,topNode,indexFile):
-        r = htmlCollector()
         manager = self.__manager
+
+        d = {
+                'title:plain'             : htmlCollector(),
+                'title:html'              : htmlCollector(),
+
+                'navbutton:icon:prev'     : htmlCollector(),
+                'navbutton:icon:next'     : htmlCollector(),
+                'navbutton:icon:up'       : htmlCollector(),
+                'navbutton:icon:index'    : htmlCollector(),
+                'navbutton:icon:contents' : htmlCollector(),
+                'navbutton:icon:dummy'    : htmlCollector(),
+                'navbutton:prev'          : htmlCollector(),
+                'navbutton:next'          : htmlCollector(),
+                'navbutton:up'            : htmlCollector(),
+                'navbutton:index'         : htmlCollector(),
+                'navbutton:contents'      : htmlCollector(),
+                
+                'sidebar:contents'        : htmlCollector(),
+                'sidebar:index'           : htmlCollector(),
+                
+                'footer'                  : htmlCollector(),
+                'body'                    : htmlCollector(),
+            }
+        
+        d['title:plain'].append('Index')
+        self.getTitle().toHTML(d['title:html'])
+        self.makeSidebarIndex(d['sidebar:index'])
+        topNode.makeSidebarContents(d['sidebar:contents'])
+
+        d['navbutton:icon:dummy'].extend([tag('img',{ 'src' : self.__manager.getIcon('passive') })])
+
+
+
         alist = [ (n, ''.join(n.toPlainText([]))) for n in manager.getAnchors() if n.hasAttr('class') and 'index' in re.split(r'\s+',n.getAttr('class')) ]
         
         adict = dict([('#',[])] + [ (chr(i),[]) for i in range(ord('a'),ord('z')+1) ])
@@ -1105,6 +1247,45 @@ class _IndexNode(SectionNode):
         for k in adict:
             adict[k].sort(lambda lhs,rhs: cmp(lhs[0],rhs[0]))
 
+        r = d['body']
+
+        # List of all letters 
+        keys = adict.keys()
+        keys.sort()
+        def _alphaindexlink(k):
+            if adict[k]:
+                r.tag('a',{ 'href' : '#@index-letter-%s' % k}).append('%s' % k.upper()).tagend('a')
+            else:
+                r.append('%s' % (k or '.').upper())
+        r.div('index-summary')
+        _alphaindexlink(keys[0])
+        for k in keys[1:]:
+            r.append(' | ')
+            _alphaindexlink(k)
+        r.tagend('div')
+        
+        r.div('index-list')
+        for k in keys:
+            l = adict[k]
+            if l:
+                r.div('index-letter')
+                r.tag('h1').tag('a',{ 'name' : '@index-letter-%s' % k }).append(k.upper()).tagend('a').tagend('h1')
+                r.tag('ul')
+                for label,n in l:
+                    link = '%s#%s' % (n.getFilename(),n.getAnchorID())
+                    r.tag('li').tag('a', { 'href' : link })
+                    n.anchorTextToPlainHTML(r)
+                    r.tagend('a').tagend('li')
+                r.tagend('ul')
+                r.tagend('div')
+        r.tagend('div')
+        
+        manager.writelinesfile('xref.html',d)
+
+        return
+
+
+
         r.tag('html')
         r.tag('head')
         manager.addDefaultHeader(r)
@@ -1114,7 +1295,7 @@ class _IndexNode(SectionNode):
         r.tagend('head')
         r.tag('body')
         ################################################################################
-        self.makeNavigation(r,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html')
+        self.makeNavigation(d,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html')
         ################################################################################
         r.append(hr_delim)
         r.tag('center')
@@ -1123,7 +1304,6 @@ class _IndexNode(SectionNode):
         ################################################################################
         r.append(hr_delim)
         r.div("document-index")
-        
         
         # List of all letters 
         keys = adict.keys()
@@ -2248,6 +2428,123 @@ class SymIDRef:
         except KeyError:
             return ['??']
         
+class TemplateParser(HTMLParser.HTMLParser):
+    mark_re = re.compile(r'\$\{([a-zA-Z][a-zA-Z0-9_:]*)\}')
+    def __init__(self,substs,linkmap):
+        """
+        substs
+            A dictionary mapping key -> list of text, where key is
+            a string and text is the content to be substituted into 
+            the keys position in the template file.
+        linkmap
+            A dictionary mapping urls to urls.
+        """
+        HTMLParser.HTMLParser.__init__(self)
+        self.sub = substs
+        self.linkmap = linkmap
+        self.errors = []
+        self.res = []
+
+        self.__stack = []
+        self.__state = True
+
+        self.__currentfilename = None
+
+    def feedfile(self,filename):
+        self.__currentfilename = filename
+        f = open(filename,'rt')
+        self.feed(f.read())
+        f.close()
+        self.__currentfilename = None
+    def handle_starttag(self,tag,attrs):
+        if   tag == 'sdoc:if':
+            d = dict(attrs)
+            self.__stack.append(self.__state)
+            if   d.has_key('has'):
+                self.__state = self.__state and self.sub.has_key(d['has'])
+            elif d.has_key('hasnot'):
+                self.__state = self.__state and not self.sub.has_key(d['has'])
+        elif tag == 'sdoc:item':
+            if attrs and attrs[0][0] == 'key':
+                key = attrs[0][1]
+                if self.__state:
+                    if self.sub.has_key(key):
+                        self.res.extend(self.sub[key])
+                    else:
+                        Warning('In HTML template %s an undefined key "%s" was referenced' % (self.__currentfilename,key))
+            else:
+                Warning('In HTML template %s an <sdoc:item> element with no key was specified' % (self.__currentfilename))
+        elif self.__state:            
+            if   tag in [ 'a','link' ]:
+                nattrs = []
+                for k,v in attrs:
+                    if k == 'href' and urlparse.urlparse(v)[0] != 'javascript':
+                        nattrs.append((k,self.linkmap[v]))
+                    else:
+                        nattrs.append((k,v))
+            elif tag in [ 'img' ]:
+                nattrs = []
+                for k,v in attrs:
+                    if k == 'src':
+                        nattrs.append((k,self.linkmap[v]))
+                    else:
+                        nattrs.append((k,v))
+            else:
+                nattrs = attrs
+                        
+            self.res.append('<%s%s>' % (tag,' '.join(([''] + [ '%s="%s"' % i for i in nattrs ]))))
+    def handle_charref(self,name):
+        if self.__state:
+            self.res.append('&#%s;' % name)
+    def handle_entityref(self,name):
+        if self.__state:
+            self.res.append('&%s;' % name)
+    def handle_endtag(self,tag):
+        if tag in 'sdoc:if':
+            self.__state = self.__stack.pop()
+        elif tag == 'sdoc:item':
+            pass
+        elif self.__state:
+            self.res.append('</%s>' % tag)
+    def handle_comment(self,data):
+        if self.__state:
+            self.res.append('<!--')
+            self.handle_data(data)
+            self.res.append('-->')
+    def handle_data(self,data):
+        if self.__state:
+            self.res.append(data)
+
+def scanHTMLTemplate(filename):
+    """
+    Scan a HTML template file for dependencies.
+    """
+    class HTMLTemplateScanner(HTMLParser.HTMLParser):
+        def __init__(self):
+            HTMLParser.HTMLParser.__init__(self)
+            self.links  = {}
+        def handle_starttag(self,tag,attrs):
+            if   tag in [ 'link' ]:
+                attrs = dict(attrs)
+                if attrs.has_key('href'):
+                    if attrs.has_key('rel'):
+                        self.links[attrs['href']] = attrs['rel'].lower()
+                    else:
+                        self.links[attrs['href']] = 'misc'
+            elif tag in [ 'img' ]:
+                for k,v in attrs:
+                    if k == 'src':
+                        self.links[v] = 'img'
+    P = HTMLTemplateScanner()
+    P.feed(open(filename,'rt').read())
+    return P.links.items()
+
+def nameIterator(base,ext):
+    yield base+ext
+    i = 0
+    while True:
+        yield '%s-%d%s' % (base,i,ext)
+        i +=  1
         
 class Manager:
     def __init__(self,
@@ -2258,8 +2555,10 @@ class Manager:
                  appicon     = None,
                  debug       = False,
                  searchpaths = [],
-                 stylesheet  = [], # filename 
-                 javascript  = []): # list of filenames
+                 template    = None,
+                 #stylesheet  = [], # filename 
+                 #javascript  = []): # list of filenames
+                 ):
         self.__zipfile = outf
         self.__topdir = topdir
         self.__iddict = {}
@@ -2293,34 +2592,79 @@ class Manager:
 
         self.__debug = debug
 
-        if stylesheet:
-            for f in stylesheet:
-                basename = os.path.basename(f)
-                intname = 'style/%s' % basename
-                self.__stylesheet.append(intname)
-                self.__zipfile.write(f,'%s/%s' % (topdir,intname))
-        if self.__javascript:
-            for js in self.__javascript:
-                basename = os.path.basename(js)
-                intname = 'script/%s' % basename
-                self.__javascript.append(intname)
-                self.__zipfile.write(js,'%s/%s' % (topdir,intname))
+        self.__htmltemplate = template
+        self.__linkmap = {}
+        
+        mappedlinks = {}
+        mappedtgts  = {}
+        templatebase = os.path.dirname(template)
+        for lnk,rel in scanHTMLTemplate(template):
+            # External links are mapped to themselves.
+            # Local links are resolved, the target is copied and the link is
+            # mapped to to copied resource.
+            proto,server,address,_,_ = urlparse.urlsplit(lnk)
+            if server:#absolute link
+                self.__linkmap[lnk] = lnk
+            elif not self.__linkmap.has_key(lnk):
+                if address[0] == '/': # absolute path
+                    p = os.path.normpath(address[0])
+                else:                    
+                    p = os.path.normpath(os.path.abspath(os.path.join(templatebase,address)))
+
+                if not mappedlinks.has_key(p):# this file has not been included yet
+                    bn = os.path.basename(p)
+                    b,e = os.path.splitext(bn)
+                    if rel == 'shortcut icon':
+                        tgtdir = 'img'
+                    elif rel == 'javascript':
+                        tgtdir = 'script'
+                    elif rel == 'stylesheet':
+                        tgtdir = 'style'
+                    else:
+                        tgtdir = 'misc'
+
+                    nameiter = nameIterator('%s/%s' % (tgtdir,b),e)
+                    tgt = nameiter.next()
+                    while mappedtgts.has_key(tgt):
+                        tgt = nameiter.next()
+                    mappedtgts[tgt] = tgt
+                    mappedlinks[p] = tgt
+                    self.__linkmap[lnk] = tgt
+
+                    print "filename = %s, tgt = %s" % (p,tgt)
+                    self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
+                else:
+                    self.__linkmap[lnk] = mappedlinks[p]
+        if 0:
+            if stylesheet:
+                for f in stylesheet:
+                    basename = os.path.basename(f)
+                    intname = 'style/%s' % basename
+                    self.__stylesheet.append(intname)
+                    self.__zipfile.write(f,'%s/%s' % (topdir,intname))
+            if self.__javascript:
+                for js in self.__javascript:
+                    basename = os.path.basename(js)
+                    intname = 'script/%s' % basename
+                    self.__javascript.append(intname)
+                    self.__zipfile.write(js,'%s/%s' % (topdir,intname))
 
         self.__searchpaths = searchpaths
 
-        if appicon is not None:
-            appiconbasename = os.path.basename(appicon)
-            self.__appicon = 'imgs/%s' % appiconbasename
-            msg('Adding AppIcon : %s' % self.__appicon)
-            self.__zipfile.write(appicon,'%s/%s' % (topdir,self.__appicon))
-        else:
-            self.__appicon = None
+        if 0:
+            if appicon is not None:
+                appiconbasename = os.path.basename(appicon)
+                self.__appicon = 'imgs/%s' % appiconbasename
+                msg('Adding AppIcon : %s' % self.__appicon)
+                self.__zipfile.write(appicon,'%s/%s' % (topdir,self.__appicon))
+            else:
+                self.__appicon = None
 
         iconsadded = {}
         for key,icon in icons.items():
             if icon is not None:
                 iconbasename = os.path.basename(icon)
-                iconfile = 'imgs/%s' % iconbasename
+                iconfile = 'icons/%s' % iconbasename
                 self.__icons[key] = iconfile
                 if not iconsadded.has_key(iconbasename):
                     iconsadded[iconbasename] = None
@@ -2337,8 +2681,8 @@ class Manager:
     
     def addDefaultHeader(self,r):
         r.tag('meta', { 'http-equiv' : "Content-Type", 'content' : "text/html; charset=UTF-8" })
-        if self.__appicon is not None:
-            r.tag('link', { 'href' : self.__appicon, 'rel' : 'shortcut icon' })
+        #if self.__appicon is not None:
+        #    r.tag('link', { 'href' : self.__appicon, 'rel' : 'shortcut icon' })
         r.tag('script').appendRaw('<!--\n')
         r.appendRaw(javascript)
         r.appendRaw('\n-->\n').tagend('script')
@@ -2455,6 +2799,18 @@ class Manager:
         zi.internal_attr |= 1 # text file
         zi.external_attr = 0x81a40001 #0x80000001 + (0688 << 16). Permissions
         self.__zipfile.writestr(zi, text)
+    def writeHTMLfile(self,filename,items):
+        """
+        Write an HTML file using the HTML template as base.
+            filename 
+                Name of the file to be writted.
+            items
+                A dictinary mapping template items to text lists.
+        """
+        P = TemplateParser(items,self.__linkmap)
+        P.feedfile(self.__htmltemplate) 
+        self.writelinesfile(filename,''.join(P.res))
+        
     def writeTexMath(self,filename):
         if self.__eqnlist:
             outf = open(filename,'w')
@@ -2599,6 +2955,7 @@ if __name__ == "__main__":
                                     'docdir'     : config.UniqueEntry('docdir',default="doc"),
                                     'appicon'    : config.UniqueDirEntry('appicon'),
                                     'icon'       : config.DefinitionListDirEntry('icon'),
+                                    'template'   : config.UniqueDirEntry('template')
      })
    
     debug = False
@@ -2646,12 +3003,13 @@ if __name__ == "__main__":
         manager = Manager(outf,
                           conf['docdir'],
                           timestamp,
-                          stylesheet=conf['stylesheet'],
-                          javascript=conf['javascript'],
+                          #stylesheet=conf['stylesheet'],
+                          #javascript=conf['javascript'],
                           searchpaths=searchpaths,
                           appicon=conf['appicon'],
                           icons=conf['icon'],
                           debug=debug,
+                          template=conf['template'],
                           )
       
        
