@@ -224,6 +224,7 @@ def asUTF8(s):
         return s
 def texescape(data,r):
     pos = 0
+
     for o in re.finditer(r'\\|{|}|#',data):
         if o.start(0) > pos:
             r.append(data[pos:o.start(0)])
@@ -1710,7 +1711,7 @@ class MathEnvNode(Node):
             if isinstance(i,Node):
                 i.toTeX(r)
             else:
-                r.append(i)
+                texescape(i,r)
         r.append('$')
         return r
     def linkText(self):
@@ -2485,15 +2486,22 @@ class Manager:
                 bn = os.path.basename(fn)
 
                 if self.__includedfiles.has_key(bn):
-                    raise IncludeError('File "%s" already included' % address)
+                    #raise IncludeError('File "%s" already included' % address)
+                    pass
+                else:
+                    self.__includedfiles[bn] = bn
               
-                data = str(open(fn,'rt').read())
-                zi = zipfile.ZipInfo('/'.join([self.__topdir, 'data', bn]), self.__timestamp)
-                #self.__zipfile.write(fn,'doc/data/%s' % bn)
-                self.__zipfile.writestr(zi,data)
+                    #data = str(open(fn,'rt').read()) # hmm... What about binary files?
+                    #zi = zipfile.ZipInfo('/'.join([self.__topdir, 'data', bn]), self.__timestamp)
+                    #self.__zipfile.write(fn,'doc/data/%s' % bn)
+                    #self.__zipfile.writestr(zi,data)
+                    f = open(fn,'rt')
+                    self.writelinesfile('data/%s' % bn,f.readlines())
+                    f.close()
                 return 'data/%s' % bn,bn
             except IOError:
                 pass
+        print "Looked in:\n",' \n'.join(self.__searchpaths)
         raise IncludeError('File not found "%s"' % address)
 
     def readFromURL(self,url):
@@ -2639,7 +2647,9 @@ class Manager:
             oldcwd = os.getcwd()
             os.chdir(basepath)
             import subprocess
-            r = subprocess.call([ 'pdflatex', filename ])
+            r = subprocess.call([ 'pdflatex', 
+                                  filename ],
+                                  env = os.environ)
             os.chdir(oldcwd)
 
             pdffile = os.path.join(basepath,'%s.pdf' % basename)
@@ -2725,7 +2735,8 @@ if __name__ == "__main__":
                                     'docdir'     : config.UniqueEntry('docdir',default="doc"),
                                     'appicon'    : config.UniqueDirEntry('appicon'),
                                     'icon'       : config.DefinitionListDirEntry('icon'),
-                                    'template'   : config.UniqueDirEntry('template')
+                                    'template'   : config.UniqueDirEntry('template'),
+                                    'tempdir'    : config.UniqueDirEntry('tempdir'),
      })
    
     debug = False
@@ -2750,11 +2761,18 @@ if __name__ == "__main__":
             debu= True
         elif arg == '-icon':
             conf.update('icon', args.pop(0))
+        elif arg == '-tempdir':
+            conf.update('tempdir', args.pop(0))
         else:
             conf.update('infile',arg)
 
-    tempimgdir = 'imgs'
-    timestamp = '%s @ host %s' % (time.strftime("%a, %d %b %Y %H:%M:%S"),os.environ['HOSTNAME'])
+    tempimgdir = os.path.join(conf['tempdir'] or '.','imgs')
+
+    try:
+        timestamp = '%s @ host %s' % (time.strftime("%a, %d %b %Y %H:%M:%S"),os.environ['HOSTNAME'])
+    except KeyError:
+        timestamp = '%s' % (time.strftime("%a, %d %b %Y %H:%M:%S"))
+        
 
     infile = conf['infile']
     outfile = conf['outfile']
