@@ -2485,19 +2485,19 @@ class Manager:
                 fn = os.path.join(p,address)
                 bn = os.path.basename(fn)
 
-                if self.__includedfiles.has_key(bn):
-                    #raise IncludeError('File "%s" already included' % address)
-                    pass
-                else:
-                    self.__includedfiles[bn] = bn
-              
-                    #data = str(open(fn,'rt').read()) # hmm... What about binary files?
-                    #zi = zipfile.ZipInfo('/'.join([self.__topdir, 'data', bn]), self.__timestamp)
-                    #self.__zipfile.write(fn,'doc/data/%s' % bn)
-                    #self.__zipfile.writestr(zi,data)
+                if not self.__includedfiles.has_key(bn):
+                    print "Adding to archive: %s" % bn
+                    
                     f = open(fn,'rt')
-                    self.writelinesfile('data/%s' % bn,f.readlines())
+
+                    zi = zipfile.ZipInfo(self.__topdir + '/data/%s' % bn, self.__timestamp)
+                    zi.internal_attr |= 1 # text file
+                    zi.external_attr = 0x81a40001 #0x80000001 + (0688 << 16). Permissions
+                    self.__zipfile.writestr(zi, f.read())
+
                     f.close()
+                    
+                    self.__includedfiles[bn] = 'data/%s' % bn
                 return 'data/%s' % bn,bn
             except IOError:
                 pass
