@@ -1594,6 +1594,7 @@ class PreformattedNode(Node):
                 r.tagend('a')
             r.tagend('span')
             lineno = self.__firstline
+            
 
 
         if 1:
@@ -1601,8 +1602,8 @@ class PreformattedNode(Node):
             nodes = list(self)
 
             while nodes and not isinstance(nodes[0],Node)  and not nodes[0].strip():  
-                if lineno is not None:
-                    firstline += 1
+                #if lineno is not None:
+                #    firstline += 1
                 nodes.pop(0)
             while nodes and not isinstance(nodes[-1],Node) and not nodes[-1].strip(): 
                 nodes.pop()
@@ -2744,7 +2745,7 @@ if __name__ == "__main__":
                                     'tempdir'    : config.UniqueDirEntry('tempdir'),
 
                                     # TODO: Use platform dependant default values for binaries:
-                                    'gsbin'      : config.UniqueDirEntry('gsbin', default='gsbin'),
+                                    'gsbin'      : config.UniqueDirEntry('gsbin', default='gs'),
                                     'pdftexbin'  : config.UniqueDirEntry('pdftexbin', default='pdflatex'),
      })
    

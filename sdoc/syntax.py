@@ -1,0 +1,152 @@
+import re
+
+
+
+python_keywords = ['and','del','from','not','while', 'as','elif','global','or','with', 'assert','else','if','pass','yield', 'break','except','import','print', 'class','exec','in','raise', 'continue','finally','is','return', 'def','for','lambda','try',]
+python_language = ['None','True','False','dict','list','classmethod','staticmethod','super','str','unicode','object','id']
+python_syntax = re.compile('|'.join([r'(?P<cmnt>#.*)',
+                                     r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                     r'(?P<word>\w+)',
+                                     r'(?P<newline>\n)',
+                                     r'(?P<mlstr>"""|\'\'\')',# Note: This will fail in the freak case where e.g. '\"""' appeared inside a multi-line string.
+                                     ]))
+
+## Add simple hilighting information to code.
+#
+# Hilighting is performed per-line, i.e. multi-line comments or strings are
+# tagged per line, so that a linebreak never occurs inside a tag.
+#
+# The argument 'data' is a list of lines, not including the lineberak character.
+# The result is a list, where each entry is a line with added hilight
+# information. Each line is a list, where each element is either a string or a
+# pair (type,string), where the 'type' indicated what kind of token the string
+# contains (e.g. keyword, operator, comment, string etc.).
+# 
+# Example: 
+# data  :  ['# Some code...',
+#                  'print "hello world!"']
+# Result:  [ [('comment','# Some code...')],
+#            [('keyword','print'),' ',('string','"hello world!"')] ]
+#
+# Example:
+# data  :  ['""" Example of a',
+#                Multiline string!"""' ]
+# Result:  [ [('string','""" Example of a'],
+#            [('string','    Multiline string!"""')] ]
+kw_comment  = 'comment'
+kw_string   = 'string'
+kw_keyword  = 'keyword'
+kw_language = 'language'
+
+
+class CodeHilighter:
+    def __init__(self,mimetype='text/plain'):
+        self.__state = None
+        if mimetype == 'source/python':
+            self.process = self.process_Python
+        else:
+            self.process = self.process_plaintext
+
+    def process_Python(self,l):
+        lres = []
+        pos = 0
+
+        for o in python_syntax.finditer(l):
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('mlstr'):
+                    self.__state = o.group(0)
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('newline'):
+                    lres.append(u'\n')
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in python_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in python_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+            else:# inside multi-line string
+                if o.group('mlstr') and o.group(0) == self.__state:
+                    lres.append((kw_string,l[pos:o.end(0)]))
+                    pos = o.end(0)
+                    self.__state = None                        
+                elif o.group('newline'):
+                    lres.append((kw_string,l[pos:o.start(0)]))
+                    lres.append(u'\n')
+                    pos = o.end(0)
+        if pos < len(l):
+            if self.__state is None:
+                lres.append(l[pos:])
+            else:
+                lres.append((kw_string,l[pos:]))
+        return lres
+    def process_plaintext(self,data):
+        return [ [l] for l in data ]
+        
+
+def hilightCode(data,mimetype='text/plain'):
+    if mimetype == 'source/python':
+        res = []
+        
+        state = None
+        for l in data:
+            lres = []
+            pos = 0
+
+            for o in python_syntax.finditer(l):
+                if state is None:
+                    if pos < o.start(0):
+                        lres.append(l[pos:o.start()])
+                    pos = o.end()
+                    if   o.group('cmnt') is not None:
+                        lres.append((kw_comment,o.group(0)))
+                    elif o.group('str') is not None:
+                        lres.append((kw_string,o.group(0)))
+                    elif o.group('mlstr'):
+                        state = o.group(0)
+                        lres.append((kw_string,o.group(0)))
+                    else:# o.group('word') is not None
+                        w = o.group(0)
+                        if   w in python_keywords:
+                            lres.append((kw_keyword,w))
+                        elif w in python_language:
+                            lres.append((kw_language,w))
+                        else:
+                            lres.append(w)
+                else:# inside multi-line string
+                    if o.group('mlstr') and o.group(0) == state:
+                        lres.append((kw_string,l[pos:o.end(0)]))
+                        pos = o.end(0)
+                        state = None                        
+            if pos < len(l):
+                if state is None:
+                    lres.append(l[pos:])
+                else:
+                    lres.append((kw_string,l[pos:]))
+            res.append(lres)
+
+    else:
+        res = [ [l] for l in data ]
+    return res
+
+if __name__ == '__main__':
+    import sys
+    lines = hilightCode(open(sys.argv[1],'rt').read().split('\n'),'source/python')
+    for l in lines:
+        for li in l:
+            if isinstance(li,basestring):
+                sys.stdout.write(li)
+            else:
+                t,data = li
+                sys.stdout.write('{%s:%s}' % li)
+        sys.stdout.write('\n')
+    sys.stdout.flush()
+

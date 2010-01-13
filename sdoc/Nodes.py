@@ -17,6 +17,7 @@ import urlparse
 import xml.sax
 import sys,os,operator
 import Iters
+import syntax
 
 import re
 
@@ -1832,7 +1833,14 @@ class DefElementAttrNode(_DefDataNode):
 
 class DefMacroRefNode(Node):
     comment     = """
-                  This can be used inside a macro definition to refer to a previously defined macro.
+                  This can be used inside a macro definition to refer to a
+                  previously defined macro.
+
+                  Note that the macro referred must be defined: For example,
+                  suppose that a macro \\tt{\\\\one}, refers to another macro
+                  \\tt{\\\\two}. When \\tt{\\\\one} is expanded, it will expand
+                  \\tt{\\\\two} as it was defined at the point where
+                  \\tt{\\\\one} was defined.
                   """
     nodeName    = 'c'
     acceptAttrs = Attrs([ Attr('n',descr='Name of the macro (without preceding backslash) that is referred.')])
@@ -3123,19 +3131,25 @@ class PreformattedNode(Node):
             if node is None:
                 node = doc.createElement(self.nodeName)
                 assert not [ n for n in self if not isinstance(n,unicode) ] 
+
                 text = ''.join(self)
-                
             if self.hasAttr('url') and 0:
                 # Data was fetched from file. We can expect that there are no nodes
                 pass
 
-
-
             else:
+                codelight = syntax.CodeHilighter(self.getAttr('type'))                
                 for item in self:
                     if isinstance(item,unicode):
-                        n = doc.createTextNode(item)
-                        node.appendChild(n)
+                        for itm in codelight.process(item):
+                            if isinstance(itm,unicode):
+                                n = doc.createTextNode(itm)
+                            else:
+                                t,val = itm
+                                n = doc.createElement('span')
+                                n.setAttribute('class','language-syntax-%s' % t)
+                                n.appendChild(doc.createTextNode(val))
+                            node.appendChild(n)
                     else:
                         n = item.toXML(doc)
                         if n is not None:
