@@ -2352,6 +2352,8 @@ class Manager:
                  template    = None,
                  #stylesheet  = [], # filename 
                  #javascript  = []): # list of filenames
+                 gsbin       = 'gs',
+                 pdflatexbin = 'pdflatex'
                  ):
         self.__zipfile = outf
         self.__topdir = topdir
@@ -2363,6 +2365,9 @@ class Manager:
         self.__eqndict = {}
         self.__eqnsrcdict = {}
         self.__mathRequire = { }
+
+        self.__gsbin = gsbin
+        self.__pdflatexbin = pdflatexbin
 
         self.__anchors = []
 
@@ -2647,7 +2652,7 @@ class Manager:
             oldcwd = os.getcwd()
             os.chdir(basepath)
             import subprocess
-            r = subprocess.call([ 'pdflatex', 
+            r = subprocess.call([ self.__pdflatexbin, 
                                   filename ],
                                   env = os.environ)
             os.chdir(oldcwd)
@@ -2657,9 +2662,9 @@ class Manager:
             if r == 0:
                 imgbasename = 'imgs/tmpimg%d.png'
                 #r = subprocess.call([ 'gs','-dNOPAUSE','-dBATCH','-sOutputFile=%s' % imgbasename,'-sDEVICE=pngalpha','-r100x100',pdffile ])
-                r = subprocess.call([ 'gs','-dNOPAUSE','-dBATCH','-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),'-sDEVICE=pngalpha','-r100x100',pdffile ])
+                r = subprocess.call([ self.__gsbin,'-dNOPAUSE','-dBATCH','-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),'-sDEVICE=pngalpha','-r100x100',pdffile ])
             if r == 0:
-                # convert and crop all images
+                # convert and crop all images. Not necessary since images are produces in the right size.
                 for i in range(len(self.__eqnlist)):
                     mimg = 'mathimg%d.png' % (i+1)
                     if False:
@@ -2737,6 +2742,10 @@ if __name__ == "__main__":
                                     'icon'       : config.DefinitionListDirEntry('icon'),
                                     'template'   : config.UniqueDirEntry('template'),
                                     'tempdir'    : config.UniqueDirEntry('tempdir'),
+
+                                    # TODO: Use platform dependant default values for binaries:
+                                    'gsbin'      : config.UniqueDirEntry('gsbin', default='gsbin'),
+                                    'pdftexbin'  : config.UniqueDirEntry('pdftexbin', default='pdflatex'),
      })
    
     debug = False
@@ -2763,6 +2772,10 @@ if __name__ == "__main__":
             conf.update('icon', args.pop(0))
         elif arg == '-tempdir':
             conf.update('tempdir', args.pop(0))
+        elif arg == '-gsbin':
+            conf.update('gsbin', args.pop(0))
+        elif arg == '-pdftexbin':
+            conf.update('pdftexbin', args.pop(0))
         else:
             conf.update('infile',arg)
 
@@ -2798,6 +2811,8 @@ if __name__ == "__main__":
                           icons=conf['icon'],
                           debug=debug,
                           template=conf['template'],
+                          gsbin=conf['gsbin'] or 'gs',
+                          pdflatexbin=conf['pdftexbin'] or 'pdflatex',
                           )
       
        
