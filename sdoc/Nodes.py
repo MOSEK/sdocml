@@ -3040,6 +3040,9 @@ class PreformattedNode(Node):
                 of all it can be used to include performatted text as a
                 separate paragraph. Secondly it allows inclusion of external
                 files or snippets (a range of lines) from external files.
+                Code snippets can be processed to add syntax hilighting by
+                specifying a suitable mime type. The code for syntax analysis
+                is located in the \\tt{syntax.py} module.
 
                 In the former case the <tt>url</tt> attribute is not defined,
                 and the element contains text. If <tt>macroexpand="yes"</tt> is
@@ -3069,6 +3072,8 @@ class PreformattedNode(Node):
                 expansion (for generating line numbers etc).
                 The <tt>type</tt> attribute is included unmodified in the
                 expansion.
+
+                
               ''' 
     nodeName  = 'pre'
     macroMode = MacroMode.NoExpand
