@@ -1598,15 +1598,15 @@ class PreformattedNode(Node):
 
 
         if 1:
-
             nodes = list(self)
-
-            while nodes and not isinstance(nodes[0],Node)  and not nodes[0].strip():  
-                #if lineno is not None:
-                #    firstline += 1
-                nodes.pop(0)
-            while nodes and not isinstance(nodes[-1],Node) and not nodes[-1].strip(): 
-                nodes.pop()
+                
+            #
+            #while nodes and not isinstance(nodes[0],Node)  and not nodes[0].strip():  
+            #    if lineno is not None:
+            #         lineno += 1
+            #    nodes.pop(0)
+            #while nodes and not isinstance(nodes[-1],Node) and not nodes[-1].strip(): 
+            #    nodes.pop()
 
             if lineno is None:
                 for n in nodes:
@@ -2763,7 +2763,7 @@ if __name__ == "__main__":
             conf.updateFile(args.pop(0))
         elif arg == '-i':
             conf.update('incpath', args.pop(0))
-        elif arg == '-doc':
+        elif arg == '-docdir':
             conf.update('docdir', args.pop(0))
         elif arg == '-appicon':
             conf.update('appicon', args.pop(0))

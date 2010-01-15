@@ -86,7 +86,7 @@ class DefinitionListEntry(_anyEntry):
         self.value[k] = v
     def convertValue(self,value):
         #o = re.match(r'[ ]*(?P<key>[a-zA-Z09_]+)\s*=\s*(?:"(?P<dqstr>(?:[^"\\]|(?:\\"))*)"|\'(?P<sqstr>(?:[^\'\\]|(?:\\\'))*)\'|(?P<unqstr>\S+))[ ]*$', value)
-        o = re.match(r'\s*(?P<key>[a-zA-Z][a-zA-Z0-9_\-]*)\s*=\s*' +
+        o = re.match(r'\s*(?P<key>[a-zA-Z][a-zA-Z0-9_\-.:]*)\s*=\s*' +
                      r'(?:' + 
                      r'"(?P<dqstr>(?:[^"\\]|(?:\\"))*)"' + '|' +
                      r"'(?P<sqstr>(?:[^'\\]|(?:\\'))*)'" + '|' +

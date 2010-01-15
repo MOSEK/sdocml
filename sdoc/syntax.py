@@ -11,6 +11,24 @@ python_syntax = re.compile('|'.join([r'(?P<cmnt>#.*)',
                                      r'(?P<mlstr>"""|\'\'\')',# Note: This will fail in the freak case where e.g. '\"""' appeared inside a multi-line string.
                                      ]))
 
+java_keywords = [   "abstract", "assert", "boolean", "break", "byte",
+                    "case", "catch", "char", "class", "const",
+                    "continue", "default", "do", "double", "else",
+                    "enum", "extends", "final", "finally", "float",
+                    "for", "goto", "if", "implements", "import",
+                    "instanceof", "int", "interface", "long", "native",
+                    "new", "package", "private", "protected", "public",
+                    "return", "short", "static", "strictfp", "super",
+                    "switch", "synchronized", "this", "throw", "throws",
+                    "transient", "try", "void", "volatile", "while" ]
+java_language = ['null','true','false','String',]
+java_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
+                                   r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                   r'(?P<word>\w+)',
+                                   r'(?P<newline>\n)',
+                                   r'(?P<mlcmntstart>/\*)',
+                                   r'(?P<mlcmntend>\*/)',
+                                   ]))
 ## Add simple hilighting information to code.
 #
 # Hilighting is performed per-line, i.e. multi-line comments or strings are
@@ -44,9 +62,52 @@ class CodeHilighter:
         self.__state = None
         if mimetype == 'source/python':
             self.process = self.process_Python
+        elif mimetype == 'source/java':
+            self.process = self.process_Java
         else:
             self.process = self.process_plaintext
 
+    def process_Java(self,l):
+        lres = []
+        pos = 0
+
+        for o in java_syntax.finditer(l):
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('mlcmntstart'):
+                    self.__state = o.group(0)
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('newline'):
+                    lres.append(u'\n')
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in java_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in java_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+            else:# inside multi-line string
+                if o.group('mlcmntend') and o.group(0) == self.__state:
+                    lres.append((kw_comment,l[pos:o.end(0)]))
+                    pos = o.end(0)
+                    self.__state = None                        
+                elif o.group('newline'):
+                    lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append(u'\n')
+                    pos = o.end(0)
+        if pos < len(l):
+            if self.__state is None:
+                lres.append(l[pos:])
+            else:
+                lres.append((kw_comment,l[pos:]))
+        return lres
     def process_Python(self,l):
         lres = []
         pos = 0
@@ -89,7 +150,7 @@ class CodeHilighter:
                 lres.append((kw_string,l[pos:]))
         return lres
     def process_plaintext(self,data):
-        return [ [l] for l in data ]
+        return [data]
         
 
 def hilightCode(data,mimetype='text/plain'):

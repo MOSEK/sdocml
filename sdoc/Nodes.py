@@ -3147,7 +3147,7 @@ class PreformattedNode(Node):
                 for item in self:
                     if isinstance(item,unicode):
                         for itm in codelight.process(item):
-                            if isinstance(itm,unicode):
+                            if isinstance(itm,basestring):
                                 n = doc.createTextNode(itm)
                             else:
                                 t,val = itm
