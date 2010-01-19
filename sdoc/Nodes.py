@@ -2878,12 +2878,14 @@ class TableNode(Node):
                         <li> "\\\\:" for starting a new \\tagref{tr} element, and</li>
                         <li> "\\\\!" for starting a new \\tagref{td} element.</li>
                     </ilist>
+                  
+                    Please note that tables may not behave identically in TeX and HTML.
                   '''
     examples = [ ('Create a table using special table syntax:',
                   '\n'.join(['<table>',       
                              '  \\: Cell(1,1) \\! Cell(1,2) \\! Cell(1,3)',
                              '  \\: Cell(2,1) \\! Cell(2,2) \\! Cell(2,3)',
-                             '</table>'])),
+                             '</table>']))      ,
                  ('Create a table using tags',
                   '\n'.join(['<table>',       
                              '  <tr><td> Cell(1,1) </td><td> Cell(1,2) </td><td> Cell(1,3) </td></tr>',

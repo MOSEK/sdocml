@@ -74,7 +74,6 @@ class DirListEntry(_anyEntry):
         if not os.path.isabs(val):
             val = os.path.normpath(os.path.join(base,val))
         self.value.append(val)
-        print 'added:',self.value[-1]
 
 class DefinitionListEntry(_anyEntry):
     def __init__(self,name,doc=None):

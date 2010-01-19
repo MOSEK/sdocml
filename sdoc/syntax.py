@@ -1,7 +1,17 @@
+"""
+    This file os part of the sdocml project:
+        http://code.google.com/p/sdocml/
+    The project is distributed under GPLv3:
+        http://www.gnu.org/licenses/gpl-3.0.html
+    
+    Copyright (c) 2009 Mosek ApS 
+"""
+
+
 import re
 
 
-
+# NOTE: List of keywords is taken from the official Python 2.4 language documentation
 python_keywords = ['and','del','from','not','while', 'as','elif','global','or','with', 'assert','else','if','pass','yield', 'break','except','import','print', 'class','exec','in','raise', 'continue','finally','is','return', 'def','for','lambda','try',]
 python_language = ['None','True','False','dict','list','classmethod','staticmethod','super','str','unicode','object','id']
 python_syntax = re.compile('|'.join([r'(?P<cmnt>#.*)',
@@ -11,6 +21,7 @@ python_syntax = re.compile('|'.join([r'(?P<cmnt>#.*)',
                                      r'(?P<mlstr>"""|\'\'\')',# Note: This will fail in the freak case where e.g. '\"""' appeared inside a multi-line string.
                                      ]))
 
+# NOTE: List of keywords is taken from the official Java 1.6 language documentation.
 java_keywords = [   "abstract", "assert", "boolean", "break", "byte",
                     "case", "catch", "char", "class", "const",
                     "continue", "default", "do", "double", "else",

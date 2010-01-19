@@ -19,6 +19,7 @@ import time
 import os
 import HTMLParser
 
+## Default hardcoded style. Not nice. Fix this!
 style = \
 """
     ul.enumerate        {
@@ -113,6 +114,95 @@ javascript =  \
 
 ################################################################################
 ################################################################################
+class _mathUnicodeToTex:
+    unicoderegex = re.compile(u'[\u0080-\u8000]')
+    
+    unicodetotex = {
+        160  : '~',
+        215  : '{\\times}',
+        # Greek letters
+        913 : '{\\rm A}',
+        914 : '{\\rm B}',
+        915 : '{\\Gamma}',
+        916 : '{\\Delta}',
+        917 : '{\\rm E}',
+        918 : '{\\rm Z}',
+        919 : '{\\rm H}',
+        920 : '{\\Theta}',
+        921 : '{\\rm I}',
+        922 : '{\\rm K}',
+        923 : '{\\Lambda}',
+        924 : '{\\rm M}',
+        925 : '{\\rm N}',
+        926 : '{\\Xi}',
+        927 : '{\\rm O}',
+        928 : '{\\Pi}',
+        929 : '{\\rm P}',
+        931 : '{\\Sigma}',
+        932 : '{\\rm T}',
+        933 : '{\\Upsilon}',
+        934 : '{\\Phi}',
+        935 : '{X}',
+        936 : '{\\Psi}',
+        937 : '{\\Omega}',
+        945 : '{\\alpha}',
+        946 : '{\\beta}',
+        947 : '{\\gamma}',
+        948 : '{\\delta}',
+        949 : '{\\epsilon}',
+        950 : '{\\zeta}',
+        951 : '{\\eta}',
+        952 : '{\\theta}',
+        953 : '{\\iota}',
+        954 : '{\\kappa}',
+        955 : '{\\lambda}',
+        956 : '{\\mu}',
+        957 : '{\\nu}',
+        958 : '{\\xi}',
+        959 : 'o',
+        960 : '{\\pi}',
+        961 : '{\\rho}',
+        962 : '{\\sigmaf}',
+        963 : '{\\sigma}',
+        964 : '{\\tau}',
+        965 : '{\\upsilon}',
+        966 : '{\\phi}',
+        967 : '{\\chi}',
+        968 : '{\\psi}',
+        969 : '{\\omega}',
+        # misc
+        8230 : '\\ldots{}',
+        8285 : '\\vdots{}',
+        8704 : '\\forall{}',
+        8712 : '\\in{}',
+        8721 : '\\sum{}',
+        8804 : '\\leq{}',
+        8805 : '\\geq{}',
+        8834 : '\\subset{}',
+        8901 : '\\cdot{}',
+        8943 : '\\cdots{}',
+        8945 : '\\ddots{}',
+    }
+    
+    textunicodetotex = {  
+        173  : '-',
+        228  : '\\"a',
+        229  : '\\aa{}',
+        231  : '\\c{c}',
+        232  : "\\`e",
+        233  : "\\'e",
+        235  : '\\"e',
+
+        246  : '\\"o',
+        248  : '\\o{}',
+
+        351  : '\\c{s}',
+
+        8212 : '---',
+        8220 : '``',
+        8221 : "''",
+    }
+
 class _unicodeToTex:
     unicoderegex = re.compile(u'[\u0080-\u8000]')
     unicodetotex = {  
@@ -187,10 +277,276 @@ class _unicodeToTex:
             return _unicodeToTex.unicodetotex[ord(o.group(0))]
         return re.sub(_unicodeToTex.unicoderegex,repl,text)
 
-        
+
 
 ################################################################################
 ################################################################################
+class UnicodeToTeXError(Exception):
+    pass
+
+class texCollector(UserList.UserList):
+    MathMode = 'mode:math'
+    TextMode = 'mode:text'
+    def __init__(self,mode=TextMode):
+        UserList.UserList.__init__(self)
+        self.__stack = []
+        self.__mode = mode
+
+    def texescape(self,data,r):
+        pos = 0
+        #unicoderegex = re.compile(u'[\u0080-\u8000]')
+        for o in re.finditer(ur'\\|{|}|<|>|#|\$|\^|_|[\u0080-\u8000]',data):
+            if o.start(0) > pos:
+                r.append(str(data[pos:o.start(0)]))
+            pos = o.end(0)
+            t = o.group(0)
+            if   t == '\\':
+                if self.__mode is self.TextMode:
+                    r.append('$\\tt\\backslash$')
+                else:
+                    r.append('\\tt\\backslash{}')
+            elif t in [ '{', '}', '#','$','&' ]:
+                r.append('\\%s' % str(t))
+            elif t in [ '^','_' ]:
+                if self.__mode == self.MathMode:
+                    r.append('\\%s' % str(t))
+                else:
+                    if t == '_':
+                        r.append('\\textunderscore{}')
+                    elif t == '^':
+                        r.append('\\texthat{}')
+                    else:
+                        r.append('\\char%d{}' % ord(t))
+            elif t in [ '<', '>' ]:
+                if self.__mode == self.MathMode:
+                    r.append(str(t))
+                else:
+                    r.append('\\char%d{}' % ord(t))
+            else: 
+                uidx = ord(o.group(0))
+                if self.__mode == self.MathMode:
+                    try:
+                        r.append(_mathUnicodeToTex.unicodetotex[uidx])
+                    except KeyError:
+                        Warning('Unknown unicode: %d' % uidx)
+                        r.append('.')
+                else:
+                    try:
+                        r.append(_mathUnicodeToTex.textunicodetotex[uidx])
+                    except KeyError:
+                        UnicodeToTeXError('Could not convert char 0x%x (%s)' % (uidx,unicode(t).encode('utf-8')))
+
+        if pos < len(data):
+            r.append(str((data[pos:])))
+
+        return r
+
+    def texverbatim(self,data,r):
+        pos = 0
+        for o in re.finditer(ur'(?P<unicode>[\u0080-\u8000])|(?P<lf>\n)|(?P<space>[ ]+)|(?P<escape>%|\#|&)|(?P<special>\\|~|\^|\$|{|}|_)',data,re.MULTILINE):
+            if o.start(0) > pos:
+                r.append(str(data[pos:o.start(0)]))
+            pos = o.end(0)
+            if o.group('space'):
+                r.append('\\ ' * len(o.group('space')))
+            elif o.group('escape'):
+                r.append('\\%s' % o.group('escape'))
+            elif o.group('special'):
+                r.append('\\char%d{}' % ord(o.group('special')))
+            elif o.group('unicode'):
+                uidx = ord(o.group('unicode'))
+                if _mathUnicodeToTex.textunicodetotex.has_key(uidx):
+                    r.append(_mathUnicodeToTex.textunicodetotex[uidx])
+                elif _mathUnicodeToTex.unicodetotex.has_key(uidx):
+                    r.append('$%s$' % _mathUnicodeToTex.unicodetotex[uidx])
+                else: 
+                    Warning('Unicode in verbatim field: %d' % uidx)
+                    r.append('\\#4%d' % uidx)
+            elif o.group('lf'):
+                r.append('\\nullbox\\par%\n')
+            else:
+                print "TEXT = '%s'" % o.group(0)
+                assert 0
+            
+        if pos < len(data):
+            r.append(str((data[pos:])))
+
+        return r
+        
+    def verbatim(self,item):
+        if   isinstance(item,unicode):
+            self.texverbatim(item,self.data)
+        elif isinstance(item,str):
+            self.texverbatim(item,self.data)
+#        elif isinstance(item,Group):
+#            self.groupStart()
+#            self.extend(item)
+#            self.groupEnd()
+#        elif isinstance(item,Options):
+#            self.moptStart()
+#            self.extend(item)
+#            self.moptEnd()
+#        elif isinstance(item,InlineMath):
+#            self.inlineMathStart()
+#            self.startMathMode()
+#            self.extend(item)
+#            self.endMathMode()
+#            self.inlineMathEnd()
+#        elif isinstance(item,Begin):
+#            self.begin(item.name)
+#        elif isinstance(item,End):
+#            self.end(item.name)
+#        elif isinstance(item,Macro):
+#            self.macro(item.name)
+        else:
+            print item
+            assert 0
+        return self
+    
+    def _raw(self,data):
+        assert isinstance(data,basestring)
+        self.data.append(str(data))
+        return self
+    def comment(self,text=''):
+        lines = text.split('\n')
+        self.data.extend([ '%% %s\n' % l for l in lines ])
+    def lf(self):
+        self.data.append('\n')
+    def macro(self,name):
+        assert name not in [ 'begin', 'end' ]
+        self.data.append('\\%s' % name)
+        return self
+    def moptStart(self):
+        self.data.append('[')
+        self.__stack.append('[')
+        return self
+    def moptEnd(self):
+        assert self.__stack.pop() == '['
+        self.data.append(']')
+        return self
+    def groupEmpty(self):
+        self.data.append('{}')
+        return self
+    def options(self,data=[]):
+        if data:
+            self.moptStart()
+            if isinstance(data,str):
+                self.append(data)
+            else:
+                self.extend(data)
+            self.moptEnd()
+        return self
+    def group(self,data=[]):
+        self.groupStart()
+        if isinstance(data,str):
+            self.append(data)
+        else:
+            self.extend(data)
+        self.groupEnd()
+        return self
+    def groupStart(self,mode=None):
+        if mode is None:
+            self.data.append('{')
+        elif self.__mode == self.MathMode:
+            if   mode == '^':
+                self.data.append('^{')
+            elif mode == '_':
+                self.data.append('_{')
+            else:
+                assert 0
+        else:
+            print self.__mode
+            assert 0
+        self.__stack.append('{')
+        return self
+    def tab(self):
+        self.data.append('&')
+        return self
+    def rowend(self):
+        self.data.append('\\\\')
+        return self
+        
+    def groupEnd(self):
+        assert self.__stack.pop() == '{'
+        self.data.append('}')
+        #print '\tlevel=%d' % len(self.__stack),self.__stack
+        return self
+    def begin(self,name):
+        self.data.append('\\begin{%s}' % name)
+        self.__stack.append(name)
+        return self
+    def end(self,name):
+        self.data.append('\\end{%s}' % name)
+        topname = self.__stack.pop()
+        if topname != name:
+            print "Error: \\begin{%s} ... \end{%s}" % (topname,name)
+            assert 0
+        return self
+    def startMathMode(self):
+        #print "Math mode start"
+        assert self.__mode is not self.MathMode
+        self.__stack.append(self.__mode)
+        #print '\tlevel=%d' % len(self.__stack)
+        self.__mode = self.MathMode
+        return self
+    def endMathMode(self):
+        #print "Math mode end"
+        assert self.__mode is self.MathMode
+        self.__mode = self.__stack.pop()
+        #print '\tlevel=%d' % len(self.__stack)
+        return self
+    def inlineMathStart(self):
+        self.__stack.append('$')
+        self.data.append('$')
+        self.startMathMode()
+        return self
+    def inlineMathEnd(self):
+        self.endMathMode()
+        assert self.__stack.pop() == '$'
+        self.data.append('$')
+        return self
+    def extend(self,items):
+        for i in items:
+            self.append(i)
+        return self
+    def append(self,item):
+        if   isinstance(item,unicode):
+            self.texescape(item,self.data)
+        elif isinstance(item,str):
+            self.texescape(item,self.data)
+        elif isinstance(item,Group):
+            self.groupStart()
+            self.extend(item)
+            self.groupEnd()
+        elif isinstance(item,Options):
+            self.moptStart()
+            self.extend(item)
+            self.moptEnd()
+        elif isinstance(item,InlineMath):
+            self.inlineMathStart()
+            self.startMathMode()
+            self.extend(item)
+            self.endMathMode()
+            self.inlineMathEnd()
+        elif isinstance(item,Begin):
+            self.begin(item.name)
+        elif isinstance(item,End):
+            self.end(item.name)
+        elif isinstance(item,Macro):
+            self.macro(item.name)
+        else:
+            print item
+            assert 0
+        return self
+if 0:
+    class texCollecter(UserList.UserList):
+        def __init__(self):
+            UserList.UserList.__init__(self)
+        def inlineMathStart(self):
+            self.append('$')
+        def inlineMathEnd(self):
+            self.append('$')
+
 class DefaultDict(UserDict):
     def __init__(self,dcon):
         UserDict.__init__(self)
@@ -202,7 +558,7 @@ class DefaultDict(UserDict):
 
 def msg(m):
     m = unicode(m)
-    sys.stderr.write('TeXml2HTML: ')
+    sys.stderr.write('SDocML: ')
     sys.stderr.write(m.encode('utf-8'))
     sys.stderr.write('\n')
 
@@ -357,17 +713,18 @@ class htmlCollector(UserList.UserList):
             self.append('\n')
         return self
     def tagend(self,name):
-        if   not self.__stack:
-            raise TypeError('HTML error: Unmatched </%s>. Stack is empty.' % (name))
-        elif self.__stack[-1] != name:
-            print "The document so far:"
-            print ''.join(self)
-            raise TypeError('HTML error: <%s> ... </%s>. Stack is:\n\t%s' % (self.__stack[-1],name,'\n\t'.join(self.__stack)))
-        else:
-            self.__stack.pop()
-            self.data.append('</%s>' % name)
-        if name in self.partags:
-            self.append('\n')
+        if name not in self.unendedtags:
+            if   not self.__stack:
+                raise TypeError('HTML error: Unmatched </%s>. Stack is empty.' % (name))
+            elif self.__stack[-1] != name:
+                print "The document so far:"
+                print ''.join(self)
+                raise TypeError('HTML error: <%s> ... </%s>. Stack is:\n\t%s' % (self.__stack[-1],name,'\n\t'.join(self.__stack)))
+            else:
+                self.__stack.pop()
+                self.data.append('</%s>' % name)
+            if name in self.partags:
+                self.append('\n')
         return self
 
 
@@ -393,12 +750,15 @@ def dummy(name,htmltag=None,attrs={}):
         nodeName  = name
         htmlTag   = htmltag
         htmlAttrs = attrs
-        def toTeX(self,r):
-            raise NodeError('Unimplemented toTeX: %s' % self.nodeName)
+        #def toTeX(self,r):
+        #    raise NodeError('Unimplemented toTeX: %s' % self.nodeName)
     return _DummyNode
 
 class FakeTextNode(UserList.UserList):
     def toHTML(self,res):
+        res.extend(self.data)
+        return res
+    def contentToTeX(self,res):
         res.extend(self.data)
         return res
     toPlainHTML = toHTML
@@ -409,6 +769,8 @@ class Node(UserList.UserList):
     htmlAttrs = {}
     ignoreSpace = False
     structuralNode = False
+    ## forceTexPar: In TeX an explicit \par should be inserted between two elements that both have forceTexPar == True
+    forceTexPar = False
     def __init__(self,manager,parent,attrs,filename,line):
         UserList.UserList.__init__(self)
         self.__attrs = attrs
@@ -439,6 +801,8 @@ class Node(UserList.UserList):
         else:
             self.__sect = parent.getSection()
 
+    def getParent(self):
+        return self.__parent
 
     def getSection(self):
         return self.__sect
@@ -528,6 +892,29 @@ class Node(UserList.UserList):
                 r.append(i)
         return r
 
+    def toTeX(self,res):
+        Warning('Unhandled %s %s' % (self.__class__.__name__,self.pos))
+        try:
+            for i in self:
+                if isinstance(i,Node):
+                    i.toTeX(res)
+                else:
+                    res.append(i)
+            return res
+        except None, e:
+            print "ASSERT in %s at %s" % (self.__class__.__name__,self.pos)
+            raise Exception(e)
+
+    def contentToTeX(self,r,escspace=False):
+        for i in self:
+            if isinstance(i,Node):
+                i.toTeX(r)
+            else:
+
+                r.append(i)
+        return r
+        
+
 class _StructuralNode(Node):
     """
     Base class for all nodes that work like a paragraph; these have the
@@ -549,11 +936,31 @@ class _StructuralNode(Node):
             else:
                 n.toHTML(res)
         return res
-
     
+    def contentToTeX(self,r):
+        if len(self) > 0:
+            i = self[0]
+            i.toTeX(r)
+            prev = i
+            
+            items = list(self)
+            for i in items[1:]:
+                assert isinstance(i,Node)                
+                if  i.forceTexPar and prev.forceTexPar:
+                    r.macro('par').comment('i.forceTexPar = %s, prev.forceTexPar = %s' % (i.forceTexPar,prev.forceTexPar))
+                    #print "Insert par!"
+                else:
+                    r.comment('i.forceTexPar = %s, prev.forceTexPar = %s' % (i.forceTexPar,prev.forceTexPar))
+                    #print "Don't insert par: %s, %s" % (i.__class__.__name__,prev.__class__.__name__)
+                i.toTeX(r)
+                prev = i    
+        return r
 
 class SectionNode(Node):
     nodeName = 'section'
+
+    sectcmds = [ 'chapter', 'section', 'subsection','subsubsection', 'subsubsection*' ]
+
     def __init__(self,
                  manager,
                  parent,
@@ -704,7 +1111,7 @@ class SectionNode(Node):
         else:
             icon = self.__manager.getIcon('prev')
 
-            d['navbutton:icon:prev'].extend([tag('a',   { 'href' : prev.getSectionFilename() }),
+            d['navbutton:icon:prev'].extend([tag('a',   { 'href' : prev.getSectionFilename(),'alt' : 'Previous' }),
                                              tag('img', { 'src' : icon }),
                                              tagend('a'),
                                              ])
@@ -723,7 +1130,7 @@ class SectionNode(Node):
             res.extend([tag('img',{ 'src' : icon })])
         else:
             icon = self.__manager.getIcon('next')
-            res.extend([ tag('a', { 'href' : next.getSectionFilename() }),
+            res.extend([ tag('a', { 'href' : next.getSectionFilename(),'alt' : 'Next' }),
                         tag('img',{ 'src' : icon }), 
                         tagend('a'),
                         ])
@@ -944,6 +1351,29 @@ class SectionNode(Node):
                                       self.__sections,
                                       self.__sections[1:] + [None]):
                 sect.toHTMLFile(prev,next,self,topNode,indexFile)
+    def contentToTeX(self,res,level):
+        self.__body.contentToTeX(res)
+        
+        for sect in self.__sections:
+            sect.toTeX(res,level+1)
+        return res 
+
+    def toTeX(self,res,level):
+        macro = self.sectcmds[level-1]
+
+        res.append('\n')
+        res.macro(macro)
+        res.groupStart()
+        self.getTitle().contentToTeX(res)
+        res.groupEnd().comment()
+        if self.hasAttr('id'):
+            res.macro('label').groupStart()._raw(self.getAttr('id')).groupEnd().comment()
+            #res.macro('hypertarget').groupStart()._raw(self.getAttr('id')).groupEnd().groupStart()
+            #self.getTitle().contentToTeX(res)
+            #res.groupEnd().comment()
+
+        self.contentToTeX(res,level)
+        return res
        
 
 class BibliographyNode(SectionNode):
@@ -1143,6 +1573,11 @@ class _IndexNode(SectionNode):
         r.tagend('div')
         
         manager.writelinesfile('xref.html',d)
+    def toTeX(self,r,level):
+        r.append(u'[Index goes here]')
+    def contentToTeX(self,r):
+        r.append(u'[Index goes here]')
+        return r
 
 class DocumentNode(SectionNode):
     nodeName = 'sdocmlx'
@@ -1152,6 +1587,82 @@ class DocumentNode(SectionNode):
     def endOfElement(self,filename,line):
         self.appendSubsection(_IndexNode(self.__manager,self))
         SectionNode.endOfElement(self,filename,line)
+    def toTeX(self,res):
+        res.macro('documentclass').group('book')
+        
+        res.macro('setcounter').group('secnumdepth').group('4')
+        res._raw('\\def\\textunderscore\\char95\n')
+        res._raw('\\def\\texthat\\char94\n')
+        for p in ['graphicx',
+                  'amsmath',
+                  'amssymb',
+                  'latexsym',
+                  'amsfonts',
+                  'verbatim',
+                  'makeidx',
+                  'listings',
+                  ]:
+            res.macro('usepackage').group(p).lf()
+        res.macro('usepackage').options('usenames').group('color').lf()
+        res.macro('usepackage').group('eso-pic').lf()
+        res.macro('usepackage').group('hyperref').lf()
+        res.macro('usepackage').options('left=3cm,right=3cm').group('geometry').lf()
+        res.macro('usepackage').options('pdftex').group('graphicx').lf()
+
+
+        res.macro('hypersetup').group('colorlinks=true').lf()
+        res.macro('hypersetup').group('latex2html=true').lf()
+        res.macro('hypersetup').group('pdfpagelabels=true').lf()
+        res.macro('hypersetup').group('plainpages=false').lf()
+        res.macro('hypersetup').group('pdfkeywords=true').lf()
+
+        # Our own pseudo-verbatim environment... not very flexible, but usable.
+        res._raw('\\newcount\\prelineno\\newbox\\preheadbox\\newdimen\\preheadbarwidth\n')
+        res._raw('\\def\\preputlineno{\llap{{\\tiny\\the\\prelineno}\hspace{1em}}\\advance\\prelineno by1}\n')
+        #res._raw('\\def\\prehead#1{\\setbox\\preheadbox=\\hbox{\\ #1}\\preheadbarwidth=\\textwidth\\\\preheadbarwidth by -\\wd\\preheadbox \\rule{\\preheadbarwidth}{1pt}{\\ #1}}\n')
+        res._raw('\\def\\prehead#1{\\leaders\\hbox{\\rule[.2em]{1em}{1pt}}\\hfill{#1}}\n')
+        res._raw('\\def\\predelimplain{\\leaders\\hbox{\\rule[.2em]{1em}{1pt}}\\hfill\\rule{0in}{0in}}\n')
+
+        #res._raw('\\def\\beginpre#2{\\prelineno=#2\\par\\noindent\\prehead{\\sc #1}\\par\\begingroup\\parindent=0in\\obeylines\\tt{}\\everypar{\\advance\\prelineno by1\\llap{{\\footnotesize\\the\\prelineno\\ \\ }}}}\n')
+        res._raw('\\def\\beginpre#1#2{\\prelineno=#2\\par\\noindent\\prehead{\\tt #1}\\par\\begingroup\\footnotesize\\parindent=0in\\obeylines\\obeyspaces\\ttfamily\\everypar{\\preputlineno\ }}\n')
+        res._raw('\\def\\beginpreplain{\\par\\noindent\\predelimplain\\par\\begingroup\\footnotesize\\parindent=0in\\obeylines\\obeyspaces\\ttfamily}\n')
+        res._raw('\\def\\endpre{\\endgroup\\par\\noindent\\predelimplain\\par}\n')
+        res._raw('\\def\\nullbox{\\rule{0pt}{0pt}}\n')
+        res.append('\n\n')
+        res.macro('makeindex').group()
+        self.getTitle().toTeX(res)
+        auths = self.getAuthors()
+        if auths:
+            self.getAuthors().toTeX(res)
+        res.macro('date').group()
+
+
+        res.macro('bibliographystyle').group('plain')
+        res.begin('document').lf()
+        res._raw('\\makeatletter\n')
+        #res._raw('\\newcommand\\TitleBackgroundPicture{\\put(0,\\strip@pt\\paperheight){\\parbox[t][\\paperheight]{\\paperwidth}{\\vfill\\centering\\includegraphics{%s}\\vfill}}}\n' % titlepgbg)
+        res._raw('\\newcommand{\\BackgroundPicture}[1]{\\put(0,\\strip@pt\\paperheight){\\parbox[t][\\paperheight]{\\paperwidth}{\\vfill\\centering\\includegraphics{#1}\\vfill}}}\n')
+        res._raw('\\makeatother\n')
+        #Title page background:
+        if self.manager.getTitlePageBackground():
+            res._raw('\\AddToShipoutPicture{\\BackgroundPicture{%s}}\n' % os.path.abspath(self.manager.getTitlePageBackground()))
+            
+        #Style definitions:
+        res._raw('\\definecolor{Red}{rgb}{0.7,0,0}\n')
+        res._raw('\\definecolor{Green}{rgb}{0.0,0.7,0}\n')
+        res._raw('\\definecolor{Blue}{rgb}{0.0,0.0,0.7}\n')
+        res._raw('\\def\\sdocRed#1{\\textcolor{Red}{#1}}\n')
+        res._raw('\\def\\sdocGreen#1{\\textcolor{Green}{#1}}\n')
+        res._raw('\\def\\sdocBlue#1{\\textcolor{Blue}{#1}}\n')
+        res.macro('maketitle\n')
+        res._raw('\\ClearShipoutPicture\n')
+        if self.manager.getAnyPageBackground():
+            res._raw('\\AddToShipoutPicture{\\BackgroundPicture{%s}}\n' % os.path.abspath(self.manager.getAnyPageBackground()))
+        res.macro('tableofcontents\n')
+
+        self.contentToTeX(res,0)
+        res.end('document')
+        return res
 
 class BodyNode(_StructuralNode):
     nodeName = 'body'
@@ -1252,7 +1763,12 @@ class AuthorNode(Node):
             r.tagend('div')
 
 class TitleNode(Node):
-    pass
+    def toTeX(self,res):
+        res.macro('title')
+        res.groupStart()
+        self.contentToTeX(res)
+        res.groupEnd()
+
 AuthorFirstNameNode     = dummy('firstname')
 AuthorLastNameNode      = dummy('lastname')
 AuthorEmailNode         = dummy('email')
@@ -1262,15 +1778,27 @@ AuthorInstitutionAddressNode = dummy('address')
 
 class ParagraphNode(Node):
     htmlTag = 'p'
+    forceTexPar = True
+    def toTeX(self,res):
+        self.contentToTeX(res)
+    def contentToTeX(self,res):
+        for i in self:
+            if isinstance(i,Node):
+                i.toTeX(res)
+            else:
+                res.append(i)
     def toHTML(self,res):
         assert 0
 
 class DivNode(_StructuralNode):
     htmlTag = 'div'
+    def toTeX(self,res):
+        self.contentToTeX(res)
 
 class _SimpleNode(Node):
     def __init__(self,manager,parent,attrs,filename,line):
         Node.__init__(self,manager,parent,attrs,filename,line)
+    
     def toPlainHTML(self,res):
         res.tag(self.htmlTag,self.htmlAttrs)
         for i in self:
@@ -1280,6 +1808,13 @@ class _SimpleNode(Node):
                 res.append(i)
         res.tagend(self.htmlTag)
         
+    def toTeX(self,res):
+        res.groupStart()
+        res.macro(self.macro)
+        res.append(' ')
+        self.contentToTeX(res)
+        res.groupEnd()
+
     def toHTML(self,res):
         attrs = dict(self.getAttrs())
         res.tag(self.htmlTag,attrs)
@@ -1292,21 +1827,43 @@ class _SimpleNode(Node):
 
 class EmphasizeNode(_SimpleNode):
     htmlTag = 'em'
+    macro = 'em'
 class TypedTextNode(_SimpleNode):
     htmlTag = 'tt'
+    macro = 'tt'
 class BoldFaceNode(_SimpleNode):
     htmlTag = 'b'
+    macro = 'bf'
 class SmallCapsNode(_SimpleNode):
     htmlTag = 'div'
     htmlAttrs = { 'class' : 'textsc' }
+    macro = 'sc'
 class SpanNode(_SimpleNode):
     htmlTag = 'span'
+    def toTeX(self,res):
+        if self.hasAttr('class'):
+            styles = self.manager.styleLookup(self.getAttr('class'))
+            for s in styles:
+                res.macro(s).groupStart()
+
+            self.contentToTeX(res)
+            for s in styles:
+                res.groupEnd()
+        else:
+            self.contentToTeX(res,escspace=True)
+
+        
 
 class FontNode(_SimpleNode):
     htmlTag = 'font'
-    
 
-BreakNode               = dummy('BreakNode','br')
+class BreakNode(_SimpleNode):
+    nodeName = 'br'
+    htmlTag = 'br'
+    def toTeX(self,res):
+        res.macro('nullbox').macro('\\') 
+
+
                            
 #XXSmallNode = dummy('XXSmallNode')
 #XSmallNode  = dummy('XSmallNode')
@@ -1357,7 +1914,27 @@ class ReferenceNode(Node):
                 else:
                     r.extend(self.__ref.linkText())
             r.tagend('a')
-            
+    def toTeX(self,r):
+        if self.__exuri:
+            r.append('[??]')
+        else:
+            #r.macro('hyperlink')
+            #r.group(self.__ref.linkText())
+            #r.group([u'XXXX'])
+            #r.groupStart()
+            #self.contentToTeX(r)
+            #r.groupEnd()
+            r.macro('hyperref').moptStart()._raw(self.__ref.getID()).moptEnd()
+            if len(self.data) > 0:
+                r.groupStart()
+                self.contentToTeX(r)
+                r.groupEnd()
+            else:
+                linktext = self.__ref.linkText()
+                if linktext:
+                    r.group(self.__ref.linkText())
+                else:
+                    r.group('[??]')
 
 
 class HyperRefNode(Node):
@@ -1375,6 +1952,17 @@ class HyperRefNode(Node):
             else:
                 r.append(i)
         r.tagend('a')
+    def toTeX(self,r):
+        r.macro('htmladdnormallink')
+        r.groupStart()
+
+        for i in self:
+            if isinstance(i,Node):
+                i.toTeX(r)
+            else:
+                r.append(i)
+
+        r.groupEnd()
 
 LinkTextNode            = dummy('LinkTextNode')
 
@@ -1398,18 +1986,55 @@ class AnchorNode(Node):
         return self.toPlainHTML(res)
     def toHTML(self,res):
         return res.emptytag('a', { 'name' : self.__anchor_name }) 
+    def toTeX(self,res):
+        res.macro('label').groupStart()._raw(self.__anchor_name).groupEnd().comment()
+        #res.macro('hypertarget').groupStart()._raw(self.__anchor_name).groupEnd().group(self.linkText()).comment()
+        return res
 
 
 class ItemListNode(Node):
     htmlTag = 'ul'
+    def toTeX(self,r):
+        if len(self):
+            r.comment()
+            r.begin('itemize')
+            for i in self:
+                if isinstance(i,Node):
+                    i.toTeX(r)
+            r.end('itemize').lf()
 class DefinitionListNode(Node):
     htmlTag = 'dl'
+    def toTeX(self,r) :
+        if len(self) > 0:
+            r.comment()
+            r.begin('description')
+            for i in self:
+                if isinstance(i,Node):
+                    i.toTeX(r)
+            r.end('description').lf()
 class ListItemNode(_StructuralNode): 
     htmlTag = 'li'
+    def toTeX(self,r):
+        r.macro('item').group()
+        if self.hasAttr('id'):
+            r.macro('label').groupStart()._raw(self.getAttr('id')).groupEnd()
+        self.contentToTeX(r)
+        r.append('\n')
 class DefinitionTitleNode(_StructuralNode):
     htmlTag = 'dt'
+    def toTeX(self,r) :
+        r.macro('item')
+        r.groupStart()
+        if self.hasAttr('id'):
+            r.macro('label').groupStart()._raw(self.getAttr('id')).groupEnd()
+        self.contentToTeX(r)
+        r.groupEnd().macro('nullbox').macro('par').lf()
+
 class DefinitionDataNode(_StructuralNode): 
     htmlTag = 'dd'
+    def toTeX(self,r):
+        self.contentToTeX(r)
+        r.append('\n')
     
                    
 class _AlignNode(_StructuralNode):
@@ -1421,10 +2046,29 @@ class _AlignNode(_StructuralNode):
     
 class CenterNode(_AlignNode):
     alignText = 'center'
+    def toTeX(self,r):
+        r.begin('center')
+        r.append('\n')
+        self.contentToTeX(r)
+        r.end('center')
+        r.append('\n')
 class FlushLeftNode(_AlignNode):
     alignText = 'left'
+    def toTeX(self,r):
+        r.begin('flushleft')
+        r.append('\n')
+        self.contentToTeX(r)
+        r.end('flushleft')
+        r.append('\n')
 class FlushRightNode(_AlignNode):
     alignText = 'right'
+    def toTeX(self,r):
+        r.begin('flushright')
+        r.append('\n')
+        self.contentToTeX(r)
+        r.end('flushright')
+        r.append('\n')
+
 
 class NoteNode(_StructuralNode): 
     def toHTML(self,res):
@@ -1434,9 +2078,12 @@ class NoteNode(_StructuralNode):
         self.contentToHTML(res)
         res.tagend('div')
         res.tagend('div')
+    def toTeX(self,res):
+        pass
 
 class TableNode(Node):
     htmlTag = 'table'
+    forceTexPar = True
 
     def handleText(self,data,filename,line):
         pass
@@ -1452,14 +2099,31 @@ class TableNode(Node):
                 row.toHTML(res)
         res.tagend('table')
         return res
+    def toTeX(self,r):
+        #if self.hasAttr('class') and self.getAttr('class') == 'class-item-list':
+        #    print "Table node in: %s @ %s" % (self.getParent().__class__.__name__,self.pos)
+        cellhalign = [ s[0] for s in re.split(r'\s+',self.getAttr('cellhalign')) ]
+        r.begin('tabular').group(''.join(cellhalign)).append('\n')
+        self.contentToTeX(r)
+        r.end('tabular')
+        return r
 
 TableColumnNode         = dummy('TableColumnNode') 
 class TableRowNode(Node):
     htmlTag = 'tr'
     def handleText(self,data,filename,line):
         pass
+    def toTeX(self,r):
+        for n in self.data[:-1]:
+            n.toTeX(r)
+            r.tab()
+        self.data[-1].toTeX(r)
+        r.rowend().lf()
+        return r
 class TableCellNode(_StructuralNode):
     htmlTag = 'td'
+    def toTeX(self,r):
+        return self.contentToTeX(r)
 
 class FloatNode(_StructuralNode):
     def handleText(self,data,filename,line):
@@ -1523,12 +2187,26 @@ class FloatNode(_StructuralNode):
         if f == 'no':
             res.tagend('center')
         res.tagend('div')
+    def toTeX(self,r):
+        # we're cheap, so we just use LaTeX's "figure" environment
+        r.begin('figure')# need some options too...
+        if self.__body is not None:
+            self.__body.toTeX(r)
+        r.macro('caption').groupStart()
+        if self.hasAttr('id') is not None:
+            r.macro('label').groupStart()._raw(self.getAttr('id')).groupEnd()
+        if self.__caption:
+            self.__caption.toTeX(r)
+        r.groupEnd()
+        r.end('figure')
 
 class FloatBodyNode(_StructuralNode):
     def toHTML(self,res):
         res.tag('td',{ 'class' : 'float-body' })
         self.contentToHTML(res)
         res.tagend('td')
+    def toTeX(self,r):
+        self.contentToTeX(r)
 
 class FloatCaptionNode(_SimpleNode):
     def __init__(self,manager,parent,attrs,filename,line):
@@ -1541,6 +2219,8 @@ class FloatCaptionNode(_SimpleNode):
             res.append('Fig. %s. ' % label)
         self.contentToHTML(res)
         res.tagend('td')
+    def toTeX(self,r):
+        self.contentToTeX(r)
 
 class PreformattedNode(Node):
     # class: nolink
@@ -1650,6 +2330,27 @@ class PreformattedNode(Node):
 
         r.tagend('pre')
         
+    def toTeX(self,r):
+        return
+        if self.hasAttr('class'):
+            clsd = dict([ (v,v) for v in re.split(r'[ ]+', self.getAttr('class').strip()) ])
+        else:
+            clsd = {}
+        lineno = self.__firstline
+        nodes = list(self)
+
+        if lineno is not None and self.__urlbase is not None and not clsd.has_key('link:no'):
+            r.macro('beginpre').group(self.__urlbase).group(str(lineno))
+        else:
+            r.macro('beginpreplain').lf()
+        
+        for n in nodes:
+            if isinstance(n,Node):
+                n.toTeX(r)
+            else:
+                r.verbatim(n)
+        
+        r.macro('par').macro('endpre').lf()
                            
                            
 class InlineMathNode(Node):
@@ -1666,17 +2367,12 @@ class InlineMathNode(Node):
     
     def getEqnIdx(self):
         if self.__eqnidx is None:
-            self.__eqnidx = manager.addEquation(''.join(self.toTeX([])),self.__filename, self.__line)
+            self.__eqnidx = manager.addEquation('$%s$' % ''.join(self.contentToTeX(texCollector(texCollector.MathMode))),self.__filename, self.__line)
         return self.__eqnidx
     def toTeX(self,r):
-        r.append('$')
-        for i in self:
-
-            if isinstance(i,Node):
-                i.toTeX(r)
-            else:
-                r.append(i)
-        r.append('$')
+        r.inlineMathStart()
+        self.contentToTeX(r)
+        r.inlineMathEnd()
         return r
         
     def toHTML(self,r):
@@ -1703,17 +2399,37 @@ class MathEnvNode(Node):
     
     def getEqnIdx(self):
         if self.__eqnidx is None:
-            self.__eqnidx = manager.addEquation(''.join(self.toTeX([])),self.__filename, self.__line)
+            self.__eqnidx = manager.addEquation('$\\displaystyle{}%s$' % ''.join(self.contentToTeX(texCollector(texCollector.MathMode))),self.__filename, self.__line)
         return self.__eqnidx
-
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         r.append('$\displaystyle ')
         for i in self:
             if isinstance(i,Node):
-                i.toTeX(r)
+                i.toMathTeX(r)
             else:
                 texescape(i,r)
         r.append('$')
+        return r
+    def toTeX(self,r):
+        r.append('\n')
+        if not self.hasAttr('id'):
+            r.macro('[')
+        else:
+            r.begin('equation')
+            r.macro('label').group(self.getAttr('id'))
+            #r.macro('hypertarget').group(self.getAttr('id')).group()
+        r.startMathMode()
+        self.contentToTeX(r)
+        #for i in self:
+        #    if isinstance(i,Node):
+        #        i.toTeX(r)
+        #    else:
+        #        r.append(i)
+        r.endMathMode()
+        if not self.hasAttr('id'):
+            r.macro(']')
+        else:
+            r.end('equation')
         return r
     def linkText(self):
         if self.__index is None:
@@ -1805,6 +2521,16 @@ class _MathNode(Node):
 
             if isinstance(i,Node): i.toTeX(r)
             else: texescape(i,r)
+    def contentToMathTeX(self,r):
+        for i in self:
+            if isinstance(i,ParagraphNode):
+                print self.__class__.__name__
+                assert 0
+
+            if isinstance(i,Node): i.toMathTeX(r)
+            else: texescape(i,r)
+    def toTeX(self,r):
+        assert 0
 
 
 
@@ -1844,7 +2570,7 @@ class MathFencedNode(_MathNode):
         r.append('\\right%s' % close)
 
 class MathFontNode(_MathNode):
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         if self.hasAttr('family'):
             fam = self.getAttr('family')
             if fam in [ 'mathtt', 'mathrm','mathbb','mathfrac','mathcal']:
@@ -1860,6 +2586,22 @@ class MathFontNode(_MathNode):
             r.append('\\%s{' % cmd)
             self.contentToTeX(r)
             r.append('}')
+        else:
+            self.contentToTeX(r)
+    def toTeX(self,r):
+        if self.hasAttr('family'):
+            fam = self.getAttr('family')
+            if fam in [ 'mathtt', 'mathrm','mathbb','mathfrac','mathcal']:
+                cmd = fam
+            else:
+                cmd = fam
+                print "At %s:%d" % self.pos
+                print "Font family: %s" % cmd
+
+                assert 0
+            r.macro(cmd).groupStart()
+            self.contentToTeX(r)
+            r.groupEnd()
         else:
             self.contentToTeX(r)
             
@@ -1886,6 +2628,16 @@ class MathOperatorNode(_MathNode):
         if self.hasAttr('op') and len(self.getAttr('op')) > 0:
             op = self.getAttr('op')
             if op in [ 'sum','lim','prod','sup','inf' ]:
+                r.macro(op)
+            else:
+                raise MathNodeError('Unknown opearator "%s" @ %s:%d' % (op,self.pos[0],self.pos[1])) 
+        else:
+            self.contentToMathTeX(r)
+        return r
+    def toMathTeX(self,r):
+        if self.hasAttr('op') and len(self.getAttr('op')) > 0:
+            op = self.getAttr('op')
+            if op in [ 'sum','lim','prod','sup','inf' ]:
                 r.append('\\%s' % op)
             else:
                 raise MathNodeError('Unknown opearator "%s" @ %s:%d' % (op,self.pos[0],self.pos[1])) 
@@ -1901,18 +2653,38 @@ class MathRowNode(_MathNode):
 class MathSubscriptNode(_MathNode):
     def handleText(self,data,filename,line):
         pass
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         assert len(self) >= 2
         self[0].toTeX(r)
         r.append('_{')
         self[1].toTeX(r)
         r.append('}')
         return r
+    def toTeX(self,r):
+        assert len(self) >= 2
+        self[0].toTeX(r)
+        r.groupStart('_')
+        self[1].toTeX(r)
+        r.groupEnd()
+        return r
          
 class MathSubSuperscriptNode(_MathNode):
     def handleText(self,data,filename,line):
         pass
     def toTeX(self,r):
+        assert len(self) >= 3
+        base = self[0]
+        subarg = self[1]
+        suparg = self[2]
+
+        self[0].toTeX(r)
+        r.groupStart('_')
+        self[1].toTeX(r)
+        r.groupEnd().groupStart('^')       
+        self[2].toTeX(r)
+        r.groupEnd()
+        return r
+    def toMathTeX(self,r):
         assert len(self) >= 3
         base = self[0]
         subarg = self[1]
@@ -1929,36 +2701,58 @@ class MathSubSuperscriptNode(_MathNode):
 class MathSuperscriptNode(_MathNode):
     def handleText(self,data,filename,line):
         pass
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         assert len(self) >= 2
         self[0].toTeX(r)
         r.append('^{')
         self[1].toTeX(r)
         r.append('}')
         return r
+    def toTeX(self,r):
+        assert len(self) >= 2
+        self[0].toTeX(r)
+        r.groupStart('^')
+        self[1].toTeX(r)
+        r.groupEnd()
+        return r
 
 
 class MathTableNode(Node):
     def handleText(self,data,filename,line):
         pass
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         cellhalign = [ s[0] for s in re.split(r'\s+',self.getAttr('cellhalign')) ]
         r.append('\\begin{array}{%s}' % ''.join(cellhalign))
         for i in self:
-            i.toTeX(r)
+            i.toMathTeX(r)
             r.append('\n')
         r.append('\\end{array}')
+        return r
+    def toTeX(self,r):
+        cellhalign = [ s[0] for s in re.split(r'\s+',self.getAttr('cellhalign')) ]
+        r.begin('array').group([''.join(cellhalign)]).append('\n')
+        for i in self:
+            i.toTeX(r)
+            r.append('\n')
+        r.end('array')
         return r
 
 class MathTableRowNode(_MathNode):
     def handleText(self,data,filename,line):
         pass
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         for n in self.data[:-1]:
-            n.toTeX(r)
+            n.toMathTeX(r)
             r.append('&')
         self.data[-1].toTeX(r)
         r.append('\\\\')
+        return r
+    def toTeX(self,r):
+        for n in self.data[:-1]:
+            n.toTeX(r)
+            r.tab()
+        self.data[-1].toTeX(r)
+        r.rowend()
         return r
 
 class MathTableCellNode(_MathNode):
@@ -1967,21 +2761,34 @@ class MathTableCellNode(_MathNode):
 
 
 class MathTextNode(_MathNode):
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         r.append('\\mbox{')
         self.contentToTeX(r)
         r.append('}')
+    def toTeX(self,r):
+        r.macro('mbox').groupStart()
+        self.contentToTeX(r)
+        r.groupEnd()
+        return r
 
 class MathVectorNode(Node):
     def handleText(self,data,filename,line):
         pass
-    def toTeX(self,r):
+    def toMathTeX(self,r):
         r.append('\\begin{array}{c}\n')
         for n in self.data[:-1]:
-            n.toTeX(r)
+            n.toMathTeX(r)
             r.append('\\\\')
         n.toTeX(r)
         r.append('\\end{array}')
+        return r
+    def toTeX(self,r):
+        r.begin('array').group(['c'])
+        for n in self.data[:-1]:
+            n.toTeX(r)
+            r.rowend()
+        n.toTeX(r)
+        r.end('array')
         return r
 
                            
@@ -2007,7 +2814,6 @@ class ImageNode(Node):
         for n in self:
             imtype = n.getAttr('type')
             imurl  = n.getAttr('url')
-
             imgs[imtype.lower()].append(imurl)
             
         if imgs.has_key('image/png'):
@@ -2024,6 +2830,34 @@ class ImageNode(Node):
         
         r.extend([tag('img', { 'src' : imgpath } )])
         return r
+    def toTeX(self,r):
+        imgs = DefaultDict(list)
+
+        filename,line = self.pos[0],self.pos[1]
+
+        if self.hasAttr('filename'):
+            filename = self.getAttr('filename')
+            line = 0
+            if self.hasAttr('line'):
+                line = self.getAttr('line')
+
+        for n in self:
+            imtype = n.getAttr('type')
+            imurl  = n.getAttr('url')
+            imgs[imtype.lower()].append(imurl)
+        
+        if imgs.has_key('image/eps'):
+            url = imgs['image/eps'][0]
+        elif imgs.has_key('image/png'):
+            url = imgs['image/png'][0]
+        else:
+            raise NodeError('No suitable image source found at %s:%d' % (filename,line))
+        
+        # Ugly, but does the job in most cases:
+        r.macro('includegraphics').options(['scale=.3']).groupStart()._raw(self.manager.resolveExternalURL(url)).groupEnd()
+        # Add options later, maybe.
+        return r
+        
 
 class ImageItemNode(Node):
     pass
@@ -2154,6 +2988,8 @@ class RootElement:
         self.documentElement.makeSidebarContents(r,counter())
     def makeSidebarIndex(self,r):
         self.documentElement.makeSidebarIndex(r)
+    def toTeX(self,res):
+        return self.documentElement.toTeX(res)
     def toHTML(self):
         filename = 'index.html'
 
@@ -2209,6 +3045,8 @@ class SymIDRef:
     def __init__(self,manager,key):
         self.__manager = manager
         self.__key = key
+    def getID(self):
+        return self.__key
     def resolve(self):
         return self.__manager.resolveIDTarget(self.__key)
     def getLink(self):
@@ -2351,11 +3189,8 @@ class Manager:
                  debug       = False,
                  searchpaths = [],
                  template    = None,
-                 #stylesheet  = [], # filename 
-                 #javascript  = []): # list of filenames
                  gsbin       = 'gs',
-                 pdflatexbin = 'pdflatex'
-                 ):
+                 pdflatexbin = 'pdflatex'):
         self.__zipfile = outf
         self.__topdir = topdir
         self.__iddict = {}
@@ -2450,6 +3285,7 @@ class Manager:
         del iconsadded
 
 
+
     def doDebug(self):
         return self.__debug
 
@@ -2508,7 +3344,7 @@ class Manager:
             except IOError:
                 pass
         print "Looked in:\n",' \n'.join(self.__searchpaths)
-        raise IncludeError('File not found "%s"' % address)
+        raise IncludeError('File not found "%s". Looked in:\n\t%s' % (address,'\n\t'.join(self.__searchpaths)))
 
     def readFromURL(self,url):
         proto,server,address,_,_ = urlparse.urlsplit(url)
