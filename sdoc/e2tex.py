@@ -2072,6 +2072,8 @@ if __name__ == "__main__":
             conf.update('pagebg',args.pop(0))
         elif arg == '-debug':
             conf.update('debug',args.pop(0))
+        elif arg == '-config':
+            conf.updateFile(args.pop(0))
         elif arg[0] != '-':
             conf.update('infile',arg)
         else:
