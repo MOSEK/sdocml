@@ -2401,15 +2401,6 @@ class MathEnvNode(Node):
         if self.__eqnidx is None:
             self.__eqnidx = manager.addEquation('$\\displaystyle{}%s$' % ''.join(self.contentToTeX(texCollector(texCollector.MathMode))),self.__filename, self.__line)
         return self.__eqnidx
-    def toMathTeX(self,r):
-        r.append('$\displaystyle ')
-        for i in self:
-            if isinstance(i,Node):
-                i.toMathTeX(r)
-            else:
-                texescape(i,r)
-        r.append('$')
-        return r
     def toTeX(self,r):
         r.append('\n')
         if not self.hasAttr('id'):
@@ -2521,14 +2512,6 @@ class _MathNode(Node):
 
             if isinstance(i,Node): i.toTeX(r)
             else: texescape(i,r)
-    def contentToMathTeX(self,r):
-        for i in self:
-            if isinstance(i,ParagraphNode):
-                print self.__class__.__name__
-                assert 0
-
-            if isinstance(i,Node): i.toMathTeX(r)
-            else: texescape(i,r)
     def toTeX(self,r):
         assert 0
 
@@ -2536,9 +2519,9 @@ class _MathNode(Node):
 
 class MathSquareRootNode(_MathNode):
     def toTeX(self,r):
-        r.append('\\sqrt{')
+        r.macro('sqrt').groupStart()
         self.contentToTeX(r)
-        r.append('}')
+        r.groupEnd()
         return r 
 
 class MathRootNode(_MathNode):
@@ -2565,29 +2548,11 @@ class MathFencedNode(_MathNode):
                 close = '\\Vert'
             close = close or '.'
        
-        r.append('\\left%s' % open)
+        r.macro('left')._raw(open).group()
         self.contentToTeX(r)
-        r.append('\\right%s' % close)
+        r.macro('right')._raw(close).group()
 
 class MathFontNode(_MathNode):
-    def toMathTeX(self,r):
-        if self.hasAttr('family'):
-            fam = self.getAttr('family')
-            if fam in [ 'mathtt', 'mathrm','mathbb','mathfrac','mathcal']:
-                cmd = fam
-            #if fam == 'tt':
-            #    cmd = 'mathtt'
-            else:
-                cmd = fam
-                print "At %s:%d" % self.pos
-                print "Font family: %s" % cmd
-
-                assert 0
-            r.append('\\%s{' % cmd)
-            self.contentToTeX(r)
-            r.append('}')
-        else:
-            self.contentToTeX(r)
     def toTeX(self,r):
         if self.hasAttr('family'):
             fam = self.getAttr('family')
@@ -2607,11 +2572,11 @@ class MathFontNode(_MathNode):
             
 class MathFracNode(_MathNode):
     def toTeX(self,r):
-        r.append('\\frac{')
+        r.macro('frac').groupStart()
         self[0].toTeX(r)
-        r.append('}{')
+        r.groupEnd().groupStart()
         self[1].toTeX(r)
-        r.append('}')
+        r.groupEnd()
         return r
     
 class MathIdentifierNode(_MathNode):
@@ -2632,16 +2597,6 @@ class MathOperatorNode(_MathNode):
             else:
                 raise MathNodeError('Unknown opearator "%s" @ %s:%d' % (op,self.pos[0],self.pos[1])) 
         else:
-            self.contentToMathTeX(r)
-        return r
-    def toMathTeX(self,r):
-        if self.hasAttr('op') and len(self.getAttr('op')) > 0:
-            op = self.getAttr('op')
-            if op in [ 'sum','lim','prod','sup','inf' ]:
-                r.append('\\%s' % op)
-            else:
-                raise MathNodeError('Unknown opearator "%s" @ %s:%d' % (op,self.pos[0],self.pos[1])) 
-        else:
             self.contentToTeX(r)
         return r
 
@@ -2653,13 +2608,6 @@ class MathRowNode(_MathNode):
 class MathSubscriptNode(_MathNode):
     def handleText(self,data,filename,line):
         pass
-    def toMathTeX(self,r):
-        assert len(self) >= 2
-        self[0].toTeX(r)
-        r.append('_{')
-        self[1].toTeX(r)
-        r.append('}')
-        return r
     def toTeX(self,r):
         assert len(self) >= 2
         self[0].toTeX(r)
@@ -2684,30 +2632,10 @@ class MathSubSuperscriptNode(_MathNode):
         self[2].toTeX(r)
         r.groupEnd()
         return r
-    def toMathTeX(self,r):
-        assert len(self) >= 3
-        base = self[0]
-        subarg = self[1]
-        suparg = self[2]
-
-        self[0].toTeX(r)
-        r.append('_{')
-        self[1].toTeX(r)
-        r.append('}^{')
-        self[2].toTeX(r)
-        r.append('}')
-        return r
 
 class MathSuperscriptNode(_MathNode):
     def handleText(self,data,filename,line):
         pass
-    def toMathTeX(self,r):
-        assert len(self) >= 2
-        self[0].toTeX(r)
-        r.append('^{')
-        self[1].toTeX(r)
-        r.append('}')
-        return r
     def toTeX(self,r):
         assert len(self) >= 2
         self[0].toTeX(r)
@@ -2720,14 +2648,6 @@ class MathSuperscriptNode(_MathNode):
 class MathTableNode(Node):
     def handleText(self,data,filename,line):
         pass
-    def toMathTeX(self,r):
-        cellhalign = [ s[0] for s in re.split(r'\s+',self.getAttr('cellhalign')) ]
-        r.append('\\begin{array}{%s}' % ''.join(cellhalign))
-        for i in self:
-            i.toMathTeX(r)
-            r.append('\n')
-        r.append('\\end{array}')
-        return r
     def toTeX(self,r):
         cellhalign = [ s[0] for s in re.split(r'\s+',self.getAttr('cellhalign')) ]
         r.begin('array').group([''.join(cellhalign)]).append('\n')
@@ -2740,13 +2660,6 @@ class MathTableNode(Node):
 class MathTableRowNode(_MathNode):
     def handleText(self,data,filename,line):
         pass
-    def toMathTeX(self,r):
-        for n in self.data[:-1]:
-            n.toMathTeX(r)
-            r.append('&')
-        self.data[-1].toTeX(r)
-        r.append('\\\\')
-        return r
     def toTeX(self,r):
         for n in self.data[:-1]:
             n.toTeX(r)
@@ -2761,10 +2674,6 @@ class MathTableCellNode(_MathNode):
 
 
 class MathTextNode(_MathNode):
-    def toMathTeX(self,r):
-        r.append('\\mbox{')
-        self.contentToTeX(r)
-        r.append('}')
     def toTeX(self,r):
         r.macro('mbox').groupStart()
         self.contentToTeX(r)
@@ -2774,14 +2683,6 @@ class MathTextNode(_MathNode):
 class MathVectorNode(Node):
     def handleText(self,data,filename,line):
         pass
-    def toMathTeX(self,r):
-        r.append('\\begin{array}{c}\n')
-        for n in self.data[:-1]:
-            n.toMathTeX(r)
-            r.append('\\\\')
-        n.toTeX(r)
-        r.append('\\end{array}')
-        return r
     def toTeX(self,r):
         r.begin('array').group(['c'])
         for n in self.data[:-1]:
