@@ -191,12 +191,7 @@ class texCollector(UserList.UserList):
                 if self.__mode == self.MathMode:
                     r.append('\\%s' % str(t))
                 else:
-                    if t == '_':
-                        r.append('\\textunderscore{}')
-                    elif t == '^':
-                        r.append('\\texthat{}')
-                    else:
-                        r.append('\\char%d{}' % ord(t))
+                    r.append('\\char%d{}' % ord(t))
             elif t in [ '<', '>' ]:
                 if self.__mode == self.MathMode:
                     r.append(str(t))
@@ -1763,6 +1758,10 @@ class Manager:
         self.__unique_index_counter = counter()
 
         self.__refdIDs = {}
+        self.__citeidx = counter()
+
+    def getNewCiteIdx(self):
+        return self.__citeidx.next()
 
     def getTitlePageBackground(self):
         url = self.__config['titlepagebg']
@@ -2130,7 +2129,7 @@ if __name__ == "__main__":
         manager.checkInternalIDRefs()
 
         outf = open(outfile,"w")
-        data = texCollector()
+        data = e2html.texCollector()
         try:
             root.toTeX(data)
         except:

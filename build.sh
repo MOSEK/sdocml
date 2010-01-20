@@ -6,12 +6,13 @@ if [ "$1" == '-no-rebuild-xml' ]; then
         python sdoc/e2html.py build/output/sdocml-expanded.xml \
           -config conf/sdoc-html.conf \
           -i . \
+          -tempdir build/htmltemp
           -o build/sdoc.zip
     then
         echo > /dev/null
     fi
 else
-    if  echo '** Building reference sections ***************' && \
+    if  echo '** building reference sections ***************' && \
         python sdoc/sdoc2xml.py manual/macrorefdoc.xml \
             -makedoc       build/output/tagsref.xml \
             -macroref      build/output/macroref.xml \
@@ -29,7 +30,8 @@ else
         python sdoc/e2html.py build/output/sdocml-expanded.xml \
           -config conf/sdoc-html.conf \
           -i . \
-          -o build/sdoc.zip
+          -o build/sdoc.zip \
+          -tempdir build/htmltemp
     then
         echo > /dev/null
     fi

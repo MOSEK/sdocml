@@ -295,7 +295,7 @@ class texCollector(UserList.UserList):
     def texescape(self,data,r):
         pos = 0
         #unicoderegex = re.compile(u'[\u0080-\u8000]')
-        for o in re.finditer(ur'\\|{|}|<|>|#|\$|\^|_|[\u0080-\u8000]',data):
+        for o in re.finditer(ur'\\|{|}|<|>|#|\$|\^|_|&|[\u0080-\u8000]',data):
             if o.start(0) > pos:
                 r.append(str(data[pos:o.start(0)]))
             pos = o.end(0)
@@ -311,12 +311,7 @@ class texCollector(UserList.UserList):
                 if self.__mode == self.MathMode:
                     r.append('\\%s' % str(t))
                 else:
-                    if t == '_':
-                        r.append('\\textunderscore{}')
-                    elif t == '^':
-                        r.append('\\texthat{}')
-                    else:
-                        r.append('\\char%d{}' % ord(t))
+                    r.append('\\char%d{}' % ord(t))
             elif t in [ '<', '>' ]:
                 if self.__mode == self.MathMode:
                     r.append(str(t))
@@ -1456,6 +1451,12 @@ class BibliographyNode(SectionNode):
 
         self.__manager.writeHTMLfile(self.__nodefilename,d)  
 
+    def contentToTeX(self,r,level):
+        r.append('[Bibliography goes here]')
+        return r
+    def toTeX(self,r,level):
+        return self.contentToTeX(r,level)
+
 
 class BibItemNode(Node):
     nodeName = 'bibitem'
@@ -1591,9 +1592,7 @@ class DocumentNode(SectionNode):
         res.macro('documentclass').group('book')
         
         res.macro('setcounter').group('secnumdepth').group('4')
-        res._raw('\\def\\textunderscore\\char95\n')
-        res._raw('\\def\\texthat\\char94\n')
-        for p in ['graphicx',
+        for p in [#'graphicx',
                   'amsmath',
                   'amssymb',
                   'latexsym',
@@ -1761,6 +1760,8 @@ class AuthorNode(Node):
             r.div('author-email')
             d['email'].toHTML(r)
             r.tagend('div')
+    def toTeX(self,r):
+        pass
 
 class TitleNode(Node):
     def toTeX(self,res):
