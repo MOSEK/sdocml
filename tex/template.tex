@@ -1,0 +1,81 @@
+%%BEGIN SDOCINFO
+%%NOTE:This section contains links to _all_ external resources used in the template
+%file: graphics/titlepg.pdf
+%file: graphics/pagebg.pdf
+%%END   SDOCINFO
+
+\documentclass[a4paper]{book}\setcounter{secnumdepth}{4}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{latexsym}
+\usepackage{amsfonts}
+\usepackage{verbatim}
+\usepackage{makeidx}
+\usepackage{listings}
+\usepackage[usenames]{color}
+\usepackage{eso-pic}
+\usepackage{hyperref}
+\usepackage[left=3cm,right=3cm]{geometry}
+\usepackage[pdftex]{graphicx}
+
+%%% >>> hyperref package setup
+\hypersetup{colorlinks=true}
+\hypersetup{latex2html=true}
+\hypersetup{pdfpagelabels=true}
+\hypersetup{plainpages=false}
+\hypersetup{pdfkeywords=true}
+%%% <<<
+
+%%% >>> Define macros used for numbering lines
+\newcount\prelineno\newbox\preheadbox\newdimen\preheadbarwidth
+\def\preputlineno{\llap{{\tiny\the\prelineno}\hspace{1em}}\advance\prelineno by1}
+\def\prehead#1{\leaders\hbox{\rule[.2em]{1em}{1pt}}\hfill{#1}}
+\def\predelimplain{\leaders\hbox{\rule[.2em]{1em}{1pt}}\hfill\rule{0in}{0in}}
+\def\beginpre#1#2{\prelineno=#2\par\noindent\prehead{\tt #1}\par\begingroup\footnotesize\parindent=0in\obeylines\obeyspaces\ttfamily\everypar{\preputlineno\ }}
+\def\beginpreplain{\par\noindent\predelimplain\par\begingroup\footnotesize\parindent=0in\obeylines\obeyspaces\ttfamily}
+\def\endpre{\endgroup\par\noindent\predelimplain\par}
+%%% <<<
+\def\nullbox{\rule{0pt}{0pt}}
+\def\authorsep{\vrule height1.3em width0pt depth1em\rule{0.3em}{0.3em}}
+
+
+\title{%{TITLE}%}
+\date{%{DATE}%}
+\author{%{AUTHOR}%}
+
+\bibliographystyle{plain}
+
+\begin{document}
+
+%%% >>> Define macro for setting background picture.
+\makeatletter
+\newcommand{\BackgroundPicture}[1]{\put(0,\strip@pt\paperheight){\parbox[t][\paperheight]{\paperwidth}{\vfill\centering\includegraphics{#1}\vfill}}}
+\makeatother
+%%% USER >>> Define colors.
+\definecolor{Red}{rgb}{0.7,0,0}
+\definecolor{Green}{rgb}{0.0,0.7,0}
+\definecolor{Blue}{rgb}{0.0,0.0,0.7}
+%%% USER >>> Redefine these to change syntax hilighting.
+
+\def\SDocSyntaxKeyword#1{\textcolor{Blue}{#1}}
+\def\SDocSyntaxString#1{\textcolor{Green}{#1}}
+\def\SDocSyntaxComment#1{\textcolor{Red}{#1}}
+\def\SDocSyntaxLanguage#1{#1}
+%%% <<<
+
+%%% USER >>> Remove following line to disable title page background
+\AddToShipoutPicture{\BackgroundPicture{%{FILE:graphics/titlepg.pdf}%}}
+%%% <<<
+\maketitle
+\ClearShipoutPicture
+
+%%% USER >>> Remove following line to disable background in normal pages
+%\AddToShipoutPicture{\BackgroundPicture{%{FILE:graphics/sdocpagebg.pdf}%}}
+%%% <<<
+
+\tableofcontents
+%{BODY}%
+
+%\makeindex
+\end{document}

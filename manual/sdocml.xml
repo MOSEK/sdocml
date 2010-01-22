@@ -13,9 +13,10 @@
       <author>
         <firstname>Ulf</firstname>
         <lastname>Worsøe</lastname>
+        <institution>Mosek ApS</institution>
       </author>
       <author>
-        <firstname>The self-documenting MoTeX Documentation System</firstname>
+        <firstname>The self-documenting Documentation System</firstname>
       </author>
     </authors>
   </head>

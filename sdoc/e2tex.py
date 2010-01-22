@@ -16,6 +16,13 @@ import sys
 import time
 import os
 
+
+## WARNING: Most of the code in this file is NOT USED!! Only the "__main__"
+# part at the bottom  is acrually active; all remainaing functionality is
+# implemented in e2html.py.
+
+
+
 ################################################################################
 ################################################################################
 class _mathUnicodeToTex:
@@ -1760,6 +1767,70 @@ class Manager:
         self.__refdIDs = {}
         self.__citeidx = counter()
 
+    def writeInTemplate(self,filename,repl):
+        scan_re = re.compile(r'^%%BEGIN\s+(?P<begin>SDOCINFO).*|^%%END\s+(?P<end>SDOCINFO).*|^%(?P<line>[a-zA-Z].*)',re.MULTILINE)
+        
+        templatebase = os.path.abspath(os.path.dirname(self.__config['template']))
+
+        f = open(self.__config['template'],'rt')
+        data = f.read()
+        f.close()
+
+        it = scan_re.finditer(data)
+        conflines = []
+        try:
+            while True:
+                o = it.next()
+                if o.group('begin'):
+                    break 
+            while True:
+                o = it.next()
+                if o.group('end'):
+                    break
+                elif o.group('line'):
+                    conflines.append(o.group('line'))
+        except StopIteration:
+            print "END"
+            pass
+
+        repldict = {  }
+        repldict.update(repl)
+
+        print conflines
+        for l in conflines:
+            key,val = [ s.strip() for s in l.split(':',1) ]
+            if key == 'file':
+                repldict['FILE:%s' % val] = os.path.join(templatebase,val)
+        
+        try:
+            os.makedirs(os.path.dirname(filename))
+        except OSError:
+            pass
+        of = open(filename,'wt')
+                
+        template_re = re.compile(r'%\{(?P<key>(?:[^}]|\}[^%])+)\}%|%.*',re.MULTILINE)
+        pos = 0
+        for o in template_re.finditer(data):
+            if o.group('key') is not None:
+                if o.start(0) > pos:
+                    of.write(data[pos:o.start(0)])
+                pos = o.end(0)
+                try:
+                    item = repldict[o.group(1)] 
+                    if isinstance(item,basestring):
+                        of.write(item)
+                    else:
+                        of.writelines(item)
+                except KeyError:
+                    msg('No such key "%s". Valid keys are:\n\t%s' % (o.group(1),'\n\t'.join(repldict.keys())))
+                    raise
+        if pos < len(data):
+            of.write(data[pos:])
+            
+
+        of.close()
+        
+
     def getNewCiteIdx(self):
         return self.__citeidx.next()
 
@@ -1802,9 +1873,11 @@ class Manager:
     
     def styleLookup(self,key):
         # hardcoded for now...
-        styles = { 'language-syntax-keyword' : ['sdocBlue'],
-                   'language-syntax-string'  : ['textsl','sdocGreen'],
-                   'language-syntax-comment' : ['sdocRed'] }
+        styles = { 'language-syntax-keyword'  : ['SDocSyntaxKeyword'],
+                   'language-syntax-string'   : ['SDocSyntaxString'],
+                   'language-syntax-comment'  : ['SDocSyntaxComment'],
+                   'language-syntax-language' : ['SDocSyntaxLanguage'],
+                    }
         if styles.has_key(key):
             return styles[key]
         else:
@@ -2045,14 +2118,15 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     
     conf = config.Configuration(
-        {   'infile'            : config.UniqueDirEntry('infile'),
-            'outfile'           : config.UniqueDirEntry('outfile'),
-            'incpath'           : config.DirListEntry('incpath'),
-            'pdftexbin'         : config.UniqueDirEntry('pdftexbin',default='pdflatex'),
-            'tempdir'           : config.UniqueDirEntry('tempdir',default="temp"),
-            'debug'             : config.UniqueBoolEntry('debug'),
-            'titlepagebg'       : config.UniqueDirEntry('titlepagebg'),
-            'pagebg'            : config.UniqueDirEntry('pagebg'),
+        {   'infile'      : config.UniqueDirEntry('infile'),
+            'outfile'     : config.UniqueDirEntry('outfile'),
+            'incpath'     : config.DirListEntry('incpath'),
+            'pdftexbin'   : config.UniqueDirEntry('pdftexbin',default='pdflatex'),
+            'tempdir'     : config.UniqueDirEntry('tempdir',default="temp"),
+            'debug'       : config.UniqueBoolEntry('debug'),
+            'titlepagebg' : config.UniqueDirEntry('titlepagebg'),
+            'pagebg'      : config.UniqueDirEntry('pagebg'),
+            'template'    : config.UniqueDirEntry('template'),
             }
         )
     
@@ -2073,6 +2147,8 @@ if __name__ == "__main__":
             conf.update('debug',args.pop(0))
         elif arg == '-config':
             conf.updateFile(args.pop(0))
+        elif arg == '-template':
+            conf.update('template',args.pop(0))
         elif arg[0] != '-':
             conf.update('infile',arg)
         else:
@@ -2129,7 +2205,9 @@ if __name__ == "__main__":
         manager.checkInternalIDRefs()
 
         outf = open(outfile,"w")
-        data = e2html.texCollector()
+
+        data = e2html.DefaultDict(e2html.texCollector)
+        #data = e2html.texCollector()   
         try:
             root.toTeX(data)
         except:
@@ -2137,11 +2215,13 @@ if __name__ == "__main__":
             traceback.print_exc()
             raise
         msg('Writing file %s' % outfile) 
-        outf.writelines(data)
-        outf.close()
-        msg('Fini!')
-
-
-
+        try:
+            manager.writeInTemplate(outfile,data)
+            msg('Fini!')
+        except Exception,e:
+            msg('Failed!')
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
 
 

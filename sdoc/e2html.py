@@ -1588,78 +1588,13 @@ class DocumentNode(SectionNode):
         self.appendSubsection(_IndexNode(self.__manager,self))
         SectionNode.endOfElement(self,filename,line)
     def toTeX(self,res):
-        res.macro('documentclass').group('book')
-        
-        res.macro('setcounter').group('secnumdepth').group('4')
-        for p in [#'graphicx',
-                  'amsmath',
-                  'amssymb',
-                  'latexsym',
-                  'amsfonts',
-                  'verbatim',
-                  'makeidx',
-                  'listings',
-                  ]:
-            res.macro('usepackage').group(p).lf()
-        res.macro('usepackage').options('usenames').group('color').lf()
-        res.macro('usepackage').group('eso-pic').lf()
-        res.macro('usepackage').group('hyperref').lf()
-        res.macro('usepackage').options('left=3cm,right=3cm').group('geometry').lf()
-        res.macro('usepackage').options('pdftex').group('graphicx').lf()
-
-
-        res.macro('hypersetup').group('colorlinks=true').lf()
-        res.macro('hypersetup').group('latex2html=true').lf()
-        res.macro('hypersetup').group('pdfpagelabels=true').lf()
-        res.macro('hypersetup').group('plainpages=false').lf()
-        res.macro('hypersetup').group('pdfkeywords=true').lf()
-
-        # Our own pseudo-verbatim environment... not very flexible, but usable.
-        res._raw('\\newcount\\prelineno\\newbox\\preheadbox\\newdimen\\preheadbarwidth\n')
-        res._raw('\\def\\preputlineno{\llap{{\\tiny\\the\\prelineno}\hspace{1em}}\\advance\\prelineno by1}\n')
-        #res._raw('\\def\\prehead#1{\\setbox\\preheadbox=\\hbox{\\ #1}\\preheadbarwidth=\\textwidth\\\\preheadbarwidth by -\\wd\\preheadbox \\rule{\\preheadbarwidth}{1pt}{\\ #1}}\n')
-        res._raw('\\def\\prehead#1{\\leaders\\hbox{\\rule[.2em]{1em}{1pt}}\\hfill{#1}}\n')
-        res._raw('\\def\\predelimplain{\\leaders\\hbox{\\rule[.2em]{1em}{1pt}}\\hfill\\rule{0in}{0in}}\n')
-
-        #res._raw('\\def\\beginpre#2{\\prelineno=#2\\par\\noindent\\prehead{\\sc #1}\\par\\begingroup\\parindent=0in\\obeylines\\tt{}\\everypar{\\advance\\prelineno by1\\llap{{\\footnotesize\\the\\prelineno\\ \\ }}}}\n')
-        res._raw('\\def\\beginpre#1#2{\\prelineno=#2\\par\\noindent\\prehead{\\tt #1}\\par\\begingroup\\footnotesize\\parindent=0in\\obeylines\\obeyspaces\\ttfamily\\everypar{\\preputlineno\ }}\n')
-        res._raw('\\def\\beginpreplain{\\par\\noindent\\predelimplain\\par\\begingroup\\footnotesize\\parindent=0in\\obeylines\\obeyspaces\\ttfamily}\n')
-        res._raw('\\def\\endpre{\\endgroup\\par\\noindent\\predelimplain\\par}\n')
-        res._raw('\\def\\nullbox{\\rule{0pt}{0pt}}\n')
-        res.append('\n\n')
-        res.macro('makeindex').group()
-        self.getTitle().toTeX(res)
+        self.getTitle().contentToTeX(res['TITLE'])
+        res['DATE'].append('')
         auths = self.getAuthors()
         if auths:
-            self.getAuthors().toTeX(res)
-        res.macro('date').group()
-
-
-        res.macro('bibliographystyle').group('plain')
-        res.begin('document').lf()
-        res._raw('\\makeatletter\n')
-        #res._raw('\\newcommand\\TitleBackgroundPicture{\\put(0,\\strip@pt\\paperheight){\\parbox[t][\\paperheight]{\\paperwidth}{\\vfill\\centering\\includegraphics{%s}\\vfill}}}\n' % titlepgbg)
-        res._raw('\\newcommand{\\BackgroundPicture}[1]{\\put(0,\\strip@pt\\paperheight){\\parbox[t][\\paperheight]{\\paperwidth}{\\vfill\\centering\\includegraphics{#1}\\vfill}}}\n')
-        res._raw('\\makeatother\n')
-        #Title page background:
-        if self.manager.getTitlePageBackground():
-            res._raw('\\AddToShipoutPicture{\\BackgroundPicture{%s}}\n' % os.path.abspath(self.manager.getTitlePageBackground()))
-            
-        #Style definitions:
-        res._raw('\\definecolor{Red}{rgb}{0.7,0,0}\n')
-        res._raw('\\definecolor{Green}{rgb}{0.0,0.7,0}\n')
-        res._raw('\\definecolor{Blue}{rgb}{0.0,0.0,0.7}\n')
-        res._raw('\\def\\sdocRed#1{\\textcolor{Red}{#1}}\n')
-        res._raw('\\def\\sdocGreen#1{\\textcolor{Green}{#1}}\n')
-        res._raw('\\def\\sdocBlue#1{\\textcolor{Blue}{#1}}\n')
-        res.macro('maketitle\n')
-        res._raw('\\ClearShipoutPicture\n')
-        if self.manager.getAnyPageBackground():
-            res._raw('\\AddToShipoutPicture{\\BackgroundPicture{%s}}\n' % os.path.abspath(self.manager.getAnyPageBackground()))
-        res.macro('tableofcontents\n')
-
-        self.contentToTeX(res,0)
-        res.end('document')
+            self.getAuthors().contentToTeX(res['AUTHOR'])
+        
+        self.contentToTeX(res['BODY'],0)
         return res
 
 class BodyNode(_StructuralNode):
@@ -1730,6 +1665,13 @@ class AuthorsNode(Node):
                 r.tagend('tr')
             r.tagend('table')
             r.tagend('div')
+    def contentToTeX(self,r):
+        self[0].toTeX(r)
+
+        for author in self.data[1:]:
+            r.macro('\\').macro('authorsep').macro('\\')
+            author.toTeX(r)
+         
             
 class AuthorNode(Node):
     def handleText(self,data,filename,line):
@@ -1760,7 +1702,35 @@ class AuthorNode(Node):
             d['email'].toHTML(r)
             r.tagend('div')
     def toTeX(self,r):
-        pass
+        return self.contentToTeX(r)
+    def contentToTeX(self,r):
+        d = { 'firstname' : None,
+              'lastname'  : None,
+              'email'     : None,
+              'institution' : [],
+               }
+        for n in self:
+            d[n.nodeName] = n
+        
+        hasname = False
+        if d['firstname'] or d['lastname']:
+            if d['firstname'] and d['lastname']:            
+                d['firstname'].toTeX(r)
+                r.append(' ')
+                d['lastname'].toTeX(r)
+                hasname = True
+            elif d['lastname']:
+                d['lastname'].toTeX(r)
+                hasname = True
+            elif d['firstname']:
+                d['firstname'].toTeX(r)
+                hasname = True
+
+        if d['email']:
+            if hasname:
+                r.append('{, }')
+            d['email'].toTeX(r)
+        
 
 class TitleNode(Node):
     def toTeX(self,res):
@@ -2331,7 +2301,6 @@ class PreformattedNode(Node):
         r.tagend('pre')
         
     def toTeX(self,r):
-        return
         if self.hasAttr('class'):
             clsd = dict([ (v,v) for v in re.split(r'[ ]+', self.getAttr('class').strip()) ])
         else:
