@@ -1094,8 +1094,7 @@ class SectionNode(Node):
         if cls is not None:
             res.tagend('div')
     def makeFooter(self,res):
-        res.extend([tag('div',{ 'class' : 'page-footer'}),self.__manager.getTimeStamp(),tag('br'),
-                    tagend('div')])
+        res.extend([self.__manager.getTimeStamp()])
     def makeNavigation(self,d,prev=None,next=None,up=None,top=None,index=None,position='top'):
         #res.extend([tag('div', { 'class' : 'iconbar-navigation' }), tag('table'), tag('tr')])
         assert isinstance (d,dict)
@@ -3013,7 +3012,7 @@ class TemplateParser(HTMLParser.HTMLParser):
             if   tag in [ 'a','link' ]:
                 nattrs = []
                 for k,v in attrs:
-                    if k == 'href' and urlparse.urlparse(v)[0] != 'javascript':
+                    if k == 'href' and urlparse.urlparse(v)[0] in  ['','file']:
                         nattrs.append((k,self.linkmap[v]))
                     else:
                         nattrs.append((k,v))
