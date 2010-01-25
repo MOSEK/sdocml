@@ -231,7 +231,8 @@ class texCollector(UserList.UserList):
                 r.append(str(data[pos:o.start(0)]))
             pos = o.end(0)
             if o.group('space'):
-                r.append('\\ ' * len(o.group('space')))
+                #r.append('\\ ' * len(o.group('space')))
+                r.append(o.group('space'))
             elif o.group('escape'):
                 r.append('\\%s' % o.group('escape'))
             elif o.group('special'):
@@ -1768,38 +1769,22 @@ class Manager:
         self.__citeidx = counter()
 
     def writeInTemplate(self,filename,repl):
-        scan_re = re.compile(r'^%%BEGIN\s+(?P<begin>SDOCINFO).*|^%%END\s+(?P<end>SDOCINFO).*|^%(?P<line>[a-zA-Z].*)',re.MULTILINE)
+        scan_re = re.compile(r'%{FILE:(?P<file>[^}]+)}%|%.*',re.MULTILINE)
+  
+        #scan_re = re.compile(r'^%%BEGIN\s+(?P<begin>SDOCINFO).*|^%%END\s+(?P<end>SDOCINFO).*|^%(?P<line>[a-zA-Z].*)',re.MULTILINE)
         
         templatebase = os.path.abspath(os.path.dirname(self.__config['template']))
 
         f = open(self.__config['template'],'rt')
         data = f.read()
         f.close()
-
-        it = scan_re.finditer(data)
-        conflines = []
-        try:
-            while True:
-                o = it.next()
-                if o.group('begin'):
-                    break 
-            while True:
-                o = it.next()
-                if o.group('end'):
-                    break
-                elif o.group('line'):
-                    conflines.append(o.group('line'))
-        except StopIteration:
-            print "END"
-            pass
-
+        
         repldict = {  }
         repldict.update(repl)
 
-        print conflines
-        for l in conflines:
-            key,val = [ s.strip() for s in l.split(':',1) ]
-            if key == 'file':
+        for o in scan_re.finditer(data):
+            if o.group('file') is not None:
+                val = o.group('file')
                 repldict['FILE:%s' % val] = os.path.join(templatebase,val)
         
         try:

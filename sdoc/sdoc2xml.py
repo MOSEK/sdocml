@@ -99,7 +99,7 @@ def makemacroref(outfile,docRoot,title):
             filename = os.path.basename(filename)
             f.write('    <dt>Defined at:</dt><dd>%s:%d</dd>\n' % (filename,line))
             f.write('    <dt>Number of arguments:</dt> <dd>%d</dd>\n' % d.nArgs())
-            f.write('    <dt>Expands to:</dt><dd><pre>\n')
+            f.write('    <dt>Expands to:</dt><dd><pre>')
             f.write(xescape(d.docExpandMacro()))
             
             f.write('</pre></dd>')

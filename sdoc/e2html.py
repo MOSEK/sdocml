@@ -19,96 +19,6 @@ import time
 import os
 import HTMLParser
 
-## Default hardcoded style. Not nice. Fix this!
-style = \
-"""
-    ul.enumerate        {
-                                list-style-type : decimal;
-                        }
-    h2                  {       font-family : sans-serif; }
-    h3                  {       font-family : sans-serif; }
-    h4                  {       font-family : sans-serif; }
-    h5                  {       font-family : sans-serif; }
-
-"""
-
-javascript =  \
-"""
-    function _showItem(id)
-    {
-        var elm = document.getElementById(id);
-        elm.style.display = "block";
-    }
-    function _hideItem(id)
-    {
-        var elm = document.getElementById(id);
-        elm.style.display = "none";
-    }
-
-    function showSidebarIndex()
-    {
-        _hideItem('sidebar-contents')
-        _showItem('sidebar-index')
-    }
-    function showSidebarContents()
-    {
-        _hideItem('sidebar-index')
-        _showItem('sidebar-contents')
-    }
-
-    function toggleSidebar()
-    { 
-        var elm = document.getElementById("sidebar-area");
-        if (elm.style.display != "none")
-        {
-            elm.style.display = "none";
-        }
-        else
-        {
-            elm.style.display = "block";
-        }
-    }
-    
-    function toggleDisplayBlock(id)
-    { 
-        var elm = document.getElementById(id);
-        if (elm.style.display != "none")
-        {
-            elm.style.display = "none";
-        }
-        else
-        {
-            elm.style.display = "block";
-        }
-    }
-
-
-    function log(msg)
-    {
-        var elm = document.getElementById("debug-area");
-        elm.innerHTML = elm.innerHTML + msg + "|";
-
-    }
-
-    function toggleLineNumbers(id)
-    {
-        var elm = document.getElementById(id);
-        
-        for (n=elm.firstChild; n != null; n = n.nextSibling)
-        {
-            if (n.nodeName == "SPAN"
-                && n.attributes.getNamedItem("class").value == "line-no"
-                )
-            {
-                if (n.style.display == "none")
-                    n.style.display = "inline";
-                else
-                    n.style.display = "none";
-            }
-        }
-    }
-"""
-
 
 
 
@@ -295,7 +205,7 @@ class texCollector(UserList.UserList):
     def texescape(self,data,r):
         pos = 0
         #unicoderegex = re.compile(u'[\u0080-\u8000]')
-        for o in re.finditer(ur'\\|{|}|<|>|#|\$|\^|_|&|[\u0080-\u8000]',data):
+        for o in re.finditer(ur'\\|{|}|<|>|#|\$|\^|_|&|%|[\u0080-\u8000]',data):
             if o.start(0) > pos:
                 r.append(str(data[pos:o.start(0)]))
             pos = o.end(0)
@@ -305,7 +215,7 @@ class texCollector(UserList.UserList):
                     r.append('$\\tt\\backslash$')
                 else:
                     r.append('\\tt\\backslash{}')
-            elif t in [ '{', '}', '#','$','&' ]:
+            elif t in [ '{', '}', '#','$','&','%' ]:
                 r.append('\\%s' % str(t))
             elif t in [ '^','_' ]:
                 if self.__mode == self.MathMode:
@@ -338,12 +248,14 @@ class texCollector(UserList.UserList):
 
     def texverbatim(self,data,r):
         pos = 0
-        for o in re.finditer(ur'(?P<unicode>[\u0080-\u8000])|(?P<lf>\n)|(?P<space>[ ]+)|(?P<escape>%|\#|&)|(?P<special>\\|~|\^|\$|{|}|_)',data,re.MULTILINE):
+        for o in re.finditer(ur'(?P<unicode>[\u0080-\u8000])|(?P<lf>\n)|(?P<space>[ ]+)|(?P<escape>%|\#|&)|(?P<special>\\|~|\^|\$|{|}|_|%)',data,re.MULTILINE):
             if o.start(0) > pos:
                 r.append(str(data[pos:o.start(0)]))
             pos = o.end(0)
             if o.group('space'):
-                r.append('\\ ' * len(o.group('space')))
+                #r.append('\\ ' * len(o.group('space')))
+                r.append('\\nullbox{}')
+                r.append(o.group('space'))
             elif o.group('escape'):
                 r.append('\\%s' % o.group('escape'))
             elif o.group('special'):
@@ -358,7 +270,7 @@ class texCollector(UserList.UserList):
                     Warning('Unicode in verbatim field: %d' % uidx)
                     r.append('\\#4%d' % uidx)
             elif o.group('lf'):
-                r.append('\\nullbox\\par%\n')
+                r.append('\\par%\n')
             else:
                 print "TEXT = '%s'" % o.group(0)
                 assert 0
@@ -407,6 +319,7 @@ class texCollector(UserList.UserList):
         self.data.extend([ '%% %s\n' % l for l in lines ])
     def lf(self):
         self.data.append('\n')
+        return self
     def macro(self,name):
         assert name not in [ 'begin', 'end' ]
         self.data.append('\\%s' % name)
@@ -900,13 +813,21 @@ class Node(UserList.UserList):
             print "ASSERT in %s at %s" % (self.__class__.__name__,self.pos)
             raise Exception(e)
 
-    def contentToTeX(self,r,escspace=False):
+    def contentToTeX(self,r):
         for i in self:
             if isinstance(i,Node):
                 i.toTeX(r)
             else:
 
                 r.append(i)
+        return r
+    
+    def contentToVerbatimTeX(self,r):
+        for i in self:
+            if isinstance(i,Node):
+                i.toVerbatimTeX(r)
+            else:
+                r.verbatim(i)
         return r
         
 
@@ -1451,7 +1372,13 @@ class BibliographyNode(SectionNode):
         self.__manager.writeHTMLfile(self.__nodefilename,d)  
 
     def contentToTeX(self,r,level):
-        r.append('[Bibliography goes here]')
+        if self.__items:
+            r.macro(self.sectcmds[0]).group('Bibliography').lf()
+            r.begin('thebibliography').group(['XXXXXX']).lf()
+            for n in self.__items:
+                n.toTeX(r) 
+
+            r.end('thebibliography').lf()
         return r
     def toTeX(self,r,level):
         return self.contentToTeX(r,level)
@@ -1477,6 +1404,11 @@ class BibItemNode(Node):
         r.tagend('dd')
         return r
 
+    def toTeX(self,r):
+        r.macro('bibitem').groupStart()._raw(self.getAttr('key')).groupEnd()
+        Node.toTeX(self,r)
+        r.lf()
+        return r
 
 class _IndexNode(SectionNode):
     def __init__(self,
@@ -1574,9 +1506,8 @@ class _IndexNode(SectionNode):
         
         manager.writelinesfile('xref.html',d)
     def toTeX(self,r,level):
-        r.append(u'[Index goes here]')
+        return r
     def contentToTeX(self,r):
-        r.append(u'[Index goes here]')
         return r
 
 class DocumentNode(SectionNode):
@@ -1584,6 +1515,8 @@ class DocumentNode(SectionNode):
     def __init__(self,manager,parent,attrs,filename,line):
         self.__manager = manager
         SectionNode.__init__(self,manager,parent,(),1,True,attrs,filename,line)
+    def getSectionFilename(self):
+        return 'index.html'
     def endOfElement(self,filename,line):
         self.appendSubsection(_IndexNode(self.__manager,self))
         SectionNode.endOfElement(self,filename,line)
@@ -1593,6 +1526,9 @@ class DocumentNode(SectionNode):
         auths = self.getAuthors()
         if auths:
             self.getAuthors().contentToTeX(res['AUTHOR'])
+        else:
+            res['AUTHOR'].append('')
+
         
         self.contentToTeX(res['BODY'],0)
         return res
@@ -1785,6 +1721,13 @@ class _SimpleNode(Node):
         self.contentToTeX(res)
         res.groupEnd()
 
+    def toVerbatimTeX(self,res):
+        res.groupStart()
+        res.macro(self.macro)
+        res.append(' ')
+        self.contentToVerbatimTeX(res)
+        res.groupEnd()
+    
     def toHTML(self,res):
         attrs = dict(self.getAttrs())
         res.tag(self.htmlTag,attrs)
@@ -1820,7 +1763,17 @@ class SpanNode(_SimpleNode):
             for s in styles:
                 res.groupEnd()
         else:
-            self.contentToTeX(res,escspace=True)
+            self.contentToTeX(res)
+    def toVerbatimTeX(self,res):
+        if self.hasAttr('class'):
+            styles = self.manager.styleLookup(self.getAttr('class'))
+            for s in styles:
+                res.macro(s).groupStart()
+            self.contentToVerbatimTeX(res)
+            for s in styles:
+                res.groupEnd()
+        else:
+            self.contentToVerbatimTeX(res)
 
         
 
@@ -2309,13 +2262,13 @@ class PreformattedNode(Node):
         nodes = list(self)
 
         if lineno is not None and self.__urlbase is not None and not clsd.has_key('link:no'):
-            r.macro('beginpre').group(self.__urlbase).group(str(lineno))
+            r.macro('beginpre').group(self.__urlbase).group(str(lineno)).macro('nullbox').group()
         else:
-            r.macro('beginpreplain').lf()
+            r.macro('beginpreplain').macro('nullbox').group()
         
         for n in nodes:
             if isinstance(n,Node):
-                n.toTeX(r)
+                n.toVerbatimTeX(r)
             else:
                 r.verbatim(n)
         
@@ -2861,44 +2814,45 @@ class RootElement:
     def toTeX(self,res):
         return self.documentElement.toTeX(res)
     def toHTML(self):
-        filename = 'index.html'
+        if 0:
+            filename = 'index.html'
 
-        authors = self.documentElement.getAuthors()
+            authors = self.documentElement.getAuthors()
 
-        stylesheet = self.__manager.getMainStylesheet()
-        r = htmlCollector()
+            stylesheet = self.__manager.getMainStylesheet()
+            r = htmlCollector()
 
-        r.tag('html')
-        r.tag('head')
-        self.__manager.addDefaultHeader(r)
-        r.extend([tag('style'),style,tagend('style') ])
-        r.tagend('head')
-        r.tag('body')
-        ################################################################################
-        r.append(hr_delim)
-        r.tag('center')
-        r.tag('h1')
-        self.documentElement.getTitle().toHTML(r)
-        r.tagend('h1')
-        if authors:
-            authors.toHTML(r)
-        r.tagend('center')
-        ################################################################################
-        r.append(hr_delim)
-        r.div("top-level-contents toc")
-        self.documentElement.makeContents(r,1,5,True,'xref.html')
-        r.tagend('div')
+            r.tag('html')
+            r.tag('head')
+            #r.extend([tag('style'),style,tagend('style') ])
+            r.tagend('head')
+            r.tag('body')
+            ################################################################################
+            r.append(hr_delim)
+            r.tag('center')
+            r.tag('h1')
+            self.documentElement.getTitle().toHTML(r)
+            r.tagend('h1')
+            if authors:
+                authors.toHTML(r)
+            r.tagend('center')
+            ################################################################################
+            r.append(hr_delim)
+            r.div("top-level-contents toc")
+            self.documentElement.makeContents(r,1,5,True,'xref.html')
+            r.tagend('div')
 
-        ################################################################################
-        r.append(hr_delim)
-        r.div("page-footer")
-        r.append(self.__manager.getTimeStamp())
-        r.tagend('div')
-        r.tagend('body')
-        r.tagend('html')
-        
-        self.__manager.writelinesfile(filename,r)
+            ################################################################################
+            r.append(hr_delim)
+            r.div("page-footer")
+            r.append(self.__manager.getTimeStamp())
+            r.tagend('div')
+            r.tagend('body')
+            r.tagend('html')
+            
+            self.__manager.writelinesfile(filename,r)
 
+        #self.documentElement.toHTMLFile(None,None,self,self,'xref.html')
         self.documentElement.toHTMLFile(None,None,self,self,'xref.html')
 
     def getTitle(self):
@@ -3162,16 +3116,6 @@ class Manager:
     def getNewCiteIdx(self):
         return self.__citeidx.next()
     
-    def addDefaultHeader(self,r):
-        r.tag('meta', { 'http-equiv' : "Content-Type", 'content' : "text/html; charset=UTF-8" })
-        #if self.__appicon is not None:
-        #    r.tag('link', { 'href' : self.__appicon, 'rel' : 'shortcut icon' })
-        r.tag('script').appendRaw('<!--\n')
-        r.appendRaw(javascript)
-        r.appendRaw('\n-->\n').tagend('script')
-        for ss in self.__stylesheet:
-            r.tag('link', { 'rel' : "StyleSheet", 'href' : ss, 'type' : "text/css" })
-
     def getIcon(self,key):
         if self.__icons.has_key(key):
             return self.__icons[key]

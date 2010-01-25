@@ -40,7 +40,18 @@ java_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
                                    r'(?P<mlcmntstart>/\*)',
                                    r'(?P<mlcmntend>\*/)',
                                    ]))
-## Add simple hilighting information to code.
+
+xml_syntax = re.compile('|'.join([r'(?P<doctypestart><\!DOCTYPE)', # Not entirely correct since quoted strings may contain ">"
+                                  r'(?P<directivestart><\?[a-zA-Z][a-zA-Z0-9:_]*)', # Not entirely correct since quoted strings may contain ">"
+                                  r'(?P<directiveend>\?>)',
+                                  r'(?P<tagstart><\s*(?P<tag>[a-zA-Z][a-zA-Z0-9_:.-]*))',
+                                  r'(?P<tagend>>|/>)',
+                                  r'(?P<endtag></[^>]+>)',
+                                  r'(?P<comment><!--(?:-[^\-]|[^\-])*-->)',
+                                  r'(?P<attrkey>[a-zA-Z][a-zA-Z0-9_:]*)(?P<attreq>\s*=\s*)(?P<attrval>"[^"]*"|\'[^\']*\')',
+                                  r'(?P<lf>\n)',
+                                  ]))
+## Add simple hilighting information to code.OB
 #
 # Hilighting is performed per-line, i.e. multi-line comments or strings are
 # tagged per line, so that a linebreak never occurs inside a tag.
@@ -75,6 +86,8 @@ class CodeHilighter:
             self.process = self.process_Python
         elif mimetype == 'source/java':
             self.process = self.process_Java
+        elif mimetype == 'text/xml':
+            self.process = self.process_XML
         else:
             self.process = self.process_plaintext
 
@@ -119,6 +132,86 @@ class CodeHilighter:
             else:
                 lres.append((kw_comment,l[pos:]))
         return lres
+    def process_XML(self,l):
+        # limited syntax support...
+        lres = []
+        pos = 0
+
+        for o in xml_syntax.finditer(l):
+            if self.__state is None:
+                if o.group('tagstart'):                    
+                    lres.append(l[pos:o.start(0)])
+                    pos = o.end(0)
+                    lres.append((kw_keyword,o.group('tagstart')))
+                    self.__state = '<'
+                elif o.group('comment'):
+                    lres.append(l[pos:o.start(0)])
+                    pos = o.end(0)
+                    lres.append((kw_comment,o.group('comment')))
+                elif o.group('directivestart'):
+                    lres.append(l[pos:o.start(0)])
+                    pos = o.start(0)
+                    self.__state = '<?'
+                elif o.group('doctypestart'):
+                    lres.append(l[pos:o.start(0)])
+                    pos = o.start(0)
+                    self.__state = '<!'
+                elif o.group('endtag'):                    
+                    lres.append(l[pos:o.start(0)])
+                    pos = o.end(0)
+                    lres.append((kw_keyword,o.group('endtag')))
+                else:
+                    pass
+            elif self.__state == '<!':
+                if o.group('tagend') is not None:
+                    lres.append((kw_comment,l[pos:o.end(0)]))
+                    self.__state = None
+                    pos = o.end(0)
+                elif o.group('lf'):
+                    if pos < o.start():
+                        lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append('\n')
+                    pos = o.end(0)
+            elif self.__state == '<?':
+                if o.group('directiveend') is not None:
+                    lres.append((kw_comment, l[pos:o.end(0)]))
+                    self.__state = None
+                    pos = o.end(0)
+                elif o.group('lf'):
+                    if pos < o.start():
+                        lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append('\n')
+                    pos = o.end(0)
+            else:# self.__state == '<':
+                if o.group('tagend'): 
+                    lres.append(l[pos:o.start(0)])
+                    pos = o.end(0)
+                    lres.append((kw_keyword,o.group('tagend')))
+                    self.__state = None
+                elif o.group('attrkey'):
+                    lres.append(l[pos:o.start(0)])
+                    pos = o.end(0)
+                    try:
+                        keyprfx,keyval = o.group('attrkey').split(':',1)
+                        lres.append((kw_language,keyprfx + ':'))
+                        lres.append((kw_keyword,keyval))
+                    except ValueError:
+                        lres.append((kw_keyword,o.group('attrkey')))
+                    lres.append(o.group('attreq'))
+                    lres.append((kw_string,o.group('attrval')))
+                else:
+                    pass
+        if pos < len(l):
+            if   self.__state == '<!':
+                lres.append((kw_comment,l[pos:]))
+            elif self.__state == '<?':
+                lres.append((kw_comment, l[pos:]))
+            else:
+                lres.append(l[pos:])
+        return lres
+                
+
+
     def process_Python(self,l):
         lres = []
         pos = 0

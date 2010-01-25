@@ -3129,8 +3129,6 @@ class PreformattedNode(Node):
 
             self.__firstline = firstline
             self.seal()
-    #def end(self,filename,line):
-    #    print ''.join([unicode(v) for v in self])
     def toXML(self,doc,node=None):
         if self.__realurl is None:
             node = Node.toXML(self,doc,node)
@@ -3145,22 +3143,34 @@ class PreformattedNode(Node):
                 pass
 
             else:
-                codelight = syntax.CodeHilighter(self.getAttr('type'))                
-                for item in self:
-                    if isinstance(item,unicode):
-                        for itm in codelight.process(item):
-                            if isinstance(itm,basestring):
-                                n = doc.createTextNode(itm)
-                            else:
-                                t,val = itm
-                                n = doc.createElement('span')
-                                n.setAttribute('class','language-syntax-%s' % t)
-                                n.appendChild(doc.createTextNode(val))
-                            node.appendChild(n)
-                    else:
-                        n = item.toXML(doc)
-                        if n is not None:
-                            node.appendChild(n)
+                codelight = syntax.CodeHilighter(self.getAttr('type'))
+                # special case: If first line is blank in a <pre>, we throw it away.
+                                
+                itemiter = iter(self)
+
+                try:
+                    item = itemiter.next()
+                    if isinstance(item,basestring) and len(item.strip()) == 0:
+                        item = itemiter.next()
+                    while True:
+                        if isinstance(item,unicode):
+                            for itm in codelight.process(item):
+                                if isinstance(itm,basestring):
+                                    n = doc.createTextNode(itm)
+                                else:
+                                    t,val = itm
+                                    n = doc.createElement('span')
+                                    n.setAttribute('class','language-syntax-%s' % t)
+                                    n.appendChild(doc.createTextNode(val))
+                                node.appendChild(n)
+                        else:
+                            n = item.toXML(doc)
+                            if n is not None:
+                                node.appendChild(n)
+                        item = itemiter.next()
+                except StopIteration:
+                    pass
+
                 for k in [ 'id', 'class', 'xml:space','type' ]:
                     if self.hasAttr(k):
                         node.setAttribute(k,self.getAttr(k))
