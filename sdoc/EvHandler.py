@@ -48,6 +48,9 @@ class handler(xml.sax.handler.ContentHandler):
 
         self.__rootnode = rootElement
         self.__nodestack = [ rootElement ] 
+
+        self.__textline = None
+        self.__storedtext = []
     def setDocumentLocator(self,locator):
         self.__locator = locator
 
@@ -56,22 +59,38 @@ class handler(xml.sax.handler.ContentHandler):
     def endDocument(self):
         self.__nodestack.pop().endOfElement(self.__filename,self.__locator.getLineNumber())
     def startElement(self,name,attr):
+        self.flushText()
         topnode = self.__nodestack[-1]
         self.__nodestack.append(topnode.newChild(name,attr,self.__filename,self.__locator.getLineNumber()))
         #print '%s<%s pos="%s:%d">' % (' ' * self.__indent*2,name,self.__filename,self.__locator.getLineNumber())
         self.__indent += 1
     def endElement(self,name):
+        self.flushText()
         self.__nodestack.pop().endOfElement(self.__filename,self.__locator.getLineNumber())
         self.__indent -= 1
         #print "%s</%s>" % (' ' * self.__indent*2,name)
+    def flushText(self):
+        if self.__storedtext:
+            topnode = self.__nodestack[-1]
+            
+            lines = ''.join(self.__storedtext).split('\n')
+            lineno = self.__textline
+            for l in lines[:-1]:
+                topnode.handleText(l+'\n',self.__filename,lineno)
+                lineno += 1
+            topnode.handleText(lines[-1],self.__filename,lineno)
+                
+            self.__storedtext = []        
     def characters(self,content):
-        topnode = self.__nodestack[-1]
-        topnode.handleText(content,self.__filename,self.__locator.getLineNumber())
+        self.__textline = self.__locator.getLineNumber()
+        self.__storedtext.append(content)
         #if c: print ">>%s<<" % c
     def processingInstruction(self,target,data):
+        self.flushText()
         log("PROC INSTR:",target,data)
 
     def skippedEntry(self,name):
+        self.flushText()
         log("Skipped Entry: %s" % name)
 
     def getDocumentElement(self):
