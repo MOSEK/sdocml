@@ -230,7 +230,7 @@ if __name__ == "__main__":
         makedoc         = conf['makedoc']
         macroref        = conf['macroref']
         macrorefsecname = conf['macroreftitle']
-        showtrace       = conf['trace']
+        showtrace       = conf['trace'] 
         if makedoc is not None:
             r = []
             r.extend(['<?xml version="1.0" ?>',
@@ -254,7 +254,7 @@ if __name__ == "__main__":
             d = {}
             d.update(Nodes.globalNodeDict)
             d['section'] = Nodes._SectionNode
-            d['texml:conditional'] = Nodes.TexmlConditionalNode
+            d['sdocml:conditional'] = Nodes.SDocMLConditionalNode
 
             for k,n in d.items():
                 if inspect.isclass(n) and (issubclass(n,Nodes.GenericNode)):
@@ -383,6 +383,26 @@ if __name__ == "__main__":
                 f.write('<?xml version="1.0" encoding="utf-8" ?>\n')
                 f.write('<!DOCTYPE sdocmlx>\n')
                 msg('Write output file')
+                # check tree
+                if False:
+                    # debugging: Verify that all nodes are unicode.
+                    stack = [doc]
+                    while stack:
+                        n = stack.pop()
+                        stack.extend(n.childNodes)
+                        if n.nodeType == n.TEXT_NODE:
+                            if not isinstance(n.data,basestring):
+                                print "parent =",n.parentNode.nodeName
+                                print "data =",repr(n.data)
+                                assert isinstance(n.data, unicode)
+                        elif n.nodeType == n.ELEMENT_NODE:
+                            for i in range(n.attributes.length):
+                                a = n.attributes.item(i)
+                                if not isinstance(a.value,basestring):
+                                    print "node =",n.nodeName
+                                    print "attr %s = %s" % (a.name,a.value)
+                                    assert isinstance(a.value,basestring) 
+
                 f.write(doc.toxml('utf-8')) 
                 f.close()
             
