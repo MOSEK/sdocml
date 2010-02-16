@@ -845,9 +845,6 @@ class Node:
         if attrs.has_key('ref'):
             manager.refId(attrs['ref'],self)
 
-            
-        
-
         # __fakeopen: Counts the number of times newChild returned the same
         # node instead of a new one. This is used by <condition>: When newChild
         # receives a condition it will do one of two things: 
@@ -902,7 +899,8 @@ class Node:
         return self.__cmddict.items()
     def newChild(self,name,attrs,filename,line):
         assert filename is not None
-        if name == 'texml:conditional':
+        if name == 'sdocml:conditional':
+            #print "sdocml:conditional @ %s:%d. cond = %s -> %s" % (filename,line,attrs['cond'],self.__manager.evalCond(attrs['cond'],filename,line))
             try:
                 if attrs.has_key('cond') and attrs['cond'].strip() and self.__manager.evalCond(attrs['cond'],filename,line):
                     self.__fakeopen += 1
@@ -962,6 +960,7 @@ class Node:
                     self.append(item)
                 else:
                     if isinstance(item,unicode):
+                        print "Loc = ",self.pos
                         raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
                     else: 
                         raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
@@ -1276,6 +1275,10 @@ class Node:
                     macroname = o.group('macro')
                     try: macro = self.__cmddict[macroname]
                     except KeyError: 
+                        print "Match = %s" % o.group(0)
+                        print "Text = '%s'" % data[o.start(0):o.start(0)+20]
+                        print "Data size = %d" % len(data)
+                        print "data =\n",data
                         raise NodeError('Undefined macro "%s" at %s:%d' % (macroname,filename, line))
                     if not isinstance(macro,DefNode):
                         raise NodeError('Tried to use "%s" as macro at %s:%d' % (macroname,filename, line))
@@ -1489,7 +1492,7 @@ class Node:
                 assert self.pos[0] is not None
                 assert self.pos[1] is not None
                 node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
-                node.setAttribute('trace:file',self.pos[0])
+                node.setAttribute('trace:file',str(self.pos[0]))
                 node.setAttribute('trace:line',str(self.pos[1]))
             return node
 
@@ -1859,13 +1862,12 @@ class DefMacroRefNode(Node):
         Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
         self.__macro = cmddict[self.getAttr('n')]
     
-    def linearize(self,res,args,kwds,filename,line,dolookup):
+    def linearize(self,res,args,kwds,filename,line,dolookup):    
         largs = []
         for i in self:
-            largs.append(i.linearize(args,[],kwds,filename,line,dolookup))
+            largs.append(i.linearize([],args,kwds,filename,line,dolookup))
         self.__macro.linearize(res,largs,filename,line,dolookup)
         debug("DefMacroRefNode: ", repr(res))
-
         return res
         
 
@@ -1878,7 +1880,7 @@ class DefMacroArgNode(Node):
 
     def linearize(self,res,args,kwds,filename,line,dolookup):
         for i in self:
-            i.linearize(res,args,filename,line,dolookup)
+            i.linearize(res,args,kwds,filename,line,dolookup)
         return res
 
 class DefNode(Node):
@@ -2766,7 +2768,7 @@ class NoteNode(Node):
     traceInfo    = True
 
 
-class TexmlConditionalNode(Node):
+class SDocMLConditionalNode(Node):
     # This class exists only for documentation purposes.
     comment = '''
                 Preprocessor element. This element is handled as a special case.
@@ -2774,10 +2776,10 @@ class TexmlConditionalNode(Node):
                 The element may appear anywhere in the document structure
                 except at top-level. If the condition is met the content will
                 be processed as had it appeared directly in the document
-                instead of inside a \\tagref{texml:conditional} element, otherwise
+                instead of inside a \\tagref{sdocml:conditional} element, otherwise
                 the content is ignored and thrown away.
               '''
-    nodeName  = 'texml:conditional'
+    nodeName  = 'sdocml:conditional'
     acceptAttrs = Attrs([ Attr('cond') ])
     contIter = ''
 
@@ -3130,59 +3132,72 @@ class PreformattedNode(Node):
             self.__firstline = firstline
             self.seal()
     def toXML(self,doc,node=None):
-        if self.__realurl is None:
-            node = Node.toXML(self,doc,node)
+        items = list(self)
+        
+        # If the first line is blank, we kill it.
+        if not self.hasAttr('url'):
+            if items and isinstance(items[0],basestring):
+                v = items[0].lstrip(' \t')
+                if v and v[0] == '\n':
+                    items[0] = v[1:]
+            
+            # If the last line is blank, we kill that too.
+            if items and isinstance(items[-1],basestring):
+                item = items.pop().rstrip(' \t')
+                if item:
+                    if item[-1] == '\n':
+                        items.append(item[:-1])
+                    else:
+                        items.append(item)
+                else:# last line was spaces only, so delete the trailing newline in the second last line
+                    if items and isinstance(items[-1],basestring):
+                        item = items.pop()
+                        if item and item[-1] == '\n':
+                            items.append(item[:-1])
+                        else:
+                            items.append(item)
+        if self.__realurl is None and False:
+            node = doc.createElement(self.nodeName)
+            #node = Node.toXML(self,doc,node)
         else:
             if node is None:
                 node = doc.createElement(self.nodeName)
-                assert not [ n for n in self if not isinstance(n,unicode) ] 
+                assert not [ n for n in self if not isinstance(n,unicode) ]
 
                 text = ''.join(self)
-            if self.hasAttr('url') and 0:
-                # Data was fetched from file. We can expect that there are no nodes
-                pass
-
-            else:
-                codelight = syntax.CodeHilighter(self.getAttr('type'))
-                # special case: If first line is blank in a <pre>, we throw it away.
-                                
-                itemiter = iter(self)
-
-                try:
-                    item = itemiter.next()
-                    if isinstance(item,basestring) and len(item.strip()) == 0:
-                        item = itemiter.next()
-                    while True:
-                        if isinstance(item,unicode):
-                            for itm in codelight.process(item):
-                                if isinstance(itm,basestring):
-                                    n = doc.createTextNode(itm)
-                                else:
-                                    t,val = itm
-                                    n = doc.createElement('span')
-                                    n.setAttribute('class','language-syntax-%s' % t)
-                                    n.appendChild(doc.createTextNode(val))
-                                node.appendChild(n)
+            codelight = syntax.CodeHilighter(self.getAttr('type'))
+            # special case: If first line is blank in a <pre>, we throw it away.
+                            
+            for item in items:
+                if isinstance(item,unicode):
+                    for itm in codelight.process(item):
+                        if isinstance(itm,basestring):
+                            n = doc.createTextNode(itm)
                         else:
-                            n = item.toXML(doc)
-                            if n is not None:
-                                node.appendChild(n)
-                        item = itemiter.next()
-                except StopIteration:
-                    pass
+                            t,val = itm
+                            n = doc.createElement('span')
+                            n.setAttribute('class','language-syntax-%s' % t)
+                            n.appendChild(doc.createTextNode(val))
+                        node.appendChild(n)
+                else:
+                    n = item.toXML(doc)
+                    if n is not None:
+                        node.appendChild(n)
 
-                for k in [ 'id', 'class', 'xml:space','type' ]:
-                    if self.hasAttr(k):
-                        node.setAttribute(k,self.getAttr(k))
+            for k in [ 'id', 'class', 'xml:space','type' ]:
+                if self.hasAttr(k):
+                    node.setAttribute(k,self.getAttr(k))
+        
+            if self.__realurl is not None:    
                 node.setAttribute('url',self.__realurl)
                 node.setAttribute('firstline',str(self.__firstline+1))
-                    
-                if self.traceInfo:
-                    assert self.pos[0] is not None
-                    assert self.pos[1] is not None
-                    node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
-                    node.setAttribute('trace:file',self.pos[0])
-                    node.setAttribute('trace:line',str(self.pos[1]))
+                
+            if self.traceInfo:
+                assert self.pos[0] is not None
+                assert self.pos[1] is not None
+                node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
+                node.setAttribute('trace:file',self.pos[0])
+                node.setAttribute('trace:line',str(self.pos[1]))
         return node
 
 ######################################################################
@@ -3693,6 +3708,7 @@ class DocumentRoot(_RootNode):
         
     def __init__(self,manager,parent,cmddict,nodeDict,filename,line):
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,filename,line)
+
     def toXML(self):
         impl = xml.dom.minidom.getDOMImplementation()
         doc = impl.createDocument(None, 'sdocmlx', None)
@@ -3705,6 +3721,10 @@ class ExternalSectionRoot(_RootNode):
     rootElement      = 'section'
     def __init__(self,manager,parent,cmddict,nodeDict,attrs,file,line):
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,attrs,file,line)
+        self.__attrs = attrs
+    def newChild(self,name,attrs,filename,line):
+        # Note this is a hack; we wish to use attributes from the element that included the section, not from the root element in the included file.
+        return _RootNode.newChild(self,name,self.__attrs,filename,line)
 
 class ExternalDefineRoot(_RootNode):
     rootElementClass = DefinesNode

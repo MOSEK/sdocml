@@ -86,6 +86,7 @@ class _mathUnicodeToTex:
         8704 : '\\forall{}',
         8712 : '\\in{}',
         8721 : '\\sum{}',
+        8742 : '\\|',
         8804 : '\\leq{}',
         8805 : '\\geq{}',
         8834 : '\\subset{}',
@@ -95,7 +96,9 @@ class _mathUnicodeToTex:
     }
     
     textunicodetotex = {  
+        169  : '\\copyright{}',
         173  : '-',
+        216  : '\\O{}',
         228  : '\\"a',
         229  : '\\aa{}',
         231  : '\\c{c}',
@@ -174,6 +177,7 @@ class _unicodeToTex:
         8704 : '\\forall ',
         8712 : '\\in ',
         8721 : '\\sum',
+        8742 : '\\|',
         8804 : '\\leq ',
         8805 : '\\geq ',
         8834 : '\\subset ',
@@ -236,10 +240,11 @@ class texCollector(UserList.UserList):
                         Warning('Unknown unicode: %d' % uidx)
                         r.append('.')
                 else:
+                    print "GOT : %d %s" % (uidx,o.group(0).encode('utf-8'))
                     try:
                         r.append(_mathUnicodeToTex.textunicodetotex[uidx])
                     except KeyError:
-                        UnicodeToTeXError('Could not convert char 0x%x (%s)' % (uidx,unicode(t).encode('utf-8')))
+                        raise UnicodeToTeXError('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
 
         if pos < len(data):
             r.append(str((data[pos:])))
@@ -254,7 +259,7 @@ class texCollector(UserList.UserList):
             pos = o.end(0)
             if o.group('space'):
                 #r.append('\\ ' * len(o.group('space')))
-                r.append('\\nullbox{}')
+                #r.append('\\nullbox{}')
                 r.append(o.group('space'))
             elif o.group('escape'):
                 r.append('\\%s' % o.group('escape'))
@@ -270,7 +275,8 @@ class texCollector(UserList.UserList):
                     Warning('Unicode in verbatim field: %d' % uidx)
                     r.append('\\#4%d' % uidx)
             elif o.group('lf'):
-                r.append('\\par%\n')
+                #r.append('\\par%\n')
+                r.append('\n\\nullbox{}')
             else:
                 print "TEXT = '%s'" % o.group(0)
                 assert 0
@@ -317,6 +323,7 @@ class texCollector(UserList.UserList):
     def comment(self,text=''):
         lines = text.split('\n')
         self.data.extend([ '%% %s\n' % l for l in lines ])
+        return self
     def lf(self):
         self.data.append('\n')
         return self
@@ -446,14 +453,6 @@ class texCollector(UserList.UserList):
             print item
             assert 0
         return self
-if 0:
-    class texCollecter(UserList.UserList):
-        def __init__(self):
-            UserList.UserList.__init__(self)
-        def inlineMathStart(self):
-            self.append('$')
-        def inlineMathEnd(self):
-            self.append('$')
 
 class DefaultDict(UserDict):
     def __init__(self,dcon):
@@ -535,6 +534,9 @@ class NodeError(Exception):
     pass
 
 class MathNodeError(Exception):
+    pass
+
+class MathImgError(Exception):
     pass
 
 class tag:
@@ -669,6 +671,10 @@ class FakeTextNode(UserList.UserList):
     def contentToTeX(self,res):
         res.extend(self.data)
         return res
+    def toPlainText(self,res):
+        res.extend(self.data)
+        return res
+        
     toPlainHTML = toHTML
 
 class Node(UserList.UserList):
@@ -753,6 +759,14 @@ class Node(UserList.UserList):
                 i.toHTML(res)
             else:
                 res.append(i)
+        return res
+
+    def toPlainText(self,res):
+        for item in self:
+            if isinstance(item,basestring):
+                res.append(item)
+            else:
+                item.toPlainText(res)
         return res
 
     def toHTML(self,res):
@@ -896,21 +910,29 @@ class SectionNode(Node):
         self.__manager = manager
         self.__nodeIndex = manager.nextNodeIndex()
         self.__separatefile = separatefile
+        self.__parent = parent
 
+        #print "Attributes :",self.getAttr('class')
         if   not separatefile:
+            #print "sectidx = %s, not separate file" % str(sectidx)
             self.__childrenInSepFiles = False
         elif self.isClass('split:yes'):
+            #print "sectidx = %s, is separate, do split children" % str(sectidx)
             self.__childrenInSepFiles = True
         elif self.isClass('split:no'):
+            #print "sectidx = %s, is separate, do not split children" % str(sectidx)
             self.__childrenInSepFiles = False
         elif sectlevel < manager.globalSplitLevel():
+            #print "sectidx = %s, is separate, split-level not reached" % str(sectidx)
             self.__childrenInSepFiles = True
         else: # sectlevel >= manager.globalSplitLevel():
+            #print "Split level %d >= %d" % (sectlevel, manager.globalSplitLevel())
+            #print "sectidx = %s, is separate, split-level reached" % str(sectidx)
             self.__childrenInSepFiles = False
-            
-            
         if separatefile:
-            self.__nodefilename = 'node%0.4d.html' % self.__nodeIndex
+            #self.__nodefilename = 'node%0.4d.html' % self.__nodeIndex
+            #self.__nodefilename = manager.makeNodeName(sectlevel,)
+            self.__nodefilename = None # we cannot know this until we have the section title
         else:
             self.__nodefilename = parent.getSectionFilename()
         
@@ -932,9 +954,15 @@ class SectionNode(Node):
             n = BodyNode(self.__manager,self,attrs,filename,line)
             self.__body = n
         elif name == 'section':
+            # Special case: parent node is the top-level
+            if attrs.has_key('class') and 'preface' in attrs['class'].split(' '):
+                sectidx = None
+            else:
+                sectidx = self.__sectidx + (self.__ssectcounter.next(),)
+    
             n = SectionNode(self.__manager,
                             self,
-                            self.__sectidx + (self.__ssectcounter.next(),), 
+                            sectidx,
                             self.__sectlvl+1,
                             self.__childrenInSepFiles,
                             attrs,
@@ -962,7 +990,10 @@ class SectionNode(Node):
     def getAuthors(self):
         return self.__head.getAuthors()
     def linkText(self):
-        return ['.'.join([str(v+1) for v in  self.__sectidx])]
+        if self.__sectidx:
+            return ['.'.join([str(v+1) for v in  self.__sectidx])]
+        else:
+            assert 0
     def getSectionIndex(self):
         return self.__sectidx
     def nextEquationIndex(self):
@@ -972,6 +1003,13 @@ class SectionNode(Node):
     def getSectionLink(self):
         return self.__sectionLinkName
     def getSectionFilename(self):
+        if self.__nodefilename is None:
+            title = self.getTitle()
+            if title is None:
+                print "Asked for the section node name before title was available"
+                assert 0
+            self.__nodefilename = manager.makeNodeName(self.__sectlvl,self.getTitle())
+        
         return self.__nodefilename 
     def getSectionURI(self):
         return '%s#%s' % (self.getSectionFilename(),self.__sectionLinkName)
@@ -1155,7 +1193,7 @@ class SectionNode(Node):
                     res.tagend('div').tagend('div')
                 
                 if sidx:
-                    res.append('.'.join([ str(v+1) for v in s.getSectionIndex() ]) + '. ')
+                    res.append('.'.join([ str(v+1) for v in sidx ]) + '. ')
 
                 link = s.getSectionURI()
                 res.tag('a',{ 'href' : link })
@@ -1209,7 +1247,7 @@ class SectionNode(Node):
 
         d = {
                 'title:plain'             : htmlCollector(),
-                'title:html'              :  htmlCollector(),
+                'title:html'              : htmlCollector(),
 
                 'navbutton:icon:prev'     : htmlCollector(),
                 'navbutton:icon:next'     : htmlCollector(),
@@ -1239,7 +1277,7 @@ class SectionNode(Node):
 
         if self.__sections:
             d['toc:local'] = htmlCollector()
-            self.makeContents(d['toc:local'],1,3)
+            self.makeContents(d['toc:local'],1,2)
         
         if self.__body.data or (self.__sections and not self.__childrenInSepFiles):
             d['body'] = htmlCollector()
@@ -1504,7 +1542,7 @@ class _IndexNode(SectionNode):
                 r.tagend('div')
         r.tagend('div')
         
-        manager.writelinesfile('xref.html',d)
+        manager.writeHTMLfile('xref.html',d)
     def toTeX(self,r,level):
         return r
     def contentToTeX(self,r):
@@ -1515,22 +1553,49 @@ class DocumentNode(SectionNode):
     def __init__(self,manager,parent,attrs,filename,line):
         self.__manager = manager
         SectionNode.__init__(self,manager,parent,(),1,True,attrs,filename,line)
+        self.__body = None
+        self.__sections = []
     def getSectionFilename(self):
         return 'index.html'
     def endOfElement(self,filename,line):
         self.appendSubsection(_IndexNode(self.__manager,self))
         SectionNode.endOfElement(self,filename,line)
+    def newChild(self,name,attrs,filename,line):
+        # horrible hack to intercept body and sections
+        n = SectionNode.newChild(self,name,attrs,filename,line)
+        if   name == 'body':    self.__body = n
+        elif name == 'section': self.__sections.append(n)
+        
+        return n
+
     def toTeX(self,res):
         self.getTitle().contentToTeX(res['TITLE'])
-        res['DATE'].append('')
+        res['DATE']
         auths = self.getAuthors()
         if auths:
             self.getAuthors().contentToTeX(res['AUTHOR'])
         else:
-            res['AUTHOR'].append('')
-
+            res['AUTHOR']
         
-        self.contentToTeX(res['BODY'],0)
+        #self.contentToTeX(res['BODY'],0)
+
+        #self.__body.contentToTeX(res['PREFACE'])
+
+        body    = res['BODY']
+        preface = res['PREFACE']
+
+        self.__body.contentToTeX(preface) 
+
+        sects = list(self.__sections)
+        while sects and sects[0].hasAttr('class'):
+            cls = sects[0].getAttr('class')
+            if 'preface' in cls.split(' '):
+                sects.pop(0).toTeX(preface,1)
+            else:
+                break
+
+        for sect in sects:
+            sect.toTeX(body,1)
         return res
 
 class BodyNode(_StructuralNode):
@@ -1798,7 +1863,7 @@ class BreakNode(_SimpleNode):
 #SmallerNode = dummy('SmallerNode')
                                    
 class ReferenceNode(Node):
-    nodeName = 'ReferenceNode' 
+    nodeName = 'ref' 
     def __init__(self,manager,parent,attrs,filename,line):
         Node.__init__(self,manager,parent,attrs,filename,line)
 
@@ -1853,11 +1918,14 @@ class ReferenceNode(Node):
                 self.contentToTeX(r)
                 r.groupEnd()
             else:
+                # horrible hack: We don't want to mix _out_ numbering with TeX's automatic numbering. 
+                # TeX produces numbers for certain things like equations, figures and tables, so in these
+                # cases we ignore any "linktext" and just use a \ref{} instead
                 linktext = self.__ref.linkText()
                 if linktext:
                     r.group(self.__ref.linkText())
                 else:
-                    r.group('[??]')
+                    r.groupStart().macro('ref').groupStart()._raw(self.__ref.getID()).groupEnd().groupEnd()
 
 
 class HyperRefNode(Node):
@@ -1869,23 +1937,29 @@ class HyperRefNode(Node):
             r.anchor(url,self.getAttr('class'))
         else:
             r.anchor(url)
-        for i in self:
-            if isinstance(i,Node):
-                i.toHTML(r)
-            else:
-                r.append(i)
+        if self:
+            for i in self:
+                if isinstance(i,Node):
+                    i.toHTML(r)
+                else:
+                    r.append(i)
+        else:
+            r.append(url)
         r.tagend('a')
     def toTeX(self,r):
         r.macro('htmladdnormallink')
-        r.groupStart()
-
-        for i in self:
-            if isinstance(i,Node):
-                i.toTeX(r)
-            else:
-                r.append(i)
-
-        r.groupEnd()
+        if not self:
+            r.groupStart()._raw(self.getAttr('url')).groupEnd()
+        else:
+            r.groupStart()
+            for i in self:
+                if isinstance(i,Node):
+                    i.toTeX(r)
+                else:
+                    r.append(i)
+            r.groupEnd()        
+        r.groupStart()._raw(self.getAttr('url')).groupEnd()
+        return r
 
 LinkTextNode            = dummy('LinkTextNode')
 
@@ -2049,6 +2123,7 @@ class TableCellNode(_StructuralNode):
         return self.contentToTeX(r)
 
 class FloatNode(_StructuralNode):
+    nodeName = 'float'
     def handleText(self,data,filename,line):
         pass
     def __init__(self,manager,parent,attrs,filename,line):
@@ -2262,9 +2337,11 @@ class PreformattedNode(Node):
         nodes = list(self)
 
         if lineno is not None and self.__urlbase is not None and not clsd.has_key('link:no'):
-            r.macro('beginpre').group(self.__urlbase).group(str(lineno)).macro('nullbox').group()
+            #r.macro('beginpre').group(self.__urlbase).group(str(lineno)).macro('nullbox').group()
+            r.macro('beginpre').group(self.__urlbase).group(str(lineno)).comment()
         else:
-            r.macro('beginpreplain').macro('nullbox').group()
+            #r.macro('beginpreplain').macro('nullbox').group()
+            r.macro('beginpreplain').comment()
         
         for n in nodes:
             if isinstance(n,Node):
@@ -2272,7 +2349,7 @@ class PreformattedNode(Node):
             else:
                 r.verbatim(n)
         
-        r.macro('par').macro('endpre').lf()
+        r.comment().macro('endpre').lf()
                            
                            
 class InlineMathNode(Node):
@@ -2299,7 +2376,7 @@ class InlineMathNode(Node):
         
     def toHTML(self,r):
         r.span('m')
-        r.tag('img', { 'src' : "math/math%d.png" % (self.getEqnIdx()+1) } )
+        r.tag('img', { 'src' : self.getEqnIdx() } )
         r.tagend('span')
 
 class MathEnvNode(Node):
@@ -2355,7 +2432,7 @@ class MathEnvNode(Node):
         r.tag('table', {'width' : '100%' })
         r.tag('tr')
         r.tag('td',{ 'width' : "100%%", 'class' : "math" })
-        r.tag('img', {'src' : "math/math%d.png" % (self.getEqnIdx()+1) })
+        r.tag('img', {'src' : self.getEqnIdx() })
         r.tagend('td')
         if self.__index is not None:
             r.extend([tag('td',{ 'width' :"0px" }),
@@ -2669,15 +2746,14 @@ class ImageNode(Node):
             imurl  = n.getAttr('url')
             imgs[imtype.lower()].append(imurl)
         
-        if imgs.has_key('image/eps'):
-            url = imgs['image/eps'][0]
+        if imgs.has_key('image/pdf'):
+            url = imgs['image/pdf'][0]
         elif imgs.has_key('image/png'):
             url = imgs['image/png'][0]
         else:
             raise NodeError('No suitable image source found at %s:%d' % (filename,line))
         
-        # Ugly, but does the job in most cases:
-        r.macro('includegraphics').options(['scale=.3']).groupStart()._raw(self.manager.resolveExternalURL(url)).groupEnd()
+        r.macro('includegraphics').groupStart()._raw(self.manager.resolveExternalURL(url)).groupEnd()
         # Add options later, maybe.
         return r
         
@@ -2921,35 +2997,36 @@ class TemplateParser(HTMLParser.HTMLParser):
                 self.__state = self.__state and self.sub.has_key(d['has'])
             elif d.has_key('hasnot'):
                 self.__state = self.__state and not self.sub.has_key(d['has'])
-        elif tag == 'sdoc:item':
-            if attrs and attrs[0][0] == 'key':
-                key = attrs[0][1]
-                if self.__state:
-                    if self.sub.has_key(key):
-                        self.res.extend(self.sub[key])
-                    else:
-                        Warning('In HTML template %s an undefined key "%s" was referenced' % (self.__currentfilename,key))
-            else:
-                Warning('In HTML template %s an <sdoc:item> element with no key was specified' % (self.__currentfilename))
         elif self.__state:            
-            if   tag in [ 'a','link' ]:
-                nattrs = []
-                for k,v in attrs:
-                    if k == 'href' and urlparse.urlparse(v)[0] in  ['','file']:
-                        nattrs.append((k,self.linkmap[v]))
-                    else:
-                        nattrs.append((k,v))
-            elif tag in [ 'img' ]:
-                nattrs = []
-                for k,v in attrs:
-                    if k == 'src':
-                        nattrs.append((k,self.linkmap[v]))
-                    else:
-                        nattrs.append((k,v))
+            if   tag == 'sdoc:item':
+                if attrs and attrs[0][0] == 'key':
+                    key = attrs[0][1]
+                    if self.__state:
+                        if self.sub.has_key(key):
+                            self.res.extend(self.sub[key])
+                        else:
+                            Warning('In HTML template %s an undefined key "%s" was referenced' % (self.__currentfilename,key))
+                else:
+                    Warning('In HTML template %s an <sdoc:item> element with no key was specified' % (self.__currentfilename))
             else:
-                nattrs = attrs
-                        
-            self.res.append('<%s%s>' % (tag,' '.join(([''] + [ '%s="%s"' % i for i in nattrs ]))))
+                if tag in [ 'a','link' ]:
+                    nattrs = []
+                    for k,v in attrs:
+                        if k == 'href' and urlparse.urlparse(v)[0] in  ['','file']:
+                            nattrs.append((k,self.linkmap[v]))
+                        else:
+                            nattrs.append((k,v))
+                elif tag in [ 'img' ]:
+                    nattrs = []
+                    for k,v in attrs:
+                        if k == 'src':
+                            nattrs.append((k,self.linkmap[v]))
+                        else:
+                            nattrs.append((k,v))
+                else:
+                    nattrs = attrs
+                            
+                self.res.append('<%s%s>' % (tag,' '.join(([''] + [ '%s="%s"' % i for i in nattrs ]))))
     def handle_charref(self,name):
         if self.__state:
             self.res.append('&#%s;' % name)
@@ -3014,7 +3091,8 @@ class Manager:
                  searchpaths = [],
                  template    = None,
                  gsbin       = 'gs',
-                 pdflatexbin = 'pdflatex'):
+                 pdflatexbin = 'pdflatex',
+                 pdf2svgbin  = None):
         self.__zipfile = outf
         self.__topdir = topdir
         self.__iddict = {}
@@ -3028,6 +3106,7 @@ class Manager:
 
         self.__gsbin = gsbin
         self.__pdflatexbin = pdflatexbin
+        self.__pdf2svgbin = pdf2svgbin
 
         self.__anchors = []
 
@@ -3053,6 +3132,8 @@ class Manager:
 
         self.__htmltemplate = template
         self.__linkmap = {}
+
+        self.__nodeNames = {}
         
         mappedlinks = {}
         mappedtgts  = {}
@@ -3090,7 +3171,6 @@ class Manager:
                     mappedlinks[p] = tgt
                     self.__linkmap[lnk] = tgt
 
-                    print "filename = %s, tgt = %s" % (p,tgt)
                     self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
                 else:
                     self.__linkmap[lnk] = mappedlinks[p]
@@ -3108,7 +3188,19 @@ class Manager:
                     self.__zipfile.write(icon,'%s/%s' % (topdir,iconfile))
         del iconsadded
 
-
+    def makeNodeName(self,depth,title):
+        titlestr = str(re.sub(r'[^a-zA-Z0-9\-]+','_',''.join(title.toPlainText([])).strip(),re.MULTILINE))
+        if len(titlestr) > 40:
+            titlestr = titlestr[:40]
+        if not self.__nodeNames.has_key(titlestr):
+            self.__nodeNames[titlestr] = 0
+            titlestr = titlestr + '.html'
+        else:
+            self.__nodeNames[titlestr] += 1
+            titlestr = titlestr + '__%d.html' % self.__nodeNames[titlestr]
+        #print "---------- Node name = ",titlestr
+        return titlestr
+     
 
     def doDebug(self):
         return self.__debug
@@ -3192,13 +3284,16 @@ class Manager:
         s = s.strip()
         if self.__eqndict.has_key(s):
             self.__eqnsrcdict[s].append((filename,line))
-            return self.__eqndict[s]
+            idx = self.__eqndict[s]
         else:
             idx = len(self.__eqnlist)
             self.__eqndict[s] = idx
             self.__eqnlist.append(s)
             self.__eqnsrcdict[s] = [(filename,line)]
-            return idx
+        if self.__pdf2svgbin is not None:
+            return 'math/math%d.svg' % (idx+1)
+        else:
+            return 'math/math%d.png' % (idx+1)
     def resolveIDTarget(self,name):
         return self.__iddict[name]
     def getIDTarget(self,name,referrer):
@@ -3255,6 +3350,7 @@ class Manager:
                     outf.write('\\usepackage[%s]{%s}\n' % (opts,pkg))
                 else:
                     outf.write('\\usepackage{%s}\n' % (pkg))
+            outf.write('\\usepackage{palatino}\n') # hmm...
 
             outf.write('\\begin{document}\n')
             outf.write('\\openout9=dims.out\n'
@@ -3313,7 +3409,12 @@ class Manager:
             if r == 0:
                 imgbasename = 'imgs/tmpimg%d.png'
                 #r = subprocess.call([ 'gs','-dNOPAUSE','-dBATCH','-sOutputFile=%s' % imgbasename,'-sDEVICE=pngalpha','-r100x100',pdffile ])
-                r = subprocess.call([ self.__gsbin,'-dNOPAUSE','-dBATCH','-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),'-sDEVICE=pngalpha','-r100x100',pdffile ])
+                r = subprocess.call([ self.__gsbin,'-dGraphicsAlphaBits=4','-dTextAlphaBits=4','-dNOPAUSE','-dBATCH','-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),'-sDEVICE=pngalpha','-r100x100',pdffile ])
+            if r == 0 and self.__pdf2svgbin is not None:
+                r = subprocess.call([ self.__pdf2svgbin, pdffile, os.path.join(basepath,'mathimg%d.svg'),'all' ])
+                if r == 0:
+                    for i in xrange(len(self.__eqnlist)):
+                        self.__zipfile.write(os.path.join(basepath,'mathimg%d.svg' % (i+1)),'/'.join([self.__topdir,'math','math%d.svg' % (i+1),])) 
             if r == 0:
                 # convert and crop all images. Not necessary since images are produces in the right size.
                 for i in range(len(self.__eqnlist)):
@@ -3325,6 +3426,8 @@ class Manager:
                                               ])
                     if r == 0:
                         self.__zipfile.write(os.path.join(basepath,mimg),'/'.join([self.__topdir,'math','math%d.png' % (i+1)])) 
+            if r != 0:
+                raise MathImgError('Error generating math images')
 
 class dtdhandler(xml.sax.handler.DTDHandler):
     def __init__(self):
@@ -3397,6 +3500,8 @@ if __name__ == "__main__":
                                     # TODO: Use platform dependant default values for binaries:
                                     'gsbin'      : config.UniqueDirEntry('gsbin', default='gs'),
                                     'pdftexbin'  : config.UniqueDirEntry('pdftexbin', default='pdflatex'),
+                                    'pdf2svgbin' : config.UniqueDirEntry('pdf2svgbin'),
+
      })
    
     debug = False
@@ -3427,6 +3532,10 @@ if __name__ == "__main__":
             conf.update('gsbin', args.pop(0))
         elif arg == '-pdftexbin':
             conf.update('pdftexbin', args.pop(0))
+        elif arg == '-pdf2svgbin':
+            conf.update('pdf2svgbin', args.pop(0))
+        elif arg and arg[-1] == '-':
+            raise Exception('Invalid argument "%s"' % arg)
         else:
             conf.update('infile',arg)
 
@@ -3464,6 +3573,7 @@ if __name__ == "__main__":
                           template=conf['template'],
                           gsbin=conf['gsbin'] or 'gs',
                           pdflatexbin=conf['pdftexbin'] or 'pdflatex',
+                          pdf2svgbin=conf['pdf2svgbin'],
                           )
       
        

@@ -889,10 +889,11 @@ class ReferenceNode(Node):
         else:
             if len(self) > 0:
                 r.macro('hyperlink')
-                r.group(self.__ref)
+                r.options(self.__ref)
                 r.groupStart()
                 self.contentToTeX(r)
                 r.groupEnd()
+                r.macro('hyperref').group(self.__ref)
             else:
                 r.extend([Macro('ref'),Group([self.__ref])])
 
