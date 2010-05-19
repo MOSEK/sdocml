@@ -3156,48 +3156,42 @@ class PreformattedNode(Node):
                             items.append(item[:-1])
                         else:
                             items.append(item)
-        if self.__realurl is None and False:
+        if node is None:
             node = doc.createElement(self.nodeName)
-            #node = Node.toXML(self,doc,node)
-        else:
-            if node is None:
-                node = doc.createElement(self.nodeName)
-                assert not [ n for n in self if not isinstance(n,unicode) ]
+            
+        codelight = syntax.CodeHilighter(self.getAttr('type'))
+        # special case: If first line is blank in a <pre>, we throw it away.
+                        
+        for item in items:
+            if isinstance(item,unicode):
+                for itm in codelight.process(item):
+                    if isinstance(itm,basestring):
+                        n = doc.createTextNode(itm)
+                    else:
+                        t,val = itm
+                        n = doc.createElement('span')
+                        n.setAttribute('class','language-syntax-%s' % t)
+                        n.appendChild(doc.createTextNode(val))
+                    node.appendChild(n)
+            else:
+                n = item.toXML(doc)
+                if n is not None:
+                    node.appendChild(n)
 
-                text = ''.join(self)
-            codelight = syntax.CodeHilighter(self.getAttr('type'))
-            # special case: If first line is blank in a <pre>, we throw it away.
-                            
-            for item in items:
-                if isinstance(item,unicode):
-                    for itm in codelight.process(item):
-                        if isinstance(itm,basestring):
-                            n = doc.createTextNode(itm)
-                        else:
-                            t,val = itm
-                            n = doc.createElement('span')
-                            n.setAttribute('class','language-syntax-%s' % t)
-                            n.appendChild(doc.createTextNode(val))
-                        node.appendChild(n)
-                else:
-                    n = item.toXML(doc)
-                    if n is not None:
-                        node.appendChild(n)
-
-            for k in [ 'id', 'class', 'xml:space','type' ]:
-                if self.hasAttr(k):
-                    node.setAttribute(k,self.getAttr(k))
-        
-            if self.__realurl is not None:    
-                node.setAttribute('url',self.__realurl)
-                node.setAttribute('firstline',str(self.__firstline+1))
-                
-            if self.traceInfo:
-                assert self.pos[0] is not None
-                assert self.pos[1] is not None
-                node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
-                node.setAttribute('trace:file',self.pos[0])
-                node.setAttribute('trace:line',str(self.pos[1]))
+        for k in [ 'id', 'class', 'xml:space','type' ]:
+            if self.hasAttr(k):
+                node.setAttribute(k,self.getAttr(k))
+    
+        if self.__realurl is not None:    
+            node.setAttribute('url',self.__realurl)
+            node.setAttribute('firstline',str(self.__firstline+1))
+            
+        if self.traceInfo:
+            assert self.pos[0] is not None
+            assert self.pos[1] is not None
+            node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
+            node.setAttribute('trace:file',self.pos[0])
+            node.setAttribute('trace:line',str(self.pos[1]))
         return node
 
 ######################################################################
@@ -3886,7 +3880,7 @@ class Manager:
                 if len(res) <= 1:
                     return res[0]
                 else:
-                    opr = opes[0]
+                    opr = oprs[0]
                     if   opr is Cond.Or:
                         return reduce(operator.__or__,res)
                     elif opr is Cond.And:
@@ -3894,6 +3888,7 @@ class Manager:
                     elif opr is Cond.Xor:
                         return reduce(operator.__xor__,res)
                     else:
+                        print "OPR = ",opr
                         assert 0
         
         res = evalc(root)

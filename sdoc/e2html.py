@@ -1008,7 +1008,7 @@ class SectionNode(Node):
             if title is None:
                 print "Asked for the section node name before title was available"
                 assert 0
-            self.__nodefilename = manager.makeNodeName(self.__sectlvl,self.getTitle())
+            self.__nodefilename = self.__manager.makeNodeName(self.__sectlvl,self.getTitle())
         
         return self.__nodefilename 
     def getSectionURI(self):
@@ -1196,14 +1196,16 @@ class SectionNode(Node):
                     res.append('.'.join([ str(v+1) for v in sidx ]) + '. ')
 
                 link = s.getSectionURI()
-                res.tag('a',{ 'href' : link })
+                res.tag('a',{ 'href' : link, 'target' : '_top' })
                 s.getTitle().toPlainHTML(res)
                 res.tagend('a')
                 if enable_expandable_toc:
                     res.tag('div',{ 'id' : 'sidebar-content-subsec-%d' % subsecidx, 'style' : 'display:none;' }).append('\n')
                 else:
                     res.tag('div',{ 'id' : 'sidebar-content-subsec-%d' % subsecidx }).append('\n')
-                s.makeSidebarContents(res,cnt)
+                ## Hm.... Hardcoded max depth?!? Not nice...
+                if self.__sectlvl < 3:
+                    s.makeSidebarContents(res,cnt)
                 res.tagend('div')
                 res.tagend('li')
             res.tagend('ul')
@@ -1215,31 +1217,10 @@ class SectionNode(Node):
         r.tag('ul',{ 'class' : 'sidebar-index-list' })
         for n,label in alist:
             link = '%s#%s' % (n.getFilename(),n.getAnchorID())
-            r.tag('li').tag('a', { 'href' : link })
+            r.tag('li').tag('a', { 'href' : link,'target' : '_top' })
             n.anchorTextToPlainHTML(r)
             r.tagend('a').tagend('li').append('\n')
         r.tagend('ul')
-    def makeSidebarArea(self,r,top):
-        r.tag('table',{ 'width' : '100%','style' : 'border-spacing:0px;'})
-        r.tag('tr',) 
-        r.tag('td', { 'class' : 'sidebar-table-cell sidebar-head-cell'}).tag('a', { 'href' : 'javascript:showSidebarContents()' }).append('Contents').tagend('a').tagend('td')
-        r.tag('td', { 'class' : 'sidebar-head-sep'}).tagend('td')
-        r.tag('td', { 'class' : 'sidebar-table-cell sidebar-head-cell'}).tag('a', { 'href' : 'javascript:showSidebarIndex()' }).append('Index').tagend('a').tagend('td')
-        r.tag('td',{ 'width' : '100%'}).tagend('td')
-        r.tagend('tr').tag('tr')
-        r.tag('td', { 'colspan' : '4', 'class' : 'sidebar-table-cell' })
-        r.tag('div', { 'style' : 'width:200px;' }).tagend('div')
-        r.tag('div', { 'id' : 'sidebar-contents' })
-        top.makeSidebarContents(r)
-        r.tagend('div')
-        r.tag('div', { 'id' : 'sidebar-index', 'style' : 'display:none;' })
-        self.makeSidebarIndex(r)
-        r.tagend('div')
-        r.tagend('td')
-        r.tagend('tr')
-        r.tag('tr').tag('td', { 'colspan' : '4', 'class' : 'sidebar-table-cell' }).tagend('td').tagend('tr')
-        r.tagend('table')
-        return r
         
     def toHTMLFile(self,prevNode,nextNode,parentNode,topNode,indexFile):
         assert self.__separatefile
@@ -1567,6 +1548,14 @@ class DocumentNode(SectionNode):
         elif name == 'section': self.__sections.append(n)
         
         return n
+    def makeSidebarFile(self,filename='sidebar.html'):
+        # Create a file containing sidebar stuff (index and contents)
+        d = {   'sidebar:contents' : htmlCollector(),
+                'sidebar:index'    : htmlCollector() }
+        self.makeSidebarContents(d['sidebar:contents'],counter())
+        self.makeSidebarIndex(d['sidebar:index']) 
+
+        self.__manager.writeHTMLfile(filename,d,'sidebar')  
 
     def toTeX(self,res):
         self.getTitle().contentToTeX(res['TITLE'])
@@ -1597,6 +1586,7 @@ class DocumentNode(SectionNode):
         for sect in sects:
             sect.toTeX(body,1)
         return res
+
 
 class BodyNode(_StructuralNode):
     nodeName = 'body'
@@ -2890,46 +2880,9 @@ class RootElement:
     def toTeX(self,res):
         return self.documentElement.toTeX(res)
     def toHTML(self):
-        if 0:
-            filename = 'index.html'
-
-            authors = self.documentElement.getAuthors()
-
-            stylesheet = self.__manager.getMainStylesheet()
-            r = htmlCollector()
-
-            r.tag('html')
-            r.tag('head')
-            #r.extend([tag('style'),style,tagend('style') ])
-            r.tagend('head')
-            r.tag('body')
-            ################################################################################
-            r.append(hr_delim)
-            r.tag('center')
-            r.tag('h1')
-            self.documentElement.getTitle().toHTML(r)
-            r.tagend('h1')
-            if authors:
-                authors.toHTML(r)
-            r.tagend('center')
-            ################################################################################
-            r.append(hr_delim)
-            r.div("top-level-contents toc")
-            self.documentElement.makeContents(r,1,5,True,'xref.html')
-            r.tagend('div')
-
-            ################################################################################
-            r.append(hr_delim)
-            r.div("page-footer")
-            r.append(self.__manager.getTimeStamp())
-            r.tagend('div')
-            r.tagend('body')
-            r.tagend('html')
-            
-            self.__manager.writelinesfile(filename,r)
-
-        #self.documentElement.toHTMLFile(None,None,self,self,'xref.html')
         self.documentElement.toHTMLFile(None,None,self,self,'xref.html')
+    def makeSidebar(self,filename):
+        self.documentElement.makeSidebarFile(filename)
 
     def getTitle(self):
         return self.documentElement.getTitle()
@@ -3016,7 +2969,7 @@ class TemplateParser(HTMLParser.HTMLParser):
                             nattrs.append((k,self.linkmap[v]))
                         else:
                             nattrs.append((k,v))
-                elif tag in [ 'img' ]:
+                elif tag in [ 'img','script' ]:
                     nattrs = []
                     for k,v in attrs:
                         if k == 'src':
@@ -3069,6 +3022,10 @@ def scanHTMLTemplate(filename):
                 for k,v in attrs:
                     if k == 'src':
                         self.links[v] = 'img'
+            elif tag in [ 'script' ]:
+                for k,v in attrs:
+                    if k == 'src':
+                        self.links[v] = 'javascript'
     P = HTMLTemplateScanner()
     P.feed(open(filename,'rt').read())
     return P.links.items()
@@ -3090,6 +3047,7 @@ class Manager:
                  debug       = False,
                  searchpaths = [],
                  template    = None,
+                 sidebartemplate = None,
                  gsbin       = 'gs',
                  pdflatexbin = 'pdflatex',
                  pdf2svgbin  = None):
@@ -3131,49 +3089,51 @@ class Manager:
         self.__debug = debug
 
         self.__htmltemplate = template
+        self.__htmlsidebartemplate = sidebartemplate
         self.__linkmap = {}
 
-        self.__nodeNames = {}
+        self.__nodeNames = { 'index' : 0, 'xref' : 0 }
         
         mappedlinks = {}
         mappedtgts  = {}
         templatebase = os.path.dirname(template)
-        for lnk,rel in scanHTMLTemplate(template):
-            # External links are mapped to themselves.
-            # Local links are resolved, the target is copied and the link is
-            # mapped to to copied resource.
-            proto,server,address,_,_ = urlparse.urlsplit(lnk)
-            if server:#absolute link
-                self.__linkmap[lnk] = lnk
-            elif not self.__linkmap.has_key(lnk):
-                if address[0] == '/': # absolute path
-                    p = os.path.normpath(address[0])
-                else:                    
-                    p = os.path.normpath(os.path.abspath(os.path.join(templatebase,address)))
+        for tmpl in [template,sidebartemplate]:
+            for lnk,rel in scanHTMLTemplate(tmpl):
+                # External links are mapped to themselves.
+                # Local links are resolved, the target is copied and the link is
+                # mapped to to copied resource.
+                proto,server,address,_,_ = urlparse.urlsplit(lnk)
+                if server:#absolute link
+                    self.__linkmap[lnk] = lnk
+                elif not self.__linkmap.has_key(lnk):
+                    if address[0] == '/': # absolute path
+                        p = os.path.normpath(address[0])
+                    else:                    
+                        p = os.path.normpath(os.path.abspath(os.path.join(templatebase,address)))
 
-                if not mappedlinks.has_key(p):# this file has not been included yet
-                    bn = os.path.basename(p)
-                    b,e = os.path.splitext(bn)
-                    if rel == 'shortcut icon':
-                        tgtdir = 'img'
-                    elif rel == 'javascript':
-                        tgtdir = 'script'
-                    elif rel == 'stylesheet':
-                        tgtdir = 'style'
-                    else:
-                        tgtdir = 'misc'
+                    if not mappedlinks.has_key(p):# this file has not been included yet
+                        bn = os.path.basename(p)
+                        b,e = os.path.splitext(bn)
+                        if rel == 'shortcut icon':
+                            tgtdir = 'img'
+                        elif rel == 'javascript':
+                            tgtdir = 'script'
+                        elif rel == 'stylesheet':
+                            tgtdir = 'style'
+                        else:
+                            tgtdir = 'misc'
 
-                    nameiter = nameIterator('%s/%s' % (tgtdir,b),e)
-                    tgt = nameiter.next()
-                    while mappedtgts.has_key(tgt):
+                        nameiter = nameIterator('%s/%s' % (tgtdir,b),e)
                         tgt = nameiter.next()
-                    mappedtgts[tgt] = tgt
-                    mappedlinks[p] = tgt
-                    self.__linkmap[lnk] = tgt
+                        while mappedtgts.has_key(tgt):
+                            tgt = nameiter.next()
+                        mappedtgts[tgt] = tgt
+                        mappedlinks[p] = tgt
+                        self.__linkmap[lnk] = tgt
 
-                    self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
-                else:
-                    self.__linkmap[lnk] = mappedlinks[p]
+                        self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
+                    else:
+                        self.__linkmap[lnk] = mappedlinks[p]
         self.__searchpaths = searchpaths
 
         iconsadded = {}
@@ -3328,7 +3288,7 @@ class Manager:
         zi.internal_attr |= 1 # text file
         zi.external_attr = 0x81a40001 #0x80000001 + (0688 << 16). Permissions
         self.__zipfile.writestr(zi, text)
-    def writeHTMLfile(self,filename,items):
+    def writeHTMLfile(self,filename,items,type='node'):
         """
         Write an HTML file using the HTML template as base.
             filename 
@@ -3336,9 +3296,14 @@ class Manager:
             items
                 A dictinary mapping template items to text lists.
         """
-        P = TemplateParser(items,self.__linkmap)
-        P.feedfile(self.__htmltemplate) 
-        self.writelinesfile(filename,''.join(P.res))
+        if type == 'sidebar':
+            P = TemplateParser(items,self.__linkmap)
+            P.feedfile(self.__htmlsidebartemplate) 
+            self.writelinesfile(filename,''.join(P.res))
+        else:
+            P = TemplateParser(items,self.__linkmap)
+            P.feedfile(self.__htmltemplate) 
+            self.writelinesfile(filename,''.join(P.res))
         
     def writeTexMath(self,filename):
         if self.__eqnlist:
@@ -3495,6 +3460,7 @@ if __name__ == "__main__":
                                     'appicon'    : config.UniqueDirEntry('appicon'),
                                     'icon'       : config.DefinitionListDirEntry('icon'),
                                     'template'   : config.UniqueDirEntry('template'),
+                                    'sidebartemplate' : config.UniqueDirEntry('sidebartemplate'),
                                     'tempdir'    : config.UniqueDirEntry('tempdir'),
 
                                     # TODO: Use platform dependant default values for binaries:
@@ -3528,6 +3494,10 @@ if __name__ == "__main__":
             conf.update('icon', args.pop(0))
         elif arg == '-tempdir':
             conf.update('tempdir', args.pop(0))
+        elif arg == '-template':
+            conf.update('template', args.pop(0))
+        elif arg == '-sidebartemplate':
+            conf.update('sidebartemplate', args.pop(0))
         elif arg == '-gsbin':
             conf.update('gsbin', args.pop(0))
         elif arg == '-pdftexbin':
@@ -3564,13 +3534,12 @@ if __name__ == "__main__":
         manager = Manager(outf,
                           conf['docdir'],
                           timestamp,
-                          #stylesheet=conf['stylesheet'],
-                          #javascript=conf['javascript'],
                           searchpaths=searchpaths,
                           appicon=conf['appicon'],
                           icons=conf['icon'],
                           debug=debug,
                           template=conf['template'],
+                          sidebartemplate=conf['sidebartemplate'],
                           gsbin=conf['gsbin'] or 'gs',
                           pdflatexbin=conf['pdftexbin'] or 'pdflatex',
                           pdf2svgbin=conf['pdf2svgbin'],
@@ -3589,6 +3558,11 @@ if __name__ == "__main__":
 
         msg('Writing ZIP files') 
         root.toHTML()
+        if conf['sidebartemplate'] is not None:
+            root.makeSidebar('sidebar.html')
+            print "Got: Sidebar"
+        else:
+            print "No got sidebar"
         
         try: os.makedirs(tempimgdir)
         except OSError: pass

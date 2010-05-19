@@ -40,6 +40,33 @@ java_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
                                    r'(?P<mlcmntstart>/\*)',
                                    r'(?P<mlcmntend>\*/)',
                                    ]))
+csharp_keywords = [ "as","explicit","null","switch",
+                    "base","extern","object","this",
+                    "bool","false","operator","throw",
+                    "break","finally","out","true",
+                    "byte","fixed","override","try",
+                    "case","float","params","typeof",
+                    "catch","for","private","uint",
+                    "char","foreach","protected","ulong",
+                    "checked","goto","public","unchecked",
+                    "class","if","readonly","unsafe",
+                    "const","implicit","ref","ushort",
+                    "continue","in","return","using",
+                    "decimal","int","sbyte","virtual",
+                    "default","interface","sealed","volatile",
+                    "delegate","internal","short","void",
+                    "do","is","sizeof","while",
+                    "double","lock","stackalloc",
+                    "else","long","static",
+                    "enum","namespace","string", ]
+csharp_language = ['null','true','false','string']
+csharp_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
+                                     r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                     r'(?P<word>\w+)',
+                                     r'(?P<newline>\n)',
+                                     r'(?P<mlcmntstart>/\*)',
+                                     r'(?P<mlcmntend>\*/)',
+                                     ]))
 
 xml_syntax = re.compile('|'.join([r'(?P<doctypestart><\!DOCTYPE)', # Not entirely correct since quoted strings may contain ">"
                                   r'(?P<directivestart><\?[a-zA-Z][a-zA-Z0-9:_]*)', # Not entirely correct since quoted strings may contain ">"
@@ -82,15 +109,58 @@ kw_language = 'language'
 class CodeHilighter:
     def __init__(self,mimetype='text/plain'):
         self.__state = None
-        if mimetype == 'source/python':
+        if   mimetype == 'source/python':
             self.process = self.process_Python
         elif mimetype == 'source/java':
             self.process = self.process_Java
+        elif mimetype == 'source/csharp':
+            self.process = self.process_CSharp
         elif mimetype == 'text/xml':
             self.process = self.process_XML
         else:
             self.process = self.process_plaintext
 
+    def process_CSharp(self,l):
+        lres = []
+        pos = 0
+
+        for o in csharp_syntax.finditer(l):
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('mlcmntstart'):
+                    self.__state = o.group(0)
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('newline'):
+                    lres.append(u'\n')
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in csharp_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in csharp_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+            else:# inside multi-line string
+                if o.group('mlcmntend') and o.group(0) == self.__state:
+                    lres.append((kw_comment,l[pos:o.end(0)]))
+                    pos = o.end(0)
+                    self.__state = None                        
+                elif o.group('newline'):
+                    lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append(u'\n')
+                    pos = o.end(0)
+        if pos < len(l):
+            if self.__state is None:
+                lres.append(l[pos:])
+            else:
+                lres.append((kw_comment,l[pos:]))
+        return lres
     def process_Java(self,l):
         lres = []
         pos = 0
