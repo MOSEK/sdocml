@@ -1,8 +1,7 @@
 """
     This file os part of the sdocml project:
         http://code.google.com/p/sdocml/
-    The project is distributed under GPLv3:
-        http://www.gnu.org/licenses/gpl-3.0.html
+
     
     Copyright (c) 2009 Mosek ApS 
 """
@@ -18,6 +17,7 @@ import xml.sax
 import sys,os,operator
 import Iters
 import syntax
+import cond
 
 import re
 
@@ -110,13 +110,17 @@ class CondOpr(str):
     pass
 
 class Cond:
-    And = CondOpr('&')
+    And = CondOpr('+')
     Or  = CondOpr('|')
     Xor = CondOpr('/')
     Not = CondOpr('!')
 
 class CondTerm(unicode):
     pass
+
+class CondIsDef(unicode):
+    pass
+
 
 class CondExp(list):
     pass
@@ -151,17 +155,31 @@ class Attr:
                             'The syntax for conditional expressions is:',
                             '<pre>',
                             'exp    -> subexp | "!" subexp',
-                            'subexp -> TERM | "(" explst ")"',
-                            'explst -> andlst | orlst | xorlst'
+                            'subexp -> TERM | "(" explst ")" | isdef',
+                            'explst -> andlst | orlst | xorlst',
                             'orlst  -> exp | exp "|" orlst',
-                            'andlst -> exp | exp "&amp;" andlst',
+                            'andlst -> exp | exp "+" andlst',
                             'xorlst -> exp | exp "/" xorlst',
+                            'isdef  -> ? TERM',
                             '</pre>',
                             'For example:',
                             '<pre>',
                             '(c1 | c2 | !c3)',
-                            '( (c1 / c2) &amp; c3 )',
+                            '( (c1 / c2) + c3 )',
                             '</pre>',
+                            '((?c1 + c1) | (?c2 + c2))',
+                            'Note: The exact meanings of',
+                            '<dlist>',
+                            '  <dt><tt>a|b|c<tt></dt>',
+                            '  <dd>At least one of <tt>a</tt>, <tt>b</tt> and <tt> must be true</dd>',
+                            '  <dt><tt>a+b+c<tt></dt>',
+                            '  <dd>All of one of <tt>a</tt>, <tt>b</tt> and <tt> must be true</dd>',
+                            '  <dt><tt>a/b/c<tt></dt>',
+                            '  <dd>Exactly one of <tt>a</tt>, <tt>b</tt> and <tt> must be true</dd>',
+                            '</dlist>',
+                            'Evaluaten is the normal lazy logic evaluation. This means that while referring to',
+                            'a variable <tt>a</tt> which is not defined causes an error, but an expression ',
+                            '<tt>?a+a</tt> (meaning: If <tt>a</tt> is defined and <tt>a</tt> is true) is valid.'
                             ]),
         'id'          : 'A globally unique ID that may be used to refer to this element.',
         'class'       : 'A space-separated list of class names that will be passed on to the backend as is.',
@@ -3816,8 +3834,14 @@ class Manager:
 
 
     def evalCond(self,value,filename,line):
-        condregex = re.compile('|'.join([r'(?P<not>!)',
-                                         r'(?P<and>&)',
+        try:
+            return cond.eval(value,self.__conds)
+        except cond.CondError,e:
+            raise CondError('%s at %s:%d' % (e,filename,line))
+
+        condregex = re.compile('|'.join([r'\?(?P<isdef>[a-zA-Z0-9@:_\.\-\*]+)',
+                                         r'(?P<not>!)',
+                                         r'(?P<and>\+)',
                                          r'(?P<or>\|)',
                                          r'(?P<xor>/)',
                                          r'(?P<lpar>\()',
@@ -3835,6 +3859,8 @@ class Manager:
                 pos = o.end(0)
                 if   o.group('space'):
                     pass
+                elif o.group('isdef'):
+                    stack[-1].append(CondIsDef(o.group('isdef')))
                 elif o.group('not'): stack[-1].append(Cond.Not)
                 elif o.group('and'): stack[-1].append(Cond.And)
                 elif o.group('or'):  stack[-1].append(Cond.Or)
@@ -3859,6 +3885,8 @@ class Manager:
                     return conds[exp]
                 else:
                     raise CondError('Undefined condition key "%s" at %s:%d' % (exp,filename,line))
+            elif isinstance(exp,CondIsDef):
+                return conds.has_key(exp)
             else:
                 oprs = dict([ (v,v) for v in exp if isinstance(v,CondOpr) and v is not Cond.Not]).keys()
                 if len(oprs) > 1:
