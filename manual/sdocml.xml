@@ -13,7 +13,6 @@
       <author>
         <firstname>Ulf</firstname>
         <lastname>Worsøe</lastname>
-        <institution>Mosek ApS</institution>
       </author>
       <author>
         <firstname>The self-documenting Documentation System</firstname>
@@ -184,9 +183,7 @@
         <section id="element:def">
           <head><title>The \tag{def} element</title></head>
           The \tagref{def} element is used to define or redefine a macro. A macro name is defined as follows
-          <pre>
-[a-zA-Z][a-zA-Z0-9@]*|["~\'`^\\][a-zA-Z]|[^\\:!]
-          </pre>
+          <pre>[a-zA-Z][a-zA-Z0-9@]*|["~\'`^\\][a-zA-Z]|[^\\:!]</pre>
           and furthermore, the special macros ``<tt>begin</tt>'' and
           ``<tt>end</tt>'' are reserved and cannot be redefined.
             
@@ -212,14 +209,12 @@
           \end{itemize}
 
           In math mode a macro may accept subscript and/or superscript arguments, i.e.
-          <pre>
-\sum^{X}_{i=0} x_i
-          </pre>
+          <pre>\sum^{X}_{i=0} x_i</pre>
           will be interpreted as the macro <tt>sum</tt> with superscript
           argument <tt>X</tt> and subscript argument <tt>i=0</tt>. Using the
           definition of <tt><nx>\sum</nx></tt> from <tt>base.xml</tt>, this will be rendered as
           <math>
-\sum^{X}_{i=0} x_i
+            \sum^{X}_{i=0} x_i
           </math>
 
           To indicate
@@ -237,9 +232,7 @@
           <head><title>The \tag{defenv} element</title></head>
 
           The \tagref{defenv} works much like the \tagref{def} element. Valid macro names are defined as follows:
-          <pre>
-[a-zA-Z][a-zA-Z0-9@]*
-          </pre>
+          <pre>[a-zA-Z][a-zA-Z0-9@]*</pre>
           
           As with macros, it may require a fixed number of arguments, and the
           content of the environment is passwd as an additional argument.  In
@@ -595,7 +588,7 @@
         entries, while the external bibliography database file is defined  in
         BibTeXML format (see \cite{bibtexml:07}) --- e.g. the file used for
         this manual looks like this:
-        <pre url="bibdb.xml"/>
+        <pre type="text/xml" url="bibdb.xml"/>
         
         <section>
           <head><title>Bibliography entry formatting</title></head>
@@ -675,11 +668,11 @@ organization&amp;publisher&amp;address
         {
           Produces a ``margin-note'' for proof-readers.
         }
-        \tagitem{texml:conditional}
+        \tagitem{sdocml:conditional}
         {
           A special preprocessor-like tag: If the given condition is met, the
           content of the element will be parsed as if it had appeared directly
-          in the text rather than in a \tagref{texml:conditional}. If the
+          in the text rather than in a \tagref{sdocml:conditional}. If the
           condition is not met, the content will be completly ignored (i.e.: It
           must still be valid XML, but no validation is performed and all text
           and elements are thrown away.)
@@ -689,7 +682,7 @@ organization&amp;publisher&amp;address
       Furthermore, several elements accept a ``<tt>cond</tt>'' attribute
       defining a condition under which the element should be included in the
       document. If a condition element evaluated to <tt>False</tt>, the element
-      will be ignored as if it had appeard inside a \tagref{texml:conditional}
+      will be ignored as if it had appeard inside a \tagref{sdocml:conditional}
       element.
     </section>
   </section>

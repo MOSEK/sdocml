@@ -1,6 +1,6 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE sdocml SYSTEM 
-          "texmldoc.dtd">
+        "http://sdocsml.googlecode.com/dtd/1.0a/sdocml.dtd">
 
 <sdocml>
   <head>

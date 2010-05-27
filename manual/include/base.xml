@@ -85,7 +85,7 @@
     <def m="^"><d>^</d></def> <!-- escaped circumflex -->
     <def m="{"><d>{</d></def> 
     <def m="}"><d>}</d></def> 
-    <def m="|"><d>&Vert;</d></def> 
+    <def m="|"><d>|</d></def> 
     <def m="nbsp"><d>&nbsp;</d></def>     <!-- non-breaking space -->
     <def m="shortdash"><d>&shy;</d></def> <!-- The normal dash -->
     <def m="ndash"><d>&ndash;</d></def>   <!-- A longer dash -->

@@ -280,3 +280,23 @@ body                {       margin : 0px; padding : 0px; height : 100%;
 .navigation-top     { background-color : rgb(220,220,220);}
 .navigation-bottom  { background-color : rgb(220,220,220);}
 
+
+
+/* Language syntax hilighting stuff */
+.language-syntax-keyword 
+                    {
+                            color       : blue;
+                            font-weight : bolder;
+                    }
+.language-syntax-comment 
+                    {
+                            color       : rgb(127,0,0); 
+                            font-style  : italic; 
+                    }
+.language-syntax-string 
+                    {       color       : #804000;}
+.language-syntax-language 
+                    {
+                            color       : black; 
+                            font-weight : bolder;
+                    }

@@ -1,9 +1,3 @@
-%%BEGIN SDOCINFO
-%%NOTE:This section contains links to _all_ external resources used in the template
-%file: graphics/titlepg.pdf
-%file: graphics/pagebg.pdf
-%%END   SDOCINFO
-
 \documentclass[a4paper]{book}\setcounter{secnumdepth}{4}
 
 \usepackage{amsmath}
@@ -32,13 +26,16 @@
 \def\preputlineno{\llap{{\tiny\the\prelineno}\hspace{1em}}\advance\prelineno by1}
 \def\prehead#1{\leaders\hbox{\rule[.2em]{1em}{1pt}}\hfill{#1}}
 \def\predelimplain{\leaders\hbox{\rule[.2em]{1em}{1pt}}\hfill\rule{0in}{0in}}
-\def\beginpre#1#2{\prelineno=#2\par\noindent\prehead{\tt #1}\par\begingroup\footnotesize\parindent=0in\obeylines\obeyspaces\ttfamily\everypar{\preputlineno\ }}
-\def\beginpreplain{\par\noindent\predelimplain\par\begingroup\footnotesize\parindent=0in\obeylines\obeyspaces\ttfamily}
-\def\endpre{\endgroup\par\noindent\predelimplain\par}
+
+\def\beginpre#1#2{\par\noindent\prehead{\tt #1}\par\begingroup\parskip=0in\parindent=0in\prelineno=#2\footnotesize\obeylines\obeyspaces\ttfamily\everypar{\preputlineno{}}}
+\def\beginpreplain{\par\noindent\predelimplain\par\begingroup\parskip=0in\parindent=0in\footnotesize\obeylines\obeyspaces\ttfamily\everypar{\nullbox{}}}
+\def\endpre{\par\endgroup\noindent\predelimplain\par}
+
 %%% <<<
 \def\nullbox{\rule{0pt}{0pt}}
 \def\authorsep{\vrule height1.3em width0pt depth1em\rule{0.3em}{0.3em}}
 
+\bibliographystyle{plain}
 
 \title{%{TITLE}%}
 \date{%{DATE}%}

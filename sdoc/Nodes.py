@@ -166,16 +166,16 @@ class Attr:
                             '<pre>',
                             '(c1 | c2 | !c3)',
                             '( (c1 / c2) + c3 )',
-                            '</pre>',
                             '((?c1 + c1) | (?c2 + c2))',
+                            '</pre>',
                             'Note: The exact meanings of',
                             '<dlist>',
-                            '  <dt><tt>a|b|c<tt></dt>',
-                            '  <dd>At least one of <tt>a</tt>, <tt>b</tt> and <tt> must be true</dd>',
-                            '  <dt><tt>a+b+c<tt></dt>',
-                            '  <dd>All of one of <tt>a</tt>, <tt>b</tt> and <tt> must be true</dd>',
-                            '  <dt><tt>a/b/c<tt></dt>',
-                            '  <dd>Exactly one of <tt>a</tt>, <tt>b</tt> and <tt> must be true</dd>',
+                            '  <dt><tt>a|b|c</tt></dt>',
+                            '  <dd>At least one of <tt>a</tt>, <tt>b</tt> and <tt>a</tt> must be true</dd>',
+                            '  <dt><tt>a+b+c</tt></dt>',
+                            '  <dd>All of one of <tt>a</tt>, <tt>b</tt> and <tt>a</tt> must be true</dd>',
+                            '  <dt><tt>a/b/c</tt></dt>',
+                            '  <dd>Exactly one of <tt>a</tt>, <tt>b</tt> and <tt>a</tt> must be true</dd>',
                             '</dlist>',
                             'Evaluaten is the normal lazy logic evaluation. This means that while referring to',
                             'a variable <tt>a</tt> which is not defined causes an error, but an expression ',
@@ -2367,7 +2367,7 @@ class BibItemNode(Node):
             parse a condition of the form:
               cond     = "(" subcond ")"
                        |  subcond
-              subcond  = conditem "&" and_cond
+              subcond  = conditem "+" and_cond
                        | conditem "|" or_cond
               conditem = TERM
                        | "(" subcond ")"

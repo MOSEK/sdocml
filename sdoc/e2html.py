@@ -3241,7 +3241,7 @@ class Manager:
     def addMathRequirement(self,pkg,opts=None):
         self.__mathRequire[pkg] = opts
     def addEquation(self,s,filename,line):
-        s = s.strip()
+        s = re.sub(r'[ \n\t\r]+',' ',s) # NOTE: paragraphs in the middle of math explode.
         if self.__eqndict.has_key(s):
             self.__eqnsrcdict[s].append((filename,line))
             idx = self.__eqndict[s]
