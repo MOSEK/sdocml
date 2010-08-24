@@ -15,7 +15,7 @@ condregex = re.compile('|'.join([r'\?(?P<isdef>[a-zA-Z0-9@:_\.\-\*]+)',
                                  r'(?P<lpar>\()',
                                  r'(?P<rpar>\))',
                                  r'(?P<term>[a-zA-Z0-9@:_\.\-\*]+)',
-                                 r'(?P<space>\s\+)',
+                                 r'(?P<space>\s+)',
                                  r'(?P<error>.)']))
 class CondError(Exception): pass
 
@@ -47,7 +47,7 @@ def tokenize(s):
     while True:
         tok = it.next()
         if tok.group('error') is not None:
-            raise CondError('Invalid condition syntax at %d' % t.pos)
+            raise CondError('Invalid condition syntax "%s" at %d' % (tok.group('error'),tok.pos))
         elif tok.group('space') is None:
             yield Token(tok)
 
@@ -158,7 +158,9 @@ if __name__ == '__main__':
           'C' : True, 
           'D' : False } 
 
-    for c in [ 'A/B',
+    for c in [ '(A | B)',
+               '(A/B)',
+               'A/B',
                'A/B/C',
                'B/D/A',
                'A+B',
