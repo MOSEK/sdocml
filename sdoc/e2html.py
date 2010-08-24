@@ -2635,7 +2635,7 @@ class MathOperatorNode(_MathNode):
     def toTeX(self,r):
         if self.hasAttr('op') and len(self.getAttr('op')) > 0:
             op = self.getAttr('op')
-            if op in [ 'sum','lim','prod','sup','inf' ]:
+            if op in [ 'sum','lim','prod','sup','inf','int' ]:
                 r.macro(op)
             else:
                 raise MathNodeError('Unknown opearator "%s" @ %s:%d' % (op,self.pos[0],self.pos[1])) 
@@ -2664,7 +2664,7 @@ class MathSubSuperscriptNode(_MathNode):
         pass
     def toTeX(self,r):
         assert len(self) >= 3
-        base = self[0]
+        base = self[0]  
         subarg = self[1]
         suparg = self[2]
 
