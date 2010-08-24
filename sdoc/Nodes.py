@@ -254,6 +254,12 @@ class CommandDict(UserDict):
             return self.__parent.dictLookup(key)
         else:
             raise KeyError('No Dictionary entry for %s' % key)
+    def _dictKeys(self):
+        if self.__parent is not None:
+            s = self.__parent._dictKeys()
+        else:
+            s = set()
+        return s | set(self.__lookuptable.keys())
     def dictSet(self,key,value):
         if not self.__lookuptable.has_key(key):
             self.__lookuptable[key] = value

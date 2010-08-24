@@ -3,8 +3,25 @@
 
 <defines>
     <def m="sdocml"><e n="tt"><d>SDocML</d></e></def>
-     
+    
+    <incdef url="accent.xml"/>
+    <!-- Accent tables: Hat, bar and not --> 
+
+    <dictentry key="accent-not-=">&#x2260;</dictentry>
+    <dictentry key="accent-not-in">&#x2209;</dictentry>
+    <!-- NOTE: Accents can be produced using combining characters, but the HTML backend does not support this yet. 
+         The accenting macros use combining characters; the dictionary lookup expands to nothing but will only succeed if 
+         the character was listed in then "accentable" list (accent.xml).
+         Combining characters are defined in Unicode 0x0300-0x036f.
+      -->
+    <def m="hat" n="1">
+      <desc>This operator accepts exactly one char of the ones listed in accents.xml</desc>
+      <e n="mo"><d><lookup>accentable-{{0}}</lookup>{{0}}&#x0302;</d></e>
+    </def>
+    <def m="bar" n="1"><e n="mo"><d><lookup>accentable-{{0}}</lookup>{{0}}&#x0304;</d></e></def>
+
     <!-- An anchor generated with \index or \dindex contains no ID, and thus cannot be referred. -->
+
     <def m="index"  n="1">
       <desc>
         Define an index entry. The standard TeX syntax is allowed, but it is
@@ -72,13 +89,6 @@
     <def m="texttt" n="1"><e n="tt"><d>{{0}}</d></e></def>
     <def m="br"><e n="br"/></def>
 
-    
-    <def m='"a'><d>&auml;</d></def>  <!-- ä -->
-    <def m='"e'><d>&euml;</d></def>  <!-- ë --> 
-    <def m="`e"><d>&egrave;</d></def> <!-- è -->
-    <def m="'e"><d>&eacute;</d></def> <!-- é as in Pécseli-->
-    <def m='"o'><d>&ouml;</d></def>  <!-- ö -->
-    <def m="o"><d>&oslash;</d></def> <!-- ø -->
 
     <def m="\"><d>\</d></def> <!-- escaped backslash -->
     <def m="_"><d>_</d></def> <!-- escaped underscore -->
@@ -121,10 +131,24 @@
         <e n="mrow"><d>{{SUPERSCRIPT}}</d></e>
       </e>
     </def>
+    
+    <def m="int" superscript-arg="yes" subscript-arg="yes">
+      <e n="msubsup">
+        <e n="mrow"><e n="mo"><attr n="op">int</attr></e></e>
+        <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
+        <e n="mrow"><d>{{SUPERSCRIPT}}</d></e>
+      </e>
+    </def>
+
     <def m="limits"> <e n="mo"><attr n="op">limits</attr></e></def>
     <def m="in">     <e n="mo"><d>&isin;</d></e></def>
-    <def m="notin">  <e n="mo"><d>&notin;</d></e></def>
+    <!-- <def m="notin">  <e n="mo"><d>&notin;</d></e></def> --> <!-- REPLACED BY \not{\in} -->
+    <def m="not" n="1"> <e n="mo"><d><lookup>accent-not-{{0}}</lookup></d></e></def>
     <def m="subset"> <e n="mo"><d>&sub;</d></e></def>
+    <def m="approx"> <e n="mo"><d>&#x2248;</d></e></def>
+
+    <def m="Rightarrow"><e n="mo"><d>&#x21d2;</d></e></def>
+    <def m="Leftrightarrow"><e n="mo"><d>&#x21d4;</d></e></def>
 
 
     <def m="infty"><e n="mo"><attr n="op">inf</attr></e></def>

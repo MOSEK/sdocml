@@ -116,6 +116,7 @@ class _mathUnicodeToTex:
         8221 : "''",
     }
 
+
 class _unicodeToTex:
     unicoderegex = re.compile(u'[\u0080-\u8000]')
     unicodetotex = {  
@@ -182,7 +183,17 @@ class _unicodeToTex:
         8805 : '\\geq ',
         8834 : '\\subset ',
         8901 : '\\cdot ',
-        8943 : '\\cdots ',
+        8943 : '\\cdots ',        
+    }
+
+    combchar_math = {
+        0x0302 : 'hat',
+        0x0304 : 'bar',
+    }
+
+    combchar_text = {
+        0x0302 : '^',
+        0x0304 : '=',
     }
 
     @staticmethod
@@ -209,28 +220,71 @@ class texCollector(UserList.UserList):
     def texescape(self,data,r):
         pos = 0
         #unicoderegex = re.compile(u'[\u0080-\u8000]')
-        for o in re.finditer(ur'\\|{|}|<|>|#|\$|\^|_|&|%|[\u0080-\u8000]',data):
+        for o in re.finditer(ur'(?P<backslash>\\)|(?P<spctex>{|}|<|>|#|\$|\^|_|&|%)|(?P<combined>[a-zA-Z][\u0300-\u036f]+)|(?P<unicodecombined>[\u0080-\u8000][\u0300-\u036f]?)',data):
+            # backslash -> '\'
+            # spctex    -> single char special tex characters
+            # combined  -> combining character: normal char + combining chars (one or more, but we only support one)
+            # combined unicode -> Any unicode char followed by one or more combining chars
             if o.start(0) > pos:
                 r.append(str(data[pos:o.start(0)]))
             pos = o.end(0)
-            t = o.group(0)
-            if   t == '\\':
+            if   o.group('backslash'):
                 if self.__mode is self.TextMode:
                     r.append('$\\tt\\backslash$')
                 else:
                     r.append('\\tt\\backslash{}')
-            elif t in [ '{', '}', '#','$','&','%' ]:
-                r.append('\\%s' % str(t))
-            elif t in [ '^','_' ]:
-                if self.__mode == self.MathMode:
+            elif o.group('spctex'):
+                t = o.group('spctex')
+                if t in [ '^','_' ]:
+                    if self.__mode == self.MathMode:
+                        r.append('\\%s' % str(t))
+                    else:
+                        r.append('\\char%d{}' % ord(t))
+                elif t in [ '<', '>' ]:
+                    if self.__mode == self.MathMode:
+                        r.append(str(t))
+                    else:
+                        r.append('\\char%d{}' % ord(t))
+                else:
                     r.append('\\%s' % str(t))
+            elif o.group('combined'):
+                t = o.group('combined')
+                ch = t[0]
+                cm = t[1:]
+                if len(cm) > 1:
+                    raise UnicodeError('Multiple combining characters are not supported.')
                 else:
-                    r.append('\\char%d{}' % ord(t))
-            elif t in [ '<', '>' ]:
-                if self.__mode == self.MathMode:
-                    r.append(str(t))
+                    cm = ord(cm)
+
+                if self.__mode is self.TextMode:
+                    r.append('\\%s%s' % (_unicodeToTex.combined_text[cm],ch))
+                else: #if self.__mode is self.MathMode:
+                    r.append('\\%s{%s}' % (_unicodeToTex.combined_math[cm],ch))
+            elif o.group('unicodecombined'):
+                t = o.group('combined')
+                ch = t[0]
+                cm = t[1:]
+
+                if len(cm) > 1:
+                    raise UnicodeError('Multiple combining characters are not supported.')
+                elif len(cm) == 0:
+                    uidx = ord(ch)
+                    if self.__mode == self.MathMode:
+                        try:
+                            r.append(_mathUnicodeToTex.unicodetotex[uidx])
+                        except KeyError:
+                            Warning('Unknown unicode: %d' % uidx)
+                            r.append('.')
+                    else:
+                        try:
+                            r.append(_mathUnicodeToTex.textunicodetotex[uidx])
+                        except KeyError:
+                            raise UnicodeToTeXError('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
                 else:
-                    r.append('\\char%d{}' % ord(t))
+                    if self.__mode is self.TextMode:
+                        raise UnicodeError('Combining unicode characters not allowed in text mode')
+                    else: #if self.__mode is self.MathMode:
+                        r.append('\\%s%s' % (_unicodeToTex.combined_math[cm],_unicodeToTex.unicodetotex[ch]))
             else: 
                 uidx = ord(o.group(0))
                 if self.__mode == self.MathMode:
@@ -240,7 +294,7 @@ class texCollector(UserList.UserList):
                         Warning('Unknown unicode: %d' % uidx)
                         r.append('.')
                 else:
-                    print "GOT : %d %s" % (uidx,o.group(0).encode('utf-8'))
+                    #print "GOT : %d %s" % (uidx,o.group(0).encode('utf-8'))
                     try:
                         r.append(_mathUnicodeToTex.textunicodetotex[uidx])
                     except KeyError:

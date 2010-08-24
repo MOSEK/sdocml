@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE defines SYSTEM "http://sdocsml.googlecode.com/dtd/1.0a/sdocmldefs.dtd">
+
+<defines>
+  <!-- Special cases for TeX-like accent macros -->
+  <def m='"a'><d>ä</d></def> <!-- &auml; -->
+  <def m='"e'><d>ë</d></def> <!-- &euml; -->
+  <def m='"i'><d>ï</d></def> <!-- &iuml; -->
+  <!-- ... -->
+
+  <def m="`a"><d>à</d></def> <!-- &agrave; -->
+  <def m="`e"><d>è</d></def> <!-- &egrave; -->
+  <def m="`i"><d>ì</d></def> <!-- &igrave; -->
+  <!-- ... -->
+
+  <def m="'a"><d>á</d></def> <!-- &aacute; -->
+  <def m="'e"><d>é</d></def> <!-- &eacute; -->
+  <def m="'i"><d>í</d></def> <!-- &iacute; -->
+  <!-- ... -->
+  
+  <def m="o"><d>&oslash;</d></def> <!-- ø -->
+
+  <!-- Table of all accebtable characters -->
+  <!-- These should be ok for use with ^,',`,bar, umlaut etc. 
+       See: http://www.utf8-chartable.de/unicode-utf8-table.pl, 0x300-0x36f
+    -->
+  <dictentry key="accentable-a"/>
+  <dictentry key="accentable-b"/>
+  <dictentry key="accentable-c"/>
+  <dictentry key="accentable-d"/>
+  <dictentry key="accentable-e"/>
+  <dictentry key="accentable-f"/>
+  <dictentry key="accentable-g"/>
+  <dictentry key="accentable-h"/>
+  <dictentry key="accentable-i"/>
+  <dictentry key="accentable-j"/>
+  <dictentry key="accentable-k"/>
+  <dictentry key="accentable-l"/>
+  <dictentry key="accentable-m"/>
+  <dictentry key="accentable-n"/>
+  <dictentry key="accentable-o"/>
+  <dictentry key="accentable-p"/>
+  <dictentry key="accentable-q"/>
+  <dictentry key="accentable-r"/>
+  <dictentry key="accentable-s"/>
+  <dictentry key="accentable-t"/>
+  <dictentry key="accentable-u"/>
+  <dictentry key="accentable-v"/>
+  <dictentry key="accentable-w"/>
+  <dictentry key="accentable-x"/>
+  <dictentry key="accentable-y"/>
+  <dictentry key="accentable-z"/>
+  
+  <dictentry key="accentable-A"/>
+  <dictentry key="accentable-B"/>
+  <dictentry key="accentable-C"/>
+  <dictentry key="accentable-D"/>
+  <dictentry key="accentable-E"/>
+  <dictentry key="accentable-F"/>
+  <dictentry key="accentable-G"/>
+  <dictentry key="accentable-H"/>
+  <dictentry key="accentable-I"/>
+  <dictentry key="accentable-J"/>
+  <dictentry key="accentable-K"/>
+  <dictentry key="accentable-L"/>
+  <dictentry key="accentable-M"/>
+  <dictentry key="accentable-N"/>
+  <dictentry key="accentable-O"/>
+  <dictentry key="accentable-P"/>
+  <dictentry key="accentable-Q"/>
+  <dictentry key="accentable-R"/>
+  <dictentry key="accentable-S"/>
+  <dictentry key="accentable-T"/>
+  <dictentry key="accentable-U"/>
+  <dictentry key="accentable-V"/>
+  <dictentry key="accentable-W"/>
+  <dictentry key="accentable-X"/>
+  <dictentry key="accentable-Y"/>
+  <dictentry key="accentable-Z"/>
+
+  <dictentry key="accentable-&alpha;"/>
+  <dictentry key="accentable-&beta;"/>
+  <dictentry key="accentable-&gamma;"/>
+  <dictentry key="accentable-&delta;"/>
+  <dictentry key="accentable-&epsilon;"/>
+  <dictentry key="accentable-&zeta;"/>
+  <dictentry key="accentable-&eta;"/>
+  <dictentry key="accentable-&theta;"/>
+  <dictentry key="accentable-&iota;"/>
+  <dictentry key="accentable-&kappa;"/>
+  <dictentry key="accentable-&lambda;"/>
+  <dictentry key="accentable-&mu;"/>
+  <dictentry key="accentable-&nu;"/>
+  <dictentry key="accentable-&xi;"/>
+  <dictentry key="accentable-&omicron;"/>
+  <dictentry key="accentable-&pi;"/>
+  <dictentry key="accentable-&rho;"/>
+  <dictentry key="accentable-&sigma;"/>
+  <dictentry key="accentable-&tau;"/>
+  <dictentry key="accentable-&upsilon;"/>
+  <dictentry key="accentable-&phi;"/>
+  <dictentry key="accentable-&chi;"/>
+  <dictentry key="accentable-&psi;"/>
+  <dictentry key="accentable-&omega;"/>
+  
+  <dictentry key="accentable-&Alpha;"/>
+  <dictentry key="accentable-&Beta;"/>
+  <dictentry key="accentable-&Gamma;"/>
+  <dictentry key="accentable-&Delta;"/>
+  <dictentry key="accentable-&Epsilon;"/>
+  <dictentry key="accentable-&Zeta;"/>
+  <dictentry key="accentable-&Eta;"/>
+  <dictentry key="accentable-&Theta;"/>
+  <dictentry key="accentable-&Iota;"/>
+  <dictentry key="accentable-&Kappa;"/>
+  <dictentry key="accentable-&Lambda;"/>
+  <dictentry key="accentable-&Mu;"/>
+  <dictentry key="accentable-&Nu;"/>
+  <dictentry key="accentable-&Xi;"/>
+  <dictentry key="accentable-&Omicron;"/>
+  <dictentry key="accentable-&Pi;"/>
+  <dictentry key="accentable-&Rho;"/>
+  <dictentry key="accentable-&Sigma;"/>
+  <dictentry key="accentable-&Tau;"/>
+  <dictentry key="accentable-&Upsilon;"/>
+  <dictentry key="accentable-&Phi;"/>
+  <dictentry key="accentable-&Chi;"/>
+  <dictentry key="accentable-&Psi;"/>
+  <dictentry key="accentable-&Omega;"/>
+
+</defines>

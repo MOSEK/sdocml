@@ -1816,6 +1816,8 @@ class Manager:
 
         of.close()
         
+    def makeNodeName(self,depth,title): # dummy
+        return ''
 
     def getNewCiteIdx(self):
         return self.__citeidx.next()

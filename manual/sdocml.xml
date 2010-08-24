@@ -685,6 +685,34 @@ organization&amp;publisher&amp;address
       will be ignored as if it had appeard inside a \tagref{sdocml:conditional}
       element.
     </section>
+    <section>
+      <head><title>Unicode text</title></head>
+
+      SDoc generally supports most unicode characters in text mode: When parsing the document following constructions are treated as single characters:
+      <ilist>
+        <li>Characters in the ASCII range.</li>
+        <li>Ordinary unicode multi-byte characters outside the ASCII range.</li>
+        <li>Combining characters, i.e. a normal single- or multi-byte character
+            followed by one or more characters in the range 0x0300-0x036f.</li>
+      </ilist>
+
+      Since the backends may need to treat non-ASCII characters in some special
+      way (e.g. accents in TeX), only a subset of unicode character
+      constructions are actually supported.
+
+      Several unicode characters can be written in (at least) two different ways; either using a combining character or using the dedicated code-point.
+      For example an <em>a-grave</em>, can be written as
+      <ilist>
+        <li> The dedicated code point (unicode 0xe0) rendered as "à",or </li>
+        <li> a combining character ("a" followed by unicode 0x300) rendered as "à  "</li>
+      </ilist>
+      A pure ASCII version with the same meaning, but using XML entities can be written
+      <ilist>
+        <li> referring the dedicated code point by name as <em>&amp;agrave;</em>, or </li>
+        <li> referring to the combining unicode char by index (since it has no name by default) as <em>a&amp;#x0300;</em>.</li>
+      </ilist>
+
+    </section>
   </section>
   <section url="../build/output/tagsref.xml" cond="true"/>
   <section url="../build/output/macroref.xml" cond="final"/>
