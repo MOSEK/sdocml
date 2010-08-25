@@ -335,6 +335,8 @@ class LazyElement(UnexpandedItem,UserList):
 
         self.__ev_close = ev_close
 
+        self.nodeName = name
+
     def newChild(self,name,attrs,filename,line):
         debug('LazyElement %s: Add node %s' % (self.__name,name))
 
