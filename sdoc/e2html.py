@@ -257,9 +257,9 @@ class texCollector(UserList.UserList):
                     cm = ord(cm)
 
                 if self.__mode is self.TextMode:
-                    r.append('\\%s%s' % (_unicodeToTex.combined_text[cm],ch))
+                    r.append('\\%s%s' % (_unicodeToTex.combchar_text[cm],ch))
                 else: #if self.__mode is self.MathMode:
-                    r.append('\\%s{%s}' % (_unicodeToTex.combined_math[cm],ch))
+                    r.append('\\%s{%s}' % (_unicodeToTex.combchar_math[cm],ch))
             elif o.group('unicodecombined'):
                 t = o.group('unicodecombined')
                 ch = t[0]
@@ -284,7 +284,7 @@ class texCollector(UserList.UserList):
                     if self.__mode is self.TextMode:
                         raise UnicodeError('Combining unicode characters not allowed in text mode')
                     else: #if self.__mode is self.MathMode:
-                        r.append('\\%s%s' % (_unicodeToTex.combined_math[cm],_unicodeToTex.unicodetotex[ch]))
+                        r.append('\\%s%s' % (_unicodeToTex.combchar_math[cm],_unicodeToTex.unicodetotex[ch]))
             else: 
                 uidx = ord(o.group(0))
                 if self.__mode == self.MathMode:
