@@ -2554,7 +2554,7 @@ class _MathNode(Node):
                 assert 0
 
             if isinstance(i,Node): i.toTeX(r)
-            else: texescape(i,r)
+            else: r.append(i)#texescape(i,r)
     def toTeX(self,r):
         assert 0
 
