@@ -3657,9 +3657,14 @@ class MathTableRowNode(_MathNode):
     nodeName = 'mtr'
     macroMode = MacroMode.Math
     contIter = ' <mtd>* '
-
     def __init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line):
         _MathNode.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+        self.__len = None
+    def __len__(self):
+        return self.__len
+    def end(self,filename,line):
+        self.__len = len([ cell for cell in self if isinstance(cell,MathTableCellNode) ])
+        
     def toXML(self,doc,rowlen):
         node = doc.createElement(self.nodeName)
         cells = [ r for r in self if isinstance(r,MathTableCellNode) ]
