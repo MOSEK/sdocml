@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE defines SYSTEM "http://sdocsml.googlecode.com/dtd/1.0a/sdocmldefs.dtd">
+
+<defines>
+    <!-- Symbol definitions -->
+
+    <def m="\"><d>\</d></def> <!-- escaped backslash -->
+    <def m="_"><d>_</d></def> <!-- escaped underscore -->
+    <def m="^"><d>^</d></def> <!-- escaped circumflex -->
+    <def m="{"><d>{</d></def> 
+    <def m="}"><d>}</d></def> 
+    <def m="|"><d>|</d></def> 
+    <def m="nbsp"><d>&nbsp;</d></def>     <!-- non-breaking space -->
+    <def m="shortdash"><d>&shy;</d></def> <!-- The normal dash -->
+    <def m="ndash"><d>&ndash;</d></def>   <!-- A longer dash -->
+    <def m="mdash"><d>&mdash;</d></def>   <!-- An even longer dash -->
+
+    <!-- Simple math operators -->
+    <dictentry key="accent-not-=">&#x2260;</dictentry>
+    <dictentry key="accent-not-in">&#x2209;</dictentry>
+    <def m="not" n="1"> <e n="mo"><d><lookup>accent-not-{{0}}</lookup></d></e></def>
+
+
+    <def m="leq">        <e n="mo"><d>&le;</d></e></def>
+    <def m="geq">        <e n="mo"><d>&ge;</d></e></def> 
+    <def m="lt">         <e n="mo"><d>&lt;</d></e></def>
+    <def m="gt">         <e n="mo"><d>&gt;</d></e></def> 
+    <def m="ldots">      <e n="mo"><d>&#x2026;</d></e></def> <!-- vertical ellipsis -->
+    <def m="cdots">      <e n="mo"><d>&#x22EF;</d></e></def> <!-- vertical ellipsis -->
+    <def m="vdots">      <e n="mo"><d>&#x205D;</d></e></def> <!-- vertical ellipsis -->
+    <def m="ddots">      <e n="mo"><d>&#x22F1;</d></e></def> <!-- diagonal ellipsis -->
+    <def m="cdot">       <e n="mo"><d>&sdot;</d></e></def>
+    <def m="times">      <e n="mo"><d>&times;</d></e></def>
+    <def m="forall">     <e n="mo"><d>&forall;</d></e></def>
+    <def m="in">         <e n="mo"><d>&isin;</d></e></def>
+    <def m="subset">     <e n="mo"><d>&sub;</d></e></def>
+    <def m="approx">     <e n="mo"><d>&#x2248;</d></e></def>
+    <def m="Rightarrow"> <e n="mo"><d>&#x21d2;</d></e></def>
+    <def m="Leftrightarrow">        <e n="mo"><d>&#x21d4;</d></e></def>
+    <def m="infty">      <e n="mo"><attr n="op">inf</attr></e></def>
+    
+    <!-- Greek letter formath -->
+    <def m="alpha">      <e n="mi"><d>&alpha;</d></e></def>
+    <def m="beta">       <e n="mi"><d>&beta;</d></e></def>
+    <def m="gamma">      <e n="mi"><d>&gamma;</d></e></def>
+    <def m="delta">      <e n="mi"><d>&delta;</d></e></def>
+    <def m="epsilon">    <e n="mi"><d>&epsilon;</d></e></def>
+    <def m="zeta">       <e n="mi"><d>&zeta;</d></e></def>
+    <def m="eta">        <e n="mi"><d>&eta;</d></e></def>
+    <def m="theta">      <e n="mi"><d>&theta;</d></e></def>
+    <def m="iota">       <e n="mi"><d>&iota;</d></e></def>
+    <def m="kappa">      <e n="mi"><d>&kappa;</d></e></def>
+    <def m="lambda">     <e n="mi"><d>&lambda;</d></e></def>
+    <def m="mu">         <e n="mi"><d>&mu;</d></e></def>
+    <def m="nu">         <e n="mi"><d>&nu;</d></e></def>
+    <def m="xi">         <e n="mi"><d>&xi;</d></e></def>
+    <def m="omicron">    <e n="mi"><d>&omicron;</d></e></def>
+    <def m="pi">         <e n="mi"><d>&pi;</d></e></def>
+    <def m="rho">        <e n="mi"><d>&rho;</d></e></def>
+    <def m="sigma">      <e n="mi"><d>&sigma;</d></e></def>
+    <def m="tau">        <e n="mi"><d>&tau;</d></e></def>
+    <def m="upsilon">    <e n="mi"><d>&upsilon;</d></e></def>
+    <def m="phi">        <e n="mi"><d>&phi;</d></e></def>
+    <def m="chi">        <e n="mi"><d>&chi;</d></e></def>
+    <def m="psi">        <e n="mi"><d>&psi;</d></e></def>
+    <def m="omega">      <e n="mi"><d>&omega;</d></e></def>
+    
+    <def m="Alpha">      <e n="mi"><d>&Alpha;</d></e></def>
+    <def m="Beta">       <e n="mi"><d>&Beta;</d></e></def>
+    <def m="Gamma">      <e n="mi"><d>&Gamma;</d></e></def>
+    <def m="Delta">      <e n="mi"><d>&Delta;</d></e></def>
+    <def m="Epsilon">    <e n="mi"><d>&Epsilon;</d></e></def>
+    <def m="Zeta">       <e n="mi"><d>&Zeta;</d></e></def>
+    <def m="Eta">        <e n="mi"><d>&Eta;</d></e></def>
+    <def m="Theta">      <e n="mi"><d>&Theta;</d></e></def>
+    <def m="Iota">       <e n="mi"><d>&Iota;</d></e></def>
+    <def m="Kappa">      <e n="mi"><d>&Kappa;</d></e></def>
+    <def m="Lambda">     <e n="mi"><d>&Lambda;</d></e></def>
+    <def m="Mu">         <e n="mi"><d>&Mu;</d></e></def>
+    <def m="Nu">         <e n="mi"><d>&Nu;</d></e></def>
+    <def m="Xi">         <e n="mi"><d>&Xi;</d></e></def>
+    <def m="Omicron">    <e n="mi"><d>&Omicron;</d></e></def>
+    <def m="Pi">         <e n="mi"><d>&Pi;</d></e></def>
+    <def m="Rho">        <e n="mi"><d>&Rho;</d></e></def>
+    <def m="Sigma">      <e n="mi"><d>&Sigma;</d></e></def>
+    <def m="Tau">        <e n="mi"><d>&Tau;</d></e></def>
+    <def m="Upsilon">    <e n="mi"><d>&Upsilon;</d></e></def>
+    <def m="Phi">        <e n="mi"><d>&Phi;</d></e></def>
+    <def m="Chi">        <e n="mi"><d>&Chi;</d></e></def>
+    <def m="Psi">        <e n="mi"><d>&Psi;</d></e></def>
+    <def m="Omega">      <e n="mi"><d>&Omega;</d></e></def>
+</defines>
