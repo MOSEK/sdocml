@@ -261,7 +261,7 @@ class texCollector(UserList.UserList):
                 else: #if self.__mode is self.MathMode:
                     r.append('\\%s{%s}' % (_unicodeToTex.combined_math[cm],ch))
             elif o.group('unicodecombined'):
-                t = o.group('combined')
+                t = o.group('unicodecombined')
                 ch = t[0]
                 cm = t[1:]
 
