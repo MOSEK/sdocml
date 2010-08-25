@@ -173,9 +173,13 @@ class _unicodeToTex:
         968 : '{\\psi}',
         969 : '{\\omega}',
 
+        8216 : '`',# &lsquo
+        8217 : "'",# &rsquo
+
         8230 : '\\ldots ',
         8285 : '\\vdots ',
         8704 : '\\forall ',
+        8709 : '\\empty ',
         8712 : '\\in ',
         8721 : '\\sum',
         8742 : '\\|',
@@ -183,7 +187,14 @@ class _unicodeToTex:
         8805 : '\\geq ',
         8834 : '\\subset ',
         8901 : '\\cdot ',
-        8943 : '\\cdots ',        
+        8943 : '\\cdots ', 
+        
+        8968 : '\\lceil ',
+        8969 : '\\lfloor ',
+        8970 : '\\rceil ',
+        8971 : '\\rfloor ',
+        9001 : '\\lang ',
+        9002 : '\\rang ',
     }
 
     combchar_math = {
@@ -294,7 +305,6 @@ class texCollector(UserList.UserList):
                         Warning('Unknown unicode: %d' % uidx)
                         r.append('.')
                 else:
-                    #print "GOT : %d %s" % (uidx,o.group(0).encode('utf-8'))
                     try:
                         r.append(_mathUnicodeToTex.textunicodetotex[uidx])
                     except KeyError:
