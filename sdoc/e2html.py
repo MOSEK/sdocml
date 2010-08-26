@@ -1033,7 +1033,6 @@ class SectionNode(Node):
                             filename,
                             line)
             self.__sections.append(n)
-        #elif name == 'appendix': pass
         elif name == 'bibliography':
             n = BibliographyNode(self.__manager,
                             self,
@@ -1311,7 +1310,7 @@ class SectionNode(Node):
                 
                 'footer'                  : htmlCollector(),
             }
-        self.getTitle().toPlainText(d['title:plain']) 
+        self.getTitle().toPlainText(d['title:plain'])
         self.getTitle().toHTML(d['title:html'])
         self.makeSidebarIndex(d['sidebar:index'])
         topNode.makeSidebarContents(d['sidebar:contents'])
@@ -1323,6 +1322,20 @@ class SectionNode(Node):
         if self.__sections:
             d['toc:local'] = htmlCollector()
             self.makeContents(d['toc:local'],1,2)
+       
+        authors = self.__head.getAuthors()
+        if authors:
+            acollect = htmlCollector()
+            d['authors:html'] = acollect
+            acollect.div('author')
+            ait = iter(authors)
+            ait.next().toHTML(acollect)
+            acollect.tagend('div')
+            for author in ait:
+                acollect.appendRaw('&bull;')
+                acollect.div('author')
+                authors[0].toHTML(acollect)
+                acollect.tagend('div')
         
         if self.__body.data or (self.__sections and not self.__childrenInSepFiles):
             d['body'] = htmlCollector()
@@ -1758,6 +1771,8 @@ class AuthorNode(Node):
             r.tagend('div')
     def toTeX(self,r):
         return self.contentToTeX(r)
+
+        
     def contentToTeX(self,r):
         d = { 'firstname' : None,
               'lastname'  : None,
