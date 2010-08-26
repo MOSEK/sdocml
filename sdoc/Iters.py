@@ -342,6 +342,7 @@ def ZeroOrOneOfEachIterator(names):
         @classmethod
         def repr(self):
             return 'ZeroOrOne(%s)' % ','.join(names)
+
     return _ZeroOrOneOfEachIterator    
 
 def OneOrMoreOfIterator(names,or_text):

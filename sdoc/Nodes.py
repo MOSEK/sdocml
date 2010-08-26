@@ -289,6 +289,7 @@ class CommandDict(UserDict):
 
 class MacroEvent_StartTag:
     def __init__(self,name,attrs,filename,line):
+        assert name is not None
         self.name = name
         self.attrs = attrs
         self.filename = filename 
@@ -406,6 +407,7 @@ class BraceGroup(Group):
 class LazyTableItem(Group):
     def __init__(self,name,filename,line):
         Group.__init__(self,filename,line)
+        assert name is not None
         self.name       = name
     def linearize(self,res,args,kwds):
         #print "LINEARIZE TABLE ITEM %s" % self.__class__.__name__
@@ -953,6 +955,8 @@ class Node:
                 nodecon = self.__nodeDict[name]
             except KeyError:
                 debug(self.__nodeDict)
+                print repr(self),self.__class__.__name__,self.nodeName
+                assert 0
                 raise NodeError('Unknown element <%s> in <%s> at %s:%d' % (name,self.nodeName, filename,line))
             cond = True
             if attrs.has_key('cond') and \
@@ -986,8 +990,7 @@ class Node:
                     self.append(item)
                 else:
                     if isinstance(item,unicode):
-                        print "Loc = ",self.pos
-                        raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                        raise NodeError('1Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
                     else: 
                         raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
             except Iters.ContentIteratorError:
@@ -1018,7 +1021,7 @@ class Node:
                     else:
                         if isinstance(item,unicode):
                             filename,line = self.pos
-                            raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                            raise NodeError('2Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
                         else: 
                             filename,line = item.pos
                             debug('In element <%s>' % self.nodeName)
@@ -1031,7 +1034,6 @@ class Node:
                         filename,line = item.pos
                         raise NodeError('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
                 except:
-                    print "SELF:",self
                     raise
         elif isinstance(item,UnexpandedItem):
             res = item.linearize([],[],{})
@@ -1073,7 +1075,7 @@ class Node:
         """
         if self.macroMode == MacroMode.Invalid:
             if data.strip():
-                raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                raise NodeError('3Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
             else:
                 # Just ignore.
                 pass
@@ -1232,6 +1234,7 @@ class Node:
             for o in self.textmodemacro_regex.finditer(data):
                 if (o.group('tr') or o.group('td')):
                     if not self.allowTableSyntax:
+                        assert 0
                         continue
                 if pos < o.start(0):
                     debug('Node.handleText (remaining) append :',repr(data[pos:o.start(0)]))
@@ -2919,8 +2922,12 @@ class TableNode(Node):
                              '  <tr><td> Cell(1,1) </td><td> Cell(1,2) </td><td> Cell(1,3) </td></tr>',
                              '  <tr><td> Cell(2,1) </td><td> Cell(2,2) </td><td> Cell(2,3) </td></tr>',
                              '</table>'])) ]
+    allowTableSyntax = True
+    macroMode = MacroMode.Text
     nodeName = 'table'
     contIter = ' <tr>+ '
+    tablerowelement = 'tr'
+    tablecellelement = 'td'
     acceptAttrs = Attrs([ Attr('id'), 
                     Attr('class'),
                     Attr('orientation',default='rows'), # DEPRECATED!!
@@ -2963,9 +2970,11 @@ class TableNode(Node):
             valign = [ 'top' ] * ncells
             halign = [ 'left' ] * ncells
 
+        lenr = len([i for i in r if isinstance(i,TableCellNode) ])
         for r in self:
-            if len(r) > len(halign) or len(r) > len(valign):
-                raise NodeError('Alignment definitions do not match row width at %s:%d' % r.pos)
+            if lenr > len(halign) or lenr > len(valign):
+                print "row: ",lenr,len(halign),len(valign)
+                raise NodeError('Alignment definitions do not match row width at %s:%d' % self.pos)
 
         self.__halign = halign
         self.__valign = valign
@@ -2981,9 +2990,13 @@ class TableNode(Node):
         rowlen = len(self.__halign)
 
         for r in self:
-            n = r.toXML(doc,rowlen)
-            if n is not None:
-                node.appendChild(n)
+            if isinstance(r,basestring):
+                if r.strip():
+                    raise NodeError('Non-whitespace text not allowed in table at %s:%d' % self.pos)
+            else:
+                n = r.toXML(doc,rowlen)            
+                if n is not None:
+                    node.appendChild(n)
         
         return node
 
@@ -3006,6 +3019,9 @@ class TableRowNode(Node):
     acceptAttrs = Attrs([ Attr('id'), Attr('class') ])
     structuralElement = True
 
+    def __len__(self):
+        return len([ i for i in self if isinstance(i,TableCellNode)])
+    
     def toXML(self,doc,rowlen):
         node = doc.createElement('tr')
 
