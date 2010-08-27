@@ -78,7 +78,6 @@ def eval(s,d):
         else:
             raise CondError('Expected a logical term in position %d' % t.pos)
 
-
         return skip or r
     def evalsubcond(skip):
         #print "eval parexpr:",rev(T)
@@ -89,8 +88,6 @@ def eval(s,d):
         if t.type != t.RPAR:
             raise CondError('Expected a ")" in position %d' % t.pos)
         return r
-
-    
 
     def evalandlist(skip):
         #print "eval andlist:",rev(T)
@@ -122,14 +119,12 @@ def eval(s,d):
             if t.type == t.XOR:
                 T.pop()
                 r1 = evalcond(skip)
-                r2 = evalxorlist(skip or (r0 and r1), r0 or r1)
+                r2 = evalxorlist(skip or (r and r1), r or r1)
                 r = (r1 and not r2) or (r2 and not r1)
         return r
 
     def evallist(skip):
-        #print 'eval list:',rev(T)
         r0 = evalcond(skip)
-        #print " ...rest:",rev(T)
         if not T: return r0
         t = T[-1]
         if   t.type == t.AND:
@@ -180,7 +175,6 @@ if __name__ == '__main__':
                'A|B|(A+B+C)|D',
                '?X+X',
                ]:
-        #print c
         r = eval(c,d)
         print '\t%s -> %s' % (c,r)
 
