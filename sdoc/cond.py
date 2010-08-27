@@ -102,7 +102,7 @@ def eval(s,d):
 
     def evalorlist(skip):
         #print "eval orlist:",rev(T)
-        r = True
+        r = False
         if T:
             t = T[-1]
             if t.type == t.OR:
@@ -134,6 +134,8 @@ def eval(s,d):
         elif t.type == t.XOR:
             r1 = evalxorlist(skip,r0)
             r = (r0 and not r1) or (r1 and not r0)
+        elif t.type == t.RPAR:
+            r = r0 
         else:
             raise CondError('Invalid condition syntax at %d' % t.pos)
         return r
@@ -155,26 +157,44 @@ if __name__ == '__main__':
           'pf:c' : False,
           'pf:mex' : False,
           'pf:cmdln' : False,
-          'true' : True,
-          'false' : False } 
+          'T' : True,
+          'F' : False } 
 
-    for c in [ 'true + true',
-               '(true + true)',
-               'false | false | false',
-               '(false | false | false)',
-               "(pf:c | pf:mex | pf:cmdln)",
-               "pf:c | pf:mex | pf:cmdln",
-               '(A | B | C)',
-               'A | B | C',
-               '(A/B)',
-               'A/B',
-               'A/B/C',
-               'B/D/A',
-               'A+B',
-               'A|B',
-               'A|B|(A+B+C)|D',
-               '?X+X',
-               ]:
+    ok = True
+    for c,res in [ 
+        ('T + T',True),
+        ('T + F',False),
+        ('F + T',False),
+        ('F + F',False),
+        ('(T + T)',True),
+        ('F | F',False),
+        ('T | F',True),
+        ('F | T',True),
+        ('T | T',True),
+        ('(F | F)',False),
+        ('T',True),
+        ('(T)',True),
+        ('F',False),
+        ('(F)',False),
+
+        ("(pf:c | pf:mex | pf:cmdln)",None),
+        ("pf:c | pf:mex | pf:cmdln",None),
+        ('(A | B | C)',None),
+        ('A | B | C',None),
+        ('(A/B)',None),
+        ('A/B',None),
+        ('A/B/C',None),
+        ('B/D/A',None),
+        ('A+B',None),
+        ('A|B',None),
+        ('A|B|(A+B+C)|D',None),
+        ('?X+X',None),
+        ]:
         r = eval(c,d)
-        print '\t%s -> %s' % (c,r)
+        if res is not None:
+            if res is not r:
+                ok = False
+
+        print '\t%s -> %s%s' % (c,r,'' if res is None else '/%s' % res)
+    print "Failed!!" if not ok else "Succeeded."
 
