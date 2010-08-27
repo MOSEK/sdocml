@@ -88,7 +88,7 @@ def eval(s,d):
         t = T.pop()
         if t.type != t.RPAR:
             raise CondError('Expected a ")" in position %d' % t.pos)
-        return t
+        return r
 
     
 
@@ -110,7 +110,7 @@ def eval(s,d):
             t = T[-1]
             if t.type == t.OR:
                 T.pop()
-                r1 = evalcond(skip or r0)
+                r1 = evalcond(skip or r)
                 r = evalorlist(skip or r1) or r1
         return r
     
@@ -156,9 +156,21 @@ if __name__ == '__main__':
     d = { 'A' : True, 
           'B' : False, 
           'C' : True, 
-          'D' : False } 
+          'D' : False,
+          'pf:c' : False,
+          'pf:mex' : False,
+          'pf:cmdln' : False,
+          'true' : True,
+          'false' : False } 
 
-    for c in [ '(A | B)',
+    for c in [ 'true + true',
+               '(true + true)',
+               'false | false | false',
+               '(false | false | false)',
+               "(pf:c | pf:mex | pf:cmdln)",
+               "pf:c | pf:mex | pf:cmdln",
+               '(A | B | C)',
+               'A | B | C',
                '(A/B)',
                'A/B',
                'A/B/C',
