@@ -4,7 +4,7 @@
     The project is distributed under GPLv3:
         http://www.gnu.org/licenses/gpl-3.0.html
     
-    Copyright (c) 2009 Mosek ApS 
+    Copyright (c) 2009,2010 Mosek ApS 
 """
 
 import xml.sax
@@ -170,7 +170,9 @@ if __name__ == "__main__":
                                     #'nodefaultinc' : config.UniqueEntry('nodefaultinc'),
                                     'maxsectiondepth' : config.UniqueIntEntry('macsectiondepth','4'),
                                 })
+    # add a couple of default paths
     conf.update('dtdpath',os.path.join(sdocbase,'dtd'))
+    conf.update('dtdpath',os.path.join(sdocbase,'dtd','external'))
 
     while args:
         arg = args.pop(0)

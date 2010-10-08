@@ -141,7 +141,10 @@
                 </td>
                 <td id="sidebar-divider-cell" onclick="toggleSidebar()">&nbsp;</td>
                 <td id="content">
-                    <center><h1 class="node-file-header"><sdoc:item key="title:html"></h1></center>
+                    <center>
+                        <h1 class="node-file-header"><sdoc:item key="title:html"></h1>
+                        <sdoc:if has="authors:html"><sdoc:item key="authors:html"></sdoc:if>
+                    </center>
                     <hr>
                     <sdoc:if has="toc:local">
                         <sdoc:item key="toc:local">

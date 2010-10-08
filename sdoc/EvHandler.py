@@ -4,7 +4,7 @@
     The project is distributed under GPLv3:
         http://www.gnu.org/licenses/gpl-3.0.html
     
-    Copyright (c) 2009 Mosek ApS 
+    Copyright (c) 2009, 2010 Mosek ApS 
 """
 
 import xml.sax.handler
@@ -24,19 +24,18 @@ class entityhandler(xml.sax.handler.EntityResolver):
         #xml.sax.handler.EntityResolver .__init__(self)
         self.__paths = paths
     def resolveEntity(self,pubid,sysid):
+        
         #print "ENTITY RESOLVER. \n\tPublic ID: %s\n\tSystem ID: %s" % (pubid,sysid)
         
         p = urlparse.urlparse(sysid)
-        basename = p[2].split('/')[-1].lower()
-        #print "\tBASENAME: %s" % basename
+        basename = p[2].split('/')[-1]
+        #print "  Look for '%s' in:" % basename
+        #print '\n'.join([ '\t' + p for p in self.__paths])
         for p in self.__paths:
             fullname = os.path.join(p,basename)
-            #print "\tTRY: %s" % fullname
 
             if os.path.exists(fullname):
-                #print "\tRETURN: %s" % fullname
                 return os.path.abspath(fullname)
-        #print "\tRETURN: %s" % sysid
         return sysid
 
 class handler(xml.sax.handler.ContentHandler):

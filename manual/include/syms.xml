@@ -16,10 +16,9 @@
     <def m="mdash"><d>&mdash;</d></def>   <!-- An even longer dash -->
 
     <!-- Simple math operators -->
+    <def m="not" n="1"> <e n="mo"><d><lookup>accent-not-{{0}}</lookup></d></e></def>
     <dictentry key="accent-not-=">&#x2260;</dictentry>
     <dictentry key="accent-not-in">&#x2209;</dictentry>
-    <def m="not" n="1"> <e n="mo"><d><lookup>accent-not-{{0}}</lookup></d></e></def>
-
 
     <def m="leq">        <e n="mo"><d>&le;</d></e></def>
     <def m="geq">        <e n="mo"><d>&ge;</d></e></def> 

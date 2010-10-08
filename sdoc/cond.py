@@ -154,9 +154,6 @@ if __name__ == '__main__':
           'B' : False, 
           'C' : True, 
           'D' : False,
-          'pf:c' : False,
-          'pf:mex' : False,
-          'pf:cmdln' : False,
           'T' : True,
           'F' : False } 
 
@@ -167,18 +164,25 @@ if __name__ == '__main__':
         ('F + T',False),
         ('F + F',False),
         ('(T + T)',True),
+        
         ('F | F',False),
         ('T | F',True),
         ('F | T',True),
         ('T | T',True),
         ('(F | F)',False),
+        
+        ('F / F / F',False),
+        ('T / F / F',True),
+        ('F / T / F',True),
+        ('F / F / T',True),
+        ('T / F / T',False),
+        ('F / T / T',False),
+
         ('T',True),
         ('(T)',True),
         ('F',False),
         ('(F)',False),
 
-        ("(pf:c | pf:mex | pf:cmdln)",None),
-        ("pf:c | pf:mex | pf:cmdln",None),
         ('(A | B | C)',None),
         ('A | B | C',None),
         ('(A/B)',None),
@@ -195,6 +199,6 @@ if __name__ == '__main__':
             if res is not r:
                 ok = False
 
-        print '\t%s -> %s%s' % (c,r,'' if res is None else '/%s' % res)
+        print '\t%s -> %s%s' % (c,r,'' if res is None else ' (expected %s)' % res)
     print "Failed!!" if not ok else "Succeeded."
 
