@@ -123,6 +123,7 @@ class _unicodeToTex:
         160  : '~',
         215  : '{\\times}',
         224  : '\\`a',
+        248  : '\\o',
         # Greek letters
         913 : '{\\Alpha}',
         914 : '{\\Beta}',
@@ -174,8 +175,14 @@ class _unicodeToTex:
         968 : '{\\psi}',
         969 : '{\\omega}',
 
+        8211 : '--',
+        8212 : '---',
+    
         8216 : '`',# &lsquo
         8217 : "'",# &rsquo
+
+        8220 : "''", 
+        8221 : "''", # cheatin: TeX will switch these for teh real quotes.
 
         8230 : '\\ldots ',
         8285 : '\\vdots ',
@@ -204,6 +211,7 @@ class _unicodeToTex:
     }
 
     combchar_text = {
+        0x0300 : '`',
         0x0302 : '^',
         0x0304 : '=',
     }
@@ -275,7 +283,7 @@ class texCollector(UserList.UserList):
                     else: #if self.__mode is self.MathMode:
                         r.append('\\%s{%s}' % (_unicodeToTex.combchar_math[cm],ch))
                 except KeyError:
-                    self.man.Error('Unknown combining character 0x%x 0x%x' % (cm,ord(ch)))
+                    self.man.Error('Unknown combining character 0x%x 0x%x (%s)' % (cm,ord(ch),t))
             elif o.group('unicodecombined'):
                 t = o.group('unicodecombined')
                 ch = t[0]
@@ -533,16 +541,16 @@ class DefaultDict(UserDict):
             self.data[key] = self.__dcon()
         return self.data[key]
 
-def msg(m):
-    m = unicode(m)
-    sys.stderr.write('SDocML: ')
-    sys.stderr.write(m.encode('utf-8'))
-    sys.stderr.write('\n')
+#def msg(m):
+#    m = unicode(m)
+#    sys.stderr.write('SDocML: ')
+#    sys.stderr.write(m.encode('utf-8'))
+#    sys.stderr.write('\n')
 
-def Warning(*args):
-    sys.stderr.write('WARNING: ')
-    sys.stderr.write(' '.join(args))
-    sys.stderr.write('\n')
+#def Warning(*args):
+#    sys.stderr.write('WARNING: ')
+#    sys.stderr.write(' '.join(args))
+#    sys.stderr.write('\n')
 
 def counter():
     i = 0

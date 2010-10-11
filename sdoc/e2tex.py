@@ -1770,7 +1770,11 @@ class Manager:
         self.__refdIDs = {}
         self.__citeidx = counter()
 
+        self.__error = False
+
         self.__log = logging.getLogger("SdocTeX")
+
+    def failed(self): return self.__error
 
     def writeInTemplate(self,filename,repl):
         scan_re = re.compile(r'%{FILE:(?P<file>[^}]+)}%|%.*',re.MULTILINE)
@@ -2108,9 +2112,10 @@ class XMLHandler(xml.sax.handler.ContentHandler):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     import config
-    msg = e2html.msg
-    Warning = e2html.Warning
+    msg = logging.info
+    Warnig = logging.warning
 
     args = sys.argv[1:]
     
@@ -2215,6 +2220,9 @@ if __name__ == "__main__":
         try:
             manager.writeInTemplate(outfile,data)
             msg('Fini!')
+
+            if manager.failed():
+                sys.exit(1)
         except Exception,e:
             msg('Failed!')
             import traceback
