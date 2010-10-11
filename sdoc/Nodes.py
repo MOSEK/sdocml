@@ -20,13 +20,18 @@ import syntax
 import cond
 
 import re
+import logging
 
 
-def msg(m):
-    m = unicode(m)
-    sys.stderr.write('SDocML Expander: ')
-    sys.stderr.write(m.encode('utf-8'))
-    sys.stderr.write('\n')
+msglog = logging.getLogger("SDocML Expander")
+msg = msglog.info
+err = msglog.error
+
+#def msg(m):
+#    m = unicode(m)
+#    sys.stderr.write('SDocML Expander: ')
+#    sys.stderr.write(m.encode('utf-8'))
+#    sys.stderr.write('\n')
 
 def debug(*args):
     if 0:
@@ -3857,6 +3862,7 @@ class Manager:
         errs = []
         for k,src in self.__reqids:
             if not self.__ids.has_key(k):
+                err('Missing ID: "%s" referenced at %s:%d' % (k,src.pos[0],src.pos[1]))
                 errs.append('Missing ID: "%s" referenced at %s:%d' % (k,src.pos[0],src.pos[1]))
         return errs
 

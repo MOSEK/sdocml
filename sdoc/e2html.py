@@ -20,7 +20,7 @@ import os
 import HTMLParser
 
 
-
+import logging
 
 ################################################################################
 ################################################################################
@@ -122,6 +122,7 @@ class _unicodeToTex:
     unicodetotex = {  
         160  : '~',
         215  : '{\\times}',
+        224  : '\\`a',
         # Greek letters
         913 : '{\\Alpha}',
         914 : '{\\Beta}',
@@ -223,10 +224,11 @@ class UnicodeToTeXError(Exception):
 class texCollector(UserList.UserList):
     MathMode = 'mode:math'
     TextMode = 'mode:text'
-    def __init__(self,mode=TextMode):
+    def __init__(self,man,mode=TextMode):
         UserList.UserList.__init__(self)
         self.__stack = []
         self.__mode = mode
+        self.man = man
 
     def texescape(self,data,r):
         pos = 0
@@ -263,21 +265,24 @@ class texCollector(UserList.UserList):
                 ch = t[0]
                 cm = t[1:]
                 if len(cm) > 1:
-                    raise UnicodeError('Multiple combining characters are not supported.')
+                    self.man.Error('Multiple combining characters are not supported: 0x%x + 0x%x 0x%x' % (ord(ch),ord(cm[0]),ord(cm[1])))
                 else:
                     cm = ord(cm)
 
-                if self.__mode is self.TextMode:
-                    r.append('\\%s%s' % (_unicodeToTex.combchar_text[cm],ch))
-                else: #if self.__mode is self.MathMode:
-                    r.append('\\%s{%s}' % (_unicodeToTex.combchar_math[cm],ch))
+                try:
+                    if self.__mode is self.TextMode:
+                        r.append('\\%s%s' % (_unicodeToTex.combchar_text[cm],ch))
+                    else: #if self.__mode is self.MathMode:
+                        r.append('\\%s{%s}' % (_unicodeToTex.combchar_math[cm],ch))
+                except KeyError:
+                    self.man.Error('Unknown combining character 0x%x 0x%x' % (cm,ord(ch)))
             elif o.group('unicodecombined'):
                 t = o.group('unicodecombined')
                 ch = t[0]
                 cm = t[1:]
 
                 if len(cm) > 1:
-                    raise UnicodeError('Multiple combining characters are not supported.')
+                    self.man.Error('Multiple combining characters are not supported: 0x%x + 0x%x 0x%x' % (ord(ch),ord(cm[0]),ord(cm[1])))
                 elif len(cm) == 0:
                     uidx = ord(ch)
                     if self.__mode == self.MathMode:
@@ -288,9 +293,10 @@ class texCollector(UserList.UserList):
                             r.append('.')
                     else:
                         try:
-                            r.append(_mathUnicodeToTex.textunicodetotex[uidx])
+                            #r.append(_mathUnicodeToTex.textunicodetotex[uidx])
+                            r.append(_unicodeToTex.unicodetotex[uidx])
                         except KeyError:
-                            raise UnicodeToTeXError('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
+                            self.man.Error('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
                 else:
                     if self.__mode is self.TextMode:
                         raise UnicodeError('Combining unicode characters not allowed in text mode')
@@ -308,7 +314,7 @@ class texCollector(UserList.UserList):
                     try:
                         r.append(_mathUnicodeToTex.textunicodetotex[uidx])
                     except KeyError:
-                        raise UnicodeToTeXError('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
+                        self.man.Error('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
 
         if pos < len(data):
             r.append(str((data[pos:])))
@@ -2435,7 +2441,7 @@ class InlineMathNode(Node):
     
     def getEqnIdx(self):
         if self.__eqnidx is None:
-            self.__eqnidx = manager.addEquation('$%s$' % ''.join(self.contentToTeX(texCollector(texCollector.MathMode))),self.__filename, self.__line)
+            self.__eqnidx = manager.addEquation('$%s$' % ''.join(self.contentToTeX(texCollector(self.manager,texCollector.MathMode))),self.__filename, self.__line)
         return self.__eqnidx
     def toTeX(self,r):
         r.inlineMathStart()
@@ -2467,7 +2473,7 @@ class MathEnvNode(Node):
     
     def getEqnIdx(self):
         if self.__eqnidx is None:
-            self.__eqnidx = manager.addEquation('$\\displaystyle{}%s$' % ''.join(self.contentToTeX(texCollector(texCollector.MathMode))),self.__filename, self.__line)
+            self.__eqnidx = manager.addEquation('$\\displaystyle{}%s$' % ''.join(self.contentToTeX(texCollector(self.manager,texCollector.MathMode))),self.__filename, self.__line)
         return self.__eqnidx
     def toTeX(self,r):
         r.append('\n')
@@ -3227,6 +3233,19 @@ class Manager:
                     self.__zipfile.write(icon,'%s/%s' % (topdir,iconfile))
         del iconsadded
 
+        self.__log = logging.getLogger("SdocHTML")
+
+        self.__error = False
+    def failed(self): return self.__error
+
+    def Error(self,msg):
+        self.__log.error(msg)
+        self.__error = True
+    
+    def Warning(self,msg):
+        self.__log.warning(msg)
+
+
     def makeNodeName(self,depth,title):
         titlestr = str(re.sub(r'[^a-zA-Z0-9\-]+','_',''.join(title.toPlainText([])).strip(),re.MULTILINE))
         if len(titlestr) > 40:
@@ -3530,6 +3549,7 @@ class XMLHandler(xml.sax.handler.ContentHandler):
 if __name__ == "__main__":
     args = sys.argv[1:]
 
+    logging.basicConfig(level=logging.INFO)
     conf = config.Configuration({   'infile'     : config.UniqueEntry('infile'),
                                     'outfile'    : config.UniqueEntry('outfile'),
                                     'stylesheet' : config.DirListEntry('stylesheet'),
@@ -3658,5 +3678,10 @@ if __name__ == "__main__":
 
         outf.close() 
         msg('Fini!')
+
+        if manager.failed():
+            sys.exit(1)
+        else:
+            sys.exit(0)
 
 

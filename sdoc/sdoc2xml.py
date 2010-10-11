@@ -15,6 +15,7 @@ from EvHandler import dtdhandler, handler
 import inspect
 import math
 import config
+import logging
 
 
 import Nodes
@@ -153,6 +154,7 @@ def decodeDefineString(s):
 
 if __name__ == "__main__":
     P = xml.sax.make_parser()
+    logging.basicConfig(level=logging.INFO)
 
     sdocbase = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]),'..'))
 
@@ -411,8 +413,6 @@ if __name__ == "__main__":
             msg('Checking cross-references')
             errs = []
             errs.extend(manager.checkIdRefs())
-            for e in errs:
-                print e
         msg('Fini!')
     except MotexException,e:
         if showtrace:
