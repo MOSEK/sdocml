@@ -3465,7 +3465,7 @@ class MathFontNode(_MathNode):
 
     def end(self,filename,line):
         if self.hasAttr('family') and not self.getAttr('family') in mathFonts:
-            raise NodeError('Invalid math font "%s" at %s:%d' % (self.getAttr('family'),self.pos[0],sel.pos[1]))
+            raise NodeError('Invalid math font "%s" at %s:%d' % (self.getAttr('family'),self.pos[0],self.pos[1]))
 
 class MathTextNode(Node):
     nodeName  = 'mtext'

@@ -3144,6 +3144,9 @@ class Manager:
                  gsbin       = 'gs',
                  pdflatexbin = 'pdflatex',
                  pdf2svgbin  = None):
+        self.__log = logging.getLogger("SdocHTML")
+        self.__error = False
+
         self.__zipfile = outf
         self.__topdir = topdir
         self.__iddict = {}
@@ -3186,6 +3189,7 @@ class Manager:
         self.__linkmap = {}
 
         self.__nodeNames = { 'index' : 0, 'xref' : 0 }
+        
         
         mappedlinks = {}
         mappedtgts  = {}
@@ -3237,13 +3241,10 @@ class Manager:
                 self.__icons[key] = iconfile
                 if not iconsadded.has_key(iconbasename):
                     iconsadded[iconbasename] = None
-                    msg('Adding Icon : %s' % iconfile)
+                    self.Message('Adding Icon : %s' % iconfile)
                     self.__zipfile.write(icon,'%s/%s' % (topdir,iconfile))
         del iconsadded
 
-        self.__log = logging.getLogger("SdocHTML")
-
-        self.__error = False
     def failed(self): return self.__error
 
     def Error(self,msg):
@@ -3252,6 +3253,8 @@ class Manager:
     
     def Warning(self,msg):
         self.__log.warning(msg)
+    def Message(self,msg):
+        self.__log.info(msg)
 
 
     def makeNodeName(self,depth,title):
@@ -3653,7 +3656,7 @@ if __name__ == "__main__":
                           )
       
        
-        msg('Read XML document') 
+        manager.Message('Read XML document') 
         P = xml.sax.make_parser()
         root = RootElement(manager,infile,1)
         h = XMLHandler(infile,root)
@@ -3663,7 +3666,7 @@ if __name__ == "__main__":
 
         manager.checkInternalIDRefs()
 
-        msg('Writing ZIP files') 
+        manager.Message('Writing ZIP files') 
         root.toHTML()
         if conf['sidebartemplate'] is not None:
             root.makeSidebar('sidebar.html')
@@ -3675,7 +3678,7 @@ if __name__ == "__main__":
         except OSError: pass
 
         mathfile = os.path.join(tempimgdir,'math.tex')
-        msg('Writing Math TeX file as %s' % mathfile) 
+        manager.Message('Writing Math TeX file as %s' % mathfile) 
         manager.writeTexMath(mathfile)
 
         #idrefs = manager.getAllIDRefs()
@@ -3685,7 +3688,7 @@ if __name__ == "__main__":
 
 
         outf.close() 
-        msg('Fini!')
+        manager.Message('Fini!')
 
         if manager.failed():
             sys.exit(1)
