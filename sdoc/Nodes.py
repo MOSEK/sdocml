@@ -955,8 +955,7 @@ class Node:
                 nodecon = self.__nodeDict[name]
             except KeyError:
                 debug(self.__nodeDict)
-                print repr(self),self.__class__.__name__,self.nodeName
-                assert 0
+                #print repr(self),self.__class__.__name__,self.nodeName
                 raise NodeError('Unknown element <%s> in <%s> at %s:%d' % (name,self.nodeName, filename,line))
             cond = True
             if attrs.has_key('cond') and \
