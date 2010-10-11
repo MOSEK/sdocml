@@ -1599,6 +1599,8 @@ class DummyNode:
         return DummyNode(name,self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
     def handleText(self,data,filename,line):
         pass
+    def handleRawText(self,data,filename,line):
+        pass
     def endOfElement(self,filename,line):
         pass
 
