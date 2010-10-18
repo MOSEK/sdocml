@@ -184,6 +184,8 @@ if __name__ == "__main__":
             conf.updateFile(args.pop(0))
         elif arg == '-d':
             conf.update('define',args.pop(0))
+        elif arg == '-defaultinclude':
+            conf.update('incpath',os.path.join(sdocbase,'manual','include'))
         elif arg == '-i':
             conf.update('incpath',args.pop(0))
         elif arg == '-dtdpath':
