@@ -96,13 +96,14 @@ class _mathUnicodeToTex:
     }
 
 class _unicodeToTex:
+    ## Text mode 
     unicoderegex = re.compile(u'[\u0080-\u8000]')
     unicodetotex = {  
         160  : '~',
         
         169  : '\\copyright{}',
         173  : '-',
-        215  : '{\\times}',
+        215  : '$\\times$',
         216  : '\\O{}',
         224  : '\\`a',
         228  : '\\"a',
@@ -116,56 +117,6 @@ class _unicodeToTex:
         248  : '\\o{}',
 
         351  : '\\c{s}',
-        # Greek letters
-#        913 : '{\\Alpha}',
-#        914 : '{\\Beta}',
-#        915 : '{\\Gamma}',
-#        916 : '{\\Delta}',
-#        917 : '{\\Epsilon}',
-#        918 : '{\\Zeta}',
-#        919 : '{\\Eta}',
-#        920 : '{\\Theta}',
-#        921 : '{\\Iota}',
-#        922 : '{\\Kappa}',
-#        923 : '{\\Lambda}',
-#        924 : '{\\Mu}',
-#        925 : '{\\Nu}',
-#        926 : '{\\Xi}',
-#        927 : '{\\Omicron}',
-#        928 : '{\\Pi}',
-#        929 : '{\\Rho}',
-#        931 : '{\\Sigma}',
-#        932 : '{\\Tau}',
-#        933 : '{\\Upsilon}',
-#        934 : '{\\Phi}',
-#        935 : '{\\Chi}',
-#        936 : '{\\Psi}',
-#        937 : '{\\Omega}',
-#        945 : '{\\alpha}',
-#        946 : '{\\beta}',
-#        947 : '{\\gamma}',
-#        948 : '{\\delta}',
-#        949 : '{\\epsilon}',
-#        950 : '{\\zeta}',
-#        951 : '{\\eta}',
-#        952 : '{\\theta}',
-#        953 : '{\\iota}',
-#        954 : '{\\kappa}',
-#        955 : '{\\lambda}',
-#        956 : '{\\mu}',
-#        957 : '{\\nu}',
-#        958 : '{\\xi}',
-#        959 : '{\\omicron}',
-#        960 : '{\\pi}',
-#        961 : '{\\rho}',
-#        962 : '{\\sigmaf}',
-#        963 : '{\\sigma}',
-#        964 : '{\\tau}',
-#        965 : '{\\upsilon}',
-#        966 : '{\\phi}',
-#        967 : '{\\chi}',
-#        968 : '{\\psi}',
-#        969 : '{\\omega}',
 
         8211 : '--',
         8212 : '---',
@@ -175,26 +126,6 @@ class _unicodeToTex:
 
         8220 : "''", 
         8221 : "''", # cheatin: TeX will switch these for teh real quotes.
-
-#        8230 : '\\ldots ',
-#        8285 : '\\vdots ',
-#        8704 : '\\forall ',
-#        8709 : '\\empty ',
-#        8712 : '\\in ',
-#        8721 : '\\sum',
-#        8742 : '\\|',
-#        8804 : '\\leq ',
-#        8805 : '\\geq ',
-#        8834 : '\\subset ',
-#        8901 : '\\cdot ',
-#        8943 : '\\cdots ', 
-#        
-#        8968 : '\\lceil ',
-#        8969 : '\\lfloor ',
-#        8970 : '\\rceil ',
-#        8971 : '\\rfloor ',
-#        9001 : '\\lang ',
-#        9002 : '\\rang ',
     }
 
     combchar_math = {
@@ -210,6 +141,7 @@ class _unicodeToTex:
 
     @staticmethod
     def unicodeToTeXMath(text):
+        # Assumes text mode
         def repl(o):
             return _unicodeToTex.unicodetotex[ord(o.group(0))]
         return re.sub(_unicodeToTex.unicoderegex,repl,text)
@@ -272,7 +204,7 @@ class texCollector(UserList.UserList):
                 try:
                     if self.__mode is self.TextMode:
                         r.append('\\%s%s' % (_unicodeToTex.combchar_text[cm],ch))
-                    else: #if self.__mode is self.MathMode:
+                    else: # self.__mode is self.MathMode:
                         r.append('\\%s{%s}' % (_unicodeToTex.combchar_math[cm],ch))
                 except KeyError:
                     self.man.Error('Unknown combining character 0x%x 0x%x (%s)' % (cm,ord(ch),t))
@@ -294,7 +226,7 @@ class texCollector(UserList.UserList):
                     else:
                         try:
                             #r.append(_mathUnicodeToTex.textunicodetotex[uidx])
-                            r.append(_unicodeToTex.unicodetotex[uidx])
+                            r.append('%s' % _unicodeToTex.unicodetotex[uidx])
                         except KeyError:
                             self.man.Error('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
                 else:
@@ -312,7 +244,7 @@ class texCollector(UserList.UserList):
                         r.append('.')
                 else:
                     try:
-                        r.append(_mathUnicodeToTex.textunicodetotex[uidx])
+                        r.append('$%s$' % _mathUnicodeToTex.unicodetotex[uidx])
                     except KeyError:
                         self.man.Error('Could not convert char %d/0x%x (%s)' % (uidx,uidx,unicode(t).encode('utf-8')))
 
@@ -337,8 +269,8 @@ class texCollector(UserList.UserList):
                 r.append('\\char%d{}' % ord(o.group('special')))
             elif o.group('unicode'):
                 uidx = ord(o.group('unicode'))
-                if _mathUnicodeToTex.textunicodetotex.has_key(uidx):
-                    r.append(_mathUnicodeToTex.textunicodetotex[uidx])
+                if   _unicodeToTex.unicodetotex.has_key(uidx):
+                    r.append('%s' % _unicodeToTex.unicodetotex[uidx])
                 elif _mathUnicodeToTex.unicodetotex.has_key(uidx):
                     r.append('$%s$' % _mathUnicodeToTex.unicodetotex[uidx])
                 else: 
