@@ -69,7 +69,8 @@ def dummy(name):
             assert 0
     return _dummy
 
-
+class BibItemError(Exception):
+    pass
 class MotexException(Exception):
     pass
 
@@ -2285,23 +2286,38 @@ class BibItemNode(Node):
     paragraphElement = False 
 
     # These need a serious hand, possibly more features.
-    bibtemplate = { 'article'       : '${author}. ${title}. ${journal}$[month]{ ${month}}$[(number|volume)]{ ${number|volume}$[pages]{:${pages}}{}}{$[pages]{p. ${pages}}{}}.$[note]{ ${note}}}',
-                    'book'          : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
+    #bibtemplate = { 'article'       : '${author}. ${title}. ${journal}$[month]{ ${month}}$[(number|volume)]{ ${number|volume}$[pages]{:${pages}}{}}{$[pages]{p. ${pages}}{}}.$[note]{ ${note}}',
+    #                'book'          : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
+    #                'booklet'       : '$[author]{${author}. }${title}. $[howpublished]{${howpublished}$[year]{, ${year}.}}{$[year]{$year}.$[note]{ ${note}}}',
+    #                'conference'    : '${author}. ${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
+    #                'inbook'        : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
+    #                'incollection'  : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[chapter|pages]{ $[chapter]{chapter ${chapter}}{p. ${pages}}}, ${year}. ${publisher}$[address]{, ${address}}.',
+    #                'inproceedings' : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}. ${publisher}$[address]{, ${address}}.',
+    #                'manual'        : '$[author]{${author}. }${title}$[edition]{, ${edition} edition}$[year]{, ${year}}.$[organization]{ ${organization}$[address]{, ${address}}.}$[note]{ ${note}',
+    #                'mastersthesis' : '${author}. $[type]{${type}}{Masters thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
+    #                'misc'          : '$[author]{${author}. }$[title]{${title}. }$[howpublished]{${howpublished}. }$[note]{${note}.}',
+    #                'phdthesis'     : '${author}. $[type]{${type}}{PhD thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
+    #                'proceedings'   : '$[author]{${author}. }{$[editor]{${editor}, editor. }}${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
+    #                'techreport'    : '${author}. $[type]{${type}: }${title}$[number]{ no. ${number}}, ${year}. ${institution}$[address]{, ${address}}.$[note]{ ${note}}',
+    #                'unpublished'   : '${author}. ${title}$[year]{, ${year}}. ${note}.',
+    #                }  
+    bibtemplate = { 'article'       : '${author}. ${title}. ${journal}$[month]{ ${month}}$[(number|volume)]{ ${number|volume}$[pages]{:${pages}}{}}{$[pages]{p. ${pages}}{}}.$[note]{ ${note}}',
+                    'book'          : '$[author]{${author}}{${editor}, editor}. ${title}$[series+(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
                     'booklet'       : '$[author]{${author}. }${title}. $[howpublished]{${howpublished}$[year]{, ${year}.}}{$[year]{$year}.$[note]{ ${note}}}',
                     'conference'    : '${author}. ${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
-                    'inbook'        : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}}',
-                    'incollection'  : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[chapter|pages]{ $[chapter]{chapter ${chapter}}{p. ${pages}}}, ${year}. ${publisher}$[address]{, ${address}}.',
-                    'inproceedings' : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}. ${publisher}$[address]{, ${address}}.',
+                    'inbook'        : '$[author]{${author}}{${editor}, editor}. ${title}$[series+(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
+                    'incollection'  : '${author}. ${title}, ${booktitle}$[series]{, ${series}}{}$[volume]{, vol. ${volume}}{$[number]{, no. ${number}{}}}$[chapter|pages]{ $[chapter]{chapter ${chapter}}{p. ${pages}}}{}, ${year}. ${publisher}$[address]{, ${address}}.',
+                    'inproceedings' : '${author}. ${title}, ${booktitle}$[series]{, ${series}}{}$[volume]{, vol. ${volume}}{$[number]{, no. ${number}{}}}$[organization]{, ${organization}}{}, ${year}. ${publisher}$[address]{, ${address}}.',
                     'manual'        : '$[author]{${author}. }${title}$[edition]{, ${edition} edition}$[year]{, ${year}}.$[organization]{ ${organization}$[address]{, ${address}}.}$[note]{ ${note}',
                     'mastersthesis' : '${author}. $[type]{${type}}{Masters thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
                     'misc'          : '$[author]{${author}. }$[title]{${title}. }$[howpublished]{${howpublished}. }$[note]{${note}.}',
                     'phdthesis'     : '${author}. $[type]{${type}}{PhD thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
                     'proceedings'   : '$[author]{${author}. }{$[editor]{${editor}, editor. }}${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
-                    'techreport'    : '${author}. $[type]{${type}: }${title}$[number]{ no. ${number}}, ${year}. ${institution}$[address]{, ${address}}.$[note]{ ${note}',
+                    'techreport'    : '${author}. $[type]{${type}: }${title}$[number]{ no. ${number}}, ${year}. ${institution}$[address]{, ${address}}.$[note]{ ${note}}',
                     'unpublished'   : '${author}. ${title}$[year]{, ${year}}. ${note}.',
                     }  
 
-    fmtre = re.compile(r'\$\{(?P<ref>[a-z\|]+)\}|\$\[(?P<cond>[a-z\|&\(\)]+)\]|(?P<endbrace>\})|(?P<beginbrace>\{)')
+    fmtre = re.compile(r'\$\{(?P<ref>[a-z\|]+)\}|\$\[(?P<cond>[a-z\|\(\)\+! \n\t\r]+)\]|(?P<endbrace>\})|(?P<beginbrace>\{)|(?P<space>\s+)')
     bracere = re.compile(r'(?P<endbrace>})|(?P<beginbrace>{)')
     condre = re.compile(r'([()&|])|([^()&|]+)')
     def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
@@ -2318,6 +2334,7 @@ class BibItemNode(Node):
         #!!TODO!! Bib entry formatting should be handled in a more flexible way.
         #
         d = node
+        keyd = dict([ (k,node.has_key(k)) for k in node.bibitems.keys() ])
         #print node
         #for n in node.childNodes:
         #    if n.nodeType == n.ELEMENT_NODE:
@@ -2351,19 +2368,20 @@ class BibItemNode(Node):
 
         def formatref(ref):
             refs = [ r for r in ref.split('|') if d.has_key(r) ]
-            assert refs
+            if not refs:
+                raise BibItemError('Reference to undefined item "%s"' % ref)
             formatentry(refs[0])
 
 
         def ignoregroup(s,p):
+            #print p
             #print "-- ignoregroup: |%s" % s[p:]
             if not s[p] == '{':
-                # syntax error
-                assert 0
+                raise BibItemError('Expected {:\n     %s\nHere:%s^' % (s,' '*p))
             p += 1
             lvl = 1
-            while lvl > 0:
-                o = self.bracere.search(s,p)  
+            while lvl > 0 :
+                o = self.bracere.search(s,p) 
                 if o is not None:
                     p = o.end(0)
                     if o.group('beginbrace'):
@@ -2372,106 +2390,110 @@ class BibItemNode(Node):
                         lvl -= 1
                 else:
                     # format string syntax error - unbalanced parens
-                    assert 0
+                    raise BibItemError('Unbalanced parenthesis:\n     %s\nHere:%s^' % (s,' '*p))
             return p
 
-        def parsecond(s):
-            """
-            I've been cutting some corners in this function. It should work,
-            but it might not catch all errors, and all errors are reported with
-            assert. Not very elegant.
-
-            parse a condition of the form:
-              cond     = "(" subcond ")"
-                       |  subcond
-              subcond  = conditem "+" and_cond
-                       | conditem "|" or_cond
-              conditem = TERM
-                       | "(" subcond ")"
-              and_cond = conditem
-                       | conditem "&" and_cond
-              or_cond  = conditem
-                       | conditem "|" or_cond
-            """
-            #print "-- parsecond: %s" % s
-            
-            def parseandlist(cl):
-                #print "-- parseandlist: %s" % cl
-                assert cl
-                if cl and cl[0][0] == '&':
-                    cl.pop(0)
-                    assert cl and cl[0][1] # syntax error
-                    v = cl.pop(0)
-                    return parseolist(cl) and d.has_key(v[1])
-                else:
-                    return True
-            def parseorlist(cl):
-                #print "-- parseorlist: %s" % cl
-                assert cl
-                if cl and cl[0][0] == '|':
-                    cl.pop(0)
-                    assert cl and cl[0][1] # syntax error
-                    v = cl.pop(0)
-                    return parseolist(cl) or d.has_key(v[1])
-                else:
-                    return False
-            def parsesubcond(cl):
-                #print "-- parsesubcond: %s" % cl
-                assert cl
-                if cl[0][0] == '(':
-                    r = parsepargroup(cl)
-                else:
-                    r = d.has_key(cl.pop(0)[1])
-                
-                if cl:
-                    if cl[0][0] == '|':
-                        r = parseorlist(cl) or r
-                    elif cl[0][0] == '&':
-                        r = parseandlist(cl) and r
-                    elif cl[0][0] in [ '(',')']:
-                        assert 0 # syntax error
-                else:
-                    pass
-                #print "--  parsesubcond res = %s" % r
-                return r
-                    
-            def parsepargroup(cl):
-                print "-- parsepargroup: %s" % cl
-                assert cl and cl.pop(0)[0] == '('
-                r = parsesubcond(cl)
-                assert cl and cl.pop(0)[0] == ')'
-                return r
-                
-            cl = self.condre.findall(s)
-            r = parsesubcond(cl)
-            assert not cl
-            return r
+#        def parsecond(s):
+#            """
+#            I've been cutting some corners in this function. It should work,
+#            but it might not catch all errors, and all errors are reported with
+#            assert. Not very elegant.
+#
+#            parse a condition of the form:
+#              cond     = "(" subcond ")"
+#                       |  subcond
+#              subcond  = conditem "+" and_cond
+#                       | conditem "|" or_cond
+#              conditem = TERM
+#                       | "(" subcond ")"
+#              and_cond = conditem
+#                       | conditem "&" and_cond
+#              or_cond  = conditem
+#                       | conditem "|" or_cond
+#            """
+#            #print "-- parsecond: %s" % s
+#            
+#            def parseandlist(cl):
+#                #print "-- parseandlist: %s" % cl
+#                assert cl
+#                if cl and cl[0][0] == '&':
+#                    cl.pop(0)
+#                    assert cl and cl[0][1] # syntax error
+#                    v = cl.pop(0)
+#                    return parseandlist(cl) and d.has_key(v[1])
+#                else:
+#                    return True
+#            def parseorlist(cl):
+#                #print "-- parseorlist: %s" % cl
+#                assert cl
+#                if cl and cl[0][0] == '|':
+#                    cl.pop(0)
+#                    assert cl and cl[0][1] # syntax error
+#                    v = cl.pop(0)
+#                    return parseorlist(cl) or d.has_key(v[1])
+#                else:
+#                    return False
+#            def parsesubcond(cl):
+#                print "-- parsesubcond: %s" % cl
+#                assert cl
+#                if cl[0][0] == '(':
+#                    r = parsepargroup(cl)
+#                else:
+#                    r = d.has_key(cl.pop(0)[1])
+#                
+#                if cl:
+#                    if cl[0][0] == '|':
+#                        r = parseorlist(cl) or r
+#                    elif cl[0][0] == '&':
+#                        r = parseandlist(cl) and r
+#                    elif cl[0][0] in [ '(',')']:
+#                        assert 0 # syntax error
+#                else:
+#                    pass
+#                #print "--  parsesubcond res = %s" % r
+#                return r
+#                    
+#            def parsepargroup(cl):
+#                print "-- parsepargroup: %s" % cl
+#                assert cl and cl.pop(0)[0] == '('
+#                r = parsesubcond(cl)
+#                assert cl and cl.pop(0)[0] == ')'
+#                return r
+#                
+#            cl = self.condre.findall(s)
+#            r = parsesubcond(cl)
+#            assert not cl
+#            return r
            
         def parsegroup(s,p):
             #print "-- parsegroup: |%s" % s[p:]
-            assert s[p] == '{'
+            
+            if s[p] != '{':
+               raise BibItemError('Expected {:\n     %s\nHere:%s^' % (s,' '*p))
 
             p += 1
             lvl = 1
             while lvl > 0:
                 o = self.fmtre.search(s,p)  
-                if p < o.start(0):
-                    self.__handleText(s[p:o.start(0)])
+
                 if o is not None:
+                    if p < o.start(0):
+                        self.__handleText(s[p:o.start(0)])
                     #print "-- parsegroup: ...%s" % str(o.groups())
                     #print "               ...%s" % str(s[p:])
                     if o.group('ref'):
                         formatref(o.group('ref'))
                         p = o.end(0)
                     elif o.group('cond'):
-                        r = parsecond(o.group('cond'))
-                        #print "-- parsegroup: %s" % s[o.end(0):]
+                        r = cond.eval(o.group('cond'),keyd)
                         if r:
                             p = parsegroup(s,o.end(0))
-                            p = ignoregroup(s,p)
+                            if s[p] == '{':
+                                p = ignoregroup(s,p)
                         else:
                             p = ignoregroup(s,o.end(0))
-                            p = parsegroup(s,p)
+                            if s[p] == '{':
+                                p = parsegroup(s,p)
                     elif o.group('beginbrace'):
                         p = o.end(0)
                         lvl += 1
@@ -2481,31 +2503,43 @@ class BibItemNode(Node):
                         lvl -= 1
                         if lvl > 0:
                             self.__handleText('}')
+                    elif o.group('space'):
+                        self.__handleText(' ')
+                        p = o.end(0)
                     else:
                         # format string syntax error
                         assert 0 
                 else:
                     # format string syntax error - unbalanced parens
-                    assert 0
+                    raise BibItemError('Syntax error:\n     %s\nHere:%s^' % (s,' '*p))
             #if p < len(s):
             #    self.__handleText(s[p:])
             return p
                
         def parsefmtstr(s,p):
-            while True and p < len(s):
+            """
+            \param s is the format string
+            \param p is the current position in the string
+            \param d is the dictionary mapping all valid keys for the bibliography item type to True/False.
+            """
+            while p < len(s):
                 #print "-- parsefmtstr: |%s" % s[p:]
-                o = self.fmtre.search(s,p)  
+                o = self.fmtre.search(s,p)
                 if o is not None:
                     if p < o.start(0):
                         self.__handleText(s[p:o.start(0)])
-                    #print o.groups()
+                    #print o.groups()                        
                     if o.group('ref'):
                         refs = [ r for r in o.group('ref').split('|') if d.has_key(r) ]
                         assert refs
                         formatentry(refs[0])
                         p = o.end(0)
                     elif o.group('cond'):
-                        r = parsecond(o.group('cond'))
+                        #print "Condition: %s" % o.group('cond')
+                        r = cond.eval(o.group('cond'),keyd)
+                        #print "  ->",r
+
+                        #r = parsecond(o.group('cond'))
                         #print "-- parsegroup: %s" % s[o.end(0):]
                         if r:
                             p = parsegroup(s,o.end(0))
@@ -2518,24 +2552,28 @@ class BibItemNode(Node):
                             p = ignoregroup(s,o.end(0))
                             if len(s) > p and s[p] == '{':
                                 p = parsegroup(s,p)
+                    elif o.group('space'):
+                        self.__handleText(' ')
+                        p = o.end(0)
                     else:
-                        # format string syntax error
-                        print "STR = '%s', at: '%s'" % (s,s[p:])
-                        assert 0 
+                        raise BibItemError('Syntax error in %s:\n     %s\nHere:%s' % (node.name,s,' '*p))
                 else:
                     break
             if p < len(s):
-                #print "-- rest of s = |%s" % s[p:]
-                self.handleText(s[p:])
+                self.__handleText(s[p:])
 
-        if node.name in [  'article', 'book', 'inbook', 'incollection', 'inproceedings', 'manual', 'mastersthesis', 'misc', 'phdthesis', 'techreport', 'unpublished',]:
-            parsefmtstr(self.bibtemplate[node.name], 0)
+        #if node.name in [  'article', 'book', 'inbook', 'incollection', 'inproceedings', 'manual', 'mastersthesis', 'misc', 'phdthesis', 'techreport', 'unpublished',]:
+        if node.name in self.bibtemplate.keys():
+            try:
+                #print "Format %s" % node.name
+                parsefmtstr(self.bibtemplate[node.name], 0)
+            except BibItemError,e:
+                print e
+                raise
         else:
             assert 0
             
-    
-
-        self.handleText('BIB:UNIMPLEMENTED',self.pos[0],self.pos[1])
+        #self.handleText('BIB:UNIMPLEMENTED',self.pos[0],self.pos[1])
 
         
 
@@ -3152,7 +3190,7 @@ class PreformattedNode(Node):
 
         if self.hasAttr('url'):
             url = self.getAttr('url')
-            self.__realurl = manager.findFile(url,filename) 
+            self.__realurl = os.path.abspath(manager.findFile(url,filename))
             lines = manager.readFrom(self.__realurl,self.getAttr('encoding')).split('\n')
             firstline = 0
             if self.hasAttr('firstline'):
@@ -3354,7 +3392,24 @@ class ImageItemNode(Node):
                           Attr('url',descr='Source of the image file.')])
     contIter    = ''
 
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+        
+        url = self.getAttr('url')
+        self.__realurl = os.path.abspath(manager.findFile(url,filename))
 
+    def toXML(self,doc,node=None):
+        if self.expandElement:
+            if node is None:
+                node = doc.createElement(self.nodeName)
+
+            node.setAttribute('type',self.getAttr('type'))
+
+            
+            node.setAttribute('url',self.__realurl)
+
+            return node
+        
 
 ######################################################################
 #  Some administrative Node classes

@@ -1,8 +1,12 @@
 import xml.dom.minidom
 import urlparse
 
+import logging
+
+logbib = logging.getLogger('BibXML')
+
 def Warning(*msgs):
-    print "BIBXML WARNING: " + ' '.join([str(v) for v in msgs]) 
+    logbib.warning(' '.join([str(v) for v in msgs])) 
 
 class BibEntryError(Exception): pass
 class BibKeyError(Exception): pass
@@ -123,7 +127,8 @@ class Article(_BibEntry):
                 'pages'    : Optional,
                 'title'    : Required,
                 'volume'   : Optional,
-                'year'     : Required,  }
+                'year'     : Required,  
+                }
 class Book(_BibEntry):
     name = 'book'
     accepts = { 'address'  : Optional, 
@@ -138,7 +143,8 @@ class Book(_BibEntry):
                 'publisher': Required,
                 'title'    : Required,
                 'volume'   : Optional,
-                'year'     : Required,  }
+                'year'     : Required,  
+                }
 class InBook(_BibEntry):
     name = 'inbook'
     accepts = { 'address'  : Optional, 
@@ -156,7 +162,8 @@ class InBook(_BibEntry):
                 'title'    : Required,
                 'type'     : Optional,
                 'volume'   : Optional,
-                'year'     : Required,  }
+                'year'     : Required,  
+                }
 class InCollection(_BibEntry):
     name = 'incollection'
     accepts = { 'address'  : Optional, 
@@ -174,7 +181,8 @@ class InCollection(_BibEntry):
                 'publisher': Required,
                 'title'    : Required,
                 'volume'   : Optional,
-                'year'     : Required,  }
+                'year'     : Required,  
+                }
 class InProceedings(_BibEntry):
     name = 'inproceedings'
     accepts = { 'address'  : Optional, 
@@ -191,7 +199,8 @@ class InProceedings(_BibEntry):
                 'publisher': Required,
                 'title'    : Required,
                 'volume'   : Optional,
-                'year'     : Required,  }
+                'year'     : Required,  
+                }
 class MastersThesis(_BibEntry):
     name = 'mastersthesis'
     accepts = { 'address'  : Optional, 
@@ -203,7 +212,8 @@ class MastersThesis(_BibEntry):
                 'school'   : Required,
                 'title'    : Required,
                 'type'     : Optional,
-                'year'     : Required,  }
+                'year'     : Required,  
+                }
 class PhdThesis(_BibEntry):
     name = 'phdthesis'
     accepts = MastersThesis.accepts
@@ -301,9 +311,6 @@ class BibDB:
     def has_key(self,key):
         return self.__db.has_key(key)
 
-    
-
-    
 
 if __name__ == '__main__':
     import sys

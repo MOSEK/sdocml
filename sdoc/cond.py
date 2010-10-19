@@ -68,6 +68,8 @@ def eval(s,d):
             T.pop()
             r = not evalcond(skip)
         elif t.type == t.TERM:
+            if not d.has_key(t.data):
+                raise CondError('Undefined conditional variable "%s"' % t.data)
             r = skip or d[t.data]
             T.pop()
         elif t.type == t.ISDEF:

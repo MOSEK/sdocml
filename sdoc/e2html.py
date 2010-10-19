@@ -933,7 +933,10 @@ class _StructuralNode(Node):
                 if nodes and isinstance(nodes[0],ParagraphNode):
                     res.tag('p')
                 res.append('\n')
+            elif isinstance(n,basestring):
+                print "!!!!Node", self.nodeName,self.pos
             else:
+
                 n.toHTML(res)
         return res
     
@@ -3274,7 +3277,7 @@ class Manager:
             return self.__icons[key]
         else:
             Warning('Icon not found: %s. Using default.' % key)
-            print self.__icons.keys()
+            #print self.__icons.keys()
             return self.getDefaultIcon()
 
     def getDefaultIcon(self):
@@ -3295,7 +3298,7 @@ class Manager:
                 bn = os.path.basename(fn)
 
                 if not self.__includedfiles.has_key(bn):
-                    print "Adding to archive: %s" % bn
+                    self.Message("Adding to archive: %s" % bn)
                     
                     f = open(fn,'rt')
 
@@ -3310,7 +3313,7 @@ class Manager:
                 return 'data/%s' % bn,bn
             except IOError:
                 pass
-        print "Looked in:\n",' \n'.join(self.__searchpaths)
+        #print "Looked in:\n",' \n'.join(self.__searchpaths)
         raise IncludeError('File not found "%s". Looked in:\n\t%s' % (address,'\n\t'.join(self.__searchpaths)))
 
     def readFromURL(self,url):
@@ -3623,68 +3626,74 @@ if __name__ == "__main__":
     outfile = conf['outfile']
 
     if infile is not None and outfile is not None:
-        sourcebase = os.path.dirname(infile)
-        searchpaths = [sourcebase] + conf['incpath']
-        
-        dstpath = os.path.dirname(outfile)
         try:
-            os.makedirs(dstpath)
-        except OSError:
-            pass
+            sourcebase = os.path.dirname(infile)
+            searchpaths = [sourcebase] + conf['incpath']
+            
+            dstpath = os.path.dirname(outfile)
+            try:
+                os.makedirs(dstpath)
+            except OSError:
+                pass
 
-        outf = zipfile.ZipFile(outfile,"w")
-        manager = Manager(outf,
-                          conf['docdir'],
-                          timestamp,
-                          searchpaths=searchpaths,
-                          appicon=conf['appicon'],
-                          icons=conf['icon'],
-                          debug=debug,
-                          template=conf['template'],
-                          sidebartemplate=conf['sidebartemplate'],
-                          gsbin=conf['gsbin'] or 'gs',
-                          pdflatexbin=conf['pdftexbin'] or 'pdflatex',
-                          pdf2svgbin=conf['pdf2svgbin'],
-                          )
-      
-       
-        manager.Message('Read XML document') 
-        P = xml.sax.make_parser()
-        root = RootElement(manager,infile,1)
-        h = XMLHandler(infile,root)
-        P.setContentHandler(h)
-        P.setDTDHandler(dtdhandler())
-        P.parse(infile)
+            outf = zipfile.ZipFile(outfile,"w")
+            manager = Manager(outf,
+                              conf['docdir'],
+                              timestamp,
+                              searchpaths=searchpaths,
+                              appicon=conf['appicon'],
+                              icons=conf['icon'],
+                              debug=debug,
+                              template=conf['template'],
+                              sidebartemplate=conf['sidebartemplate'],
+                              gsbin=conf['gsbin'] or 'gs',
+                              pdflatexbin=conf['pdftexbin'] or 'pdflatex',
+                              pdf2svgbin=conf['pdf2svgbin'],
+                              )
+          
+           
+            manager.Message('Read XML document') 
+            P = xml.sax.make_parser()
+            root = RootElement(manager,infile,1)
+            h = XMLHandler(infile,root)
+            P.setContentHandler(h)
+            P.setDTDHandler(dtdhandler())
+            P.parse(infile)
 
-        manager.checkInternalIDRefs()
+            manager.checkInternalIDRefs()
 
-        manager.Message('Writing ZIP files') 
-        root.toHTML()
-        if conf['sidebartemplate'] is not None:
-            root.makeSidebar('sidebar.html')
-            print "Got: Sidebar"
-        else:
-            print "No got sidebar"
-        
-        try: os.makedirs(tempimgdir)
-        except OSError: pass
+            manager.Message('Writing ZIP files') 
+            root.toHTML()
+            if conf['sidebartemplate'] is not None:
+                root.makeSidebar('sidebar.html')
+                print "Got: Sidebar"
+            else:
+                print "No got sidebar"
+            
+            try: os.makedirs(tempimgdir)
+            except OSError: pass
 
-        mathfile = os.path.join(tempimgdir,'math.tex')
-        manager.Message('Writing Math TeX file as %s' % mathfile) 
-        manager.writeTexMath(mathfile)
+            mathfile = os.path.join(tempimgdir,'math.tex')
+            manager.Message('Writing Math TeX file as %s' % mathfile) 
+            manager.writeTexMath(mathfile)
 
-        #idrefs = manager.getAllIDRefs()
-        #print '\n'.join([ '%s : %s#%s' % r for r in idrefs ])
-        
-        #manager.writelinesfile('xref.html',makeIndex(manager))
+            #idrefs = manager.getAllIDRefs()
+            #print '\n'.join([ '%s : %s#%s' % r for r in idrefs ])
+            
+            #manager.writelinesfile('xref.html',makeIndex(manager))
 
 
-        outf.close() 
-        manager.Message('Fini!')
+            outf.close() 
+            manager.Message('Fini!')
 
-        if manager.failed():
+            if manager.failed():
+                sys.exit(1)
+            else:
+                sys.exit(0)
+        except Exception, e:
+            import traceback
+            traceback.print_exc()
+            print e
             sys.exit(1)
-        else:
-            sys.exit(0)
 
 
