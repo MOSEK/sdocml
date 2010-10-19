@@ -3060,7 +3060,7 @@ class TableRowNode(Node):
               '''
     nodeName = 'tr'
     contIter = ' <td>* '
-    acceptAttrs = Attrs([ Attr('id'), Attr('class') ])
+    acceptAttrs = Attrs([ Attr('id'), Attr('class'), Attr('cond') ])
     structuralElement = True
 
     def __len__(self):
@@ -3084,7 +3084,7 @@ class TableCellNode(Node):
     nodeName = 'td'
     macroMode = MacroMode.Text
     contIter  = ' [ T %s %s %s %s ]* ' % (_simpleTextNodes, _structTextNodes, _linkNodes, _mathEnvNodes)
-    acceptAttrs = Attrs([ Attr('id'), Attr('class') ])
+    acceptAttrs = Attrs([ Attr('id'), Attr('class'), Attr('cond') ])
     paragraphElement = True
 
 class DocumentNode(_SectionNode):
