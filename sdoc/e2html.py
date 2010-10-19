@@ -106,13 +106,14 @@ class _unicodeToTex:
         215  : '$\\times$',
         216  : '\\O{}',
         224  : '\\`a',
+        225  : "\\'a",
         228  : '\\"a',
         229  : '\\aa{}',
         231  : '\\c{c}',
         232  : "\\`e",
         233  : "\\'e",
         235  : '\\"e',
-
+        239  : '\\"i',
         246  : '\\"o',
         248  : '\\o{}',
 
@@ -134,6 +135,8 @@ class _unicodeToTex:
     }
 
     combchar_text = {
+        #0x0225 : "'",
+        #0x0239 : '"',
         0x0300 : '`',
         0x0302 : '^',
         0x0304 : '=',
@@ -819,23 +822,28 @@ class Node(UserList.UserList):
     def toTeX(self,res):
         Warning('Unhandled %s %s' % (self.__class__.__name__,self.pos))
         try:
-            for i in self:
-                if isinstance(i,Node):
-                    i.toTeX(res)
-                else:
-                    res.append(i)
+            self.contentToTeX(res)
             return res
         except None, e:
             print "ASSERT in %s at %s" % (self.__class__.__name__,self.pos)
             raise Exception(e)
 
+    def contentToMathTeX(self,r):
+        for i in self:
+            if isinstance(i,Node):
+                i.toTeX(r)
+            else:
+                r.append(re.sub('[ \t\n\r]+',' ',i))
+        return r
     def contentToTeX(self,r):
         for i in self:
             if isinstance(i,Node):
                 i.toTeX(r)
             else:
-
-                r.append(i)
+                if isinstance(self,_MathNode):
+                    r.append(re.sub('[ \t\n\r]+',' ',i))
+                else:
+                    r.append(i)
         return r
     
     def contentToVerbatimTeX(self,r):
@@ -1857,6 +1865,7 @@ class FontNode(_SimpleNode):
 
 class BreakNode(_SimpleNode):
     nodeName = 'br'
+    macro = '\\'
     htmlTag = 'br'
     def toTeX(self,res):
         res.macro('nullbox').macro('\\') 
@@ -2416,10 +2425,10 @@ class MathEnvNode(Node):
             r.macro('[')
         else:
             r.begin('equation')
-            r.macro('label').group(self.getAttr('id'))
+            r.macro('label').groupStart()._raw(self.getAttr('id')).groupEnd()
             #r.macro('hypertarget').group(self.getAttr('id')).group()
         r.startMathMode()
-        self.contentToTeX(r)
+        self.contentToMathTeX(r)
         #for i in self:
         #    if isinstance(i,Node):
         #        i.toTeX(r)
