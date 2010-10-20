@@ -3,9 +3,8 @@
         http://code.google.com/p/sdocml/
 
     
-    Copyright (c) 2009 Mosek ApS 
+    Copyright (c) 2009,2010 Mosek ApS 
 """
-
 from   UserDict import UserDict
 from   UserList import UserList
 
@@ -2335,16 +2334,9 @@ class BibItemNode(Node):
         #
         d = node
         keyd = dict([ (k,node.has_key(k)) for k in node.bibitems.keys() ])
-        #print node
-        #for n in node.childNodes:
-        #    if n.nodeType == n.ELEMENT_NODE:
-        #        cn = n.firstChild
-        #        if cn:
-        #            d[n.nodeName].append(cn.data)
         filename,line = self.pos
         
         def formatentry(k):
-            #print "-- formatentry: %s" % k
             
             items = d[k]
             if isinstance(items,str) or isinstance(items,unicode):
@@ -2354,7 +2346,6 @@ class BibItemNode(Node):
             else:
                 
                 assert len(items) > 0
-                #print "-- formatentry. items = %s" % str(items)
                     
                 n = self.newChild('span',{ 'class' : 'bib-item-%s' % k},filename,line)
                 n.handleText(items[0],filename,line)
@@ -2374,8 +2365,6 @@ class BibItemNode(Node):
 
 
         def ignoregroup(s,p):
-            #print p
-            #print "-- ignoregroup: |%s" % s[p:]
             if not s[p] == '{':
                 raise BibItemError('Expected {:\n     %s\nHere:%s^' % (s,' '*p))
             p += 1
@@ -2393,81 +2382,7 @@ class BibItemNode(Node):
                     raise BibItemError('Unbalanced parenthesis:\n     %s\nHere:%s^' % (s,' '*p))
             return p
 
-#        def parsecond(s):
-#            """
-#            I've been cutting some corners in this function. It should work,
-#            but it might not catch all errors, and all errors are reported with
-#            assert. Not very elegant.
-#
-#            parse a condition of the form:
-#              cond     = "(" subcond ")"
-#                       |  subcond
-#              subcond  = conditem "+" and_cond
-#                       | conditem "|" or_cond
-#              conditem = TERM
-#                       | "(" subcond ")"
-#              and_cond = conditem
-#                       | conditem "&" and_cond
-#              or_cond  = conditem
-#                       | conditem "|" or_cond
-#            """
-#            #print "-- parsecond: %s" % s
-#            
-#            def parseandlist(cl):
-#                #print "-- parseandlist: %s" % cl
-#                assert cl
-#                if cl and cl[0][0] == '&':
-#                    cl.pop(0)
-#                    assert cl and cl[0][1] # syntax error
-#                    v = cl.pop(0)
-#                    return parseandlist(cl) and d.has_key(v[1])
-#                else:
-#                    return True
-#            def parseorlist(cl):
-#                #print "-- parseorlist: %s" % cl
-#                assert cl
-#                if cl and cl[0][0] == '|':
-#                    cl.pop(0)
-#                    assert cl and cl[0][1] # syntax error
-#                    v = cl.pop(0)
-#                    return parseorlist(cl) or d.has_key(v[1])
-#                else:
-#                    return False
-#            def parsesubcond(cl):
-#                print "-- parsesubcond: %s" % cl
-#                assert cl
-#                if cl[0][0] == '(':
-#                    r = parsepargroup(cl)
-#                else:
-#                    r = d.has_key(cl.pop(0)[1])
-#                
-#                if cl:
-#                    if cl[0][0] == '|':
-#                        r = parseorlist(cl) or r
-#                    elif cl[0][0] == '&':
-#                        r = parseandlist(cl) and r
-#                    elif cl[0][0] in [ '(',')']:
-#                        assert 0 # syntax error
-#                else:
-#                    pass
-#                #print "--  parsesubcond res = %s" % r
-#                return r
-#                    
-#            def parsepargroup(cl):
-#                print "-- parsepargroup: %s" % cl
-#                assert cl and cl.pop(0)[0] == '('
-#                r = parsesubcond(cl)
-#                assert cl and cl.pop(0)[0] == ')'
-#                return r
-#                
-#            cl = self.condre.findall(s)
-#            r = parsesubcond(cl)
-#            assert not cl
-#            return r
-           
         def parsegroup(s,p):
-            #print "-- parsegroup: |%s" % s[p:]
-            
             if s[p] != '{':
                raise BibItemError('Expected {:\n     %s\nHere:%s^' % (s,' '*p))
 
@@ -2479,8 +2394,6 @@ class BibItemNode(Node):
                 if o is not None:
                     if p < o.start(0):
                         self.__handleText(s[p:o.start(0)])
-                    #print "-- parsegroup: ...%s" % str(o.groups())
-                    #print "               ...%s" % str(s[p:])
                     if o.group('ref'):
                         formatref(o.group('ref'))
                         p = o.end(0)
@@ -2520,7 +2433,6 @@ class BibItemNode(Node):
             """
             \param s is the format string
             \param p is the current position in the string
-            \param d is the dictionary mapping all valid keys for the bibliography item type to True/False.
             """
             while p < len(s):
                 #print "-- parsefmtstr: |%s" % s[p:]
@@ -2531,24 +2443,20 @@ class BibItemNode(Node):
                     #print o.groups()                        
                     if o.group('ref'):
                         refs = [ r for r in o.group('ref').split('|') if d.has_key(r) ]
-                        assert refs
-                        formatentry(refs[0])
+                        if refs:
+                            formatentry(refs[0])
+                        else:
+                            err('Missing key "%s" in "%s"' % (o.group('ref'), node.id))
+                            self.__handleText('<missing>')
                         p = o.end(0)
                     elif o.group('cond'):
-                        #print "Condition: %s" % o.group('cond')
                         r = cond.eval(o.group('cond'),keyd)
-                        #print "  ->",r
 
-                        #r = parsecond(o.group('cond'))
-                        #print "-- parsegroup: %s" % s[o.end(0):]
                         if r:
                             p = parsegroup(s,o.end(0))
                             if len(s) > p and s[p] == '{':
                                 p = ignoregroup(s,p)
                         else:
-                            #print "STR: '%s'" % s
-                            #print "   : '%s'" % s[p:]
-                            #print "   : '%s'" % s[o.end(0):]
                             p = ignoregroup(s,o.end(0))
                             if len(s) > p and s[p] == '{':
                                 p = parsegroup(s,p)
@@ -2562,18 +2470,14 @@ class BibItemNode(Node):
             if p < len(s):
                 self.__handleText(s[p:])
 
-        #if node.name in [  'article', 'book', 'inbook', 'incollection', 'inproceedings', 'manual', 'mastersthesis', 'misc', 'phdthesis', 'techreport', 'unpublished',]:
         if node.name in self.bibtemplate.keys():
             try:
-                #print "Format %s" % node.name
                 parsefmtstr(self.bibtemplate[node.name], 0)
             except BibItemError,e:
                 print e
                 raise
         else:
             assert 0
-            
-        #self.handleText('BIB:UNIMPLEMENTED',self.pos[0],self.pos[1])
 
         
 

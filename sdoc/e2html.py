@@ -2567,7 +2567,7 @@ class MathFencedNode(_MathNode):
             close = close or '.'
        
         r.macro('left')._raw(open).group()
-        self.contentToTeX(r)
+        self.contentToMathTeX(r)
         r.macro('right')._raw(close).group()
 
 class MathFontNode(_MathNode):
@@ -2583,7 +2583,7 @@ class MathFontNode(_MathNode):
 
                 assert 0
             r.macro(cmd).groupStart()
-            self.contentToTeX(r)
+            self.contentToMathTeX(r)
             r.groupEnd()
         else:
             self.contentToTeX(r)
@@ -2620,7 +2620,7 @@ class MathOperatorNode(_MathNode):
 
 class MathRowNode(_MathNode):
     def toTeX(self,r):
-        self.contentToTeX(r)
+        self.contentToMathTeX(r)
         return r
 
 class MathSubscriptNode(_MathNode):
