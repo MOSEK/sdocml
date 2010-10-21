@@ -83,10 +83,13 @@ class _mathUnicodeToTex:
         # misc
         8230 : '\\ldots{}',
         8285 : '\\vdots{}',
+        8658 : '\\Rightarrow',
+        8660 : '\\Leftrightarrow',
         8704 : '\\forall{}',
         8712 : '\\in{}',
         8721 : '\\sum{}',
         8742 : '\\|',
+        8776 : '\\approx{}',
         8804 : '\\leq{}',
         8805 : '\\geq{}',
         8834 : '\\subset{}',
@@ -2192,7 +2195,8 @@ class FloatNode(_StructuralNode):
         res.tag('div',{ 'class' : ' '.join(cls) })
         if f == 'no':
             res.tag('center')
-        res.tag('table',{ 'class' : 'float-content'})
+        #res.tag('table',{ 'class' : 'float-content'})
+        res.tag('table',{ 'class' : 'nofloat-content'})
         res.tag('tr')
         self.__body.toHTML(res)
         res.tagend('tr')

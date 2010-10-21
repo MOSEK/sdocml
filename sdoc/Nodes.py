@@ -2847,7 +2847,7 @@ class FloatNode(Node):
     contIter = ' <floatbody> <caption>?'
     acceptAttrs = Attrs([ Attr('id'), 
                           Attr('class'),
-                          Attr('float',default='right', descr="(left|right|no) Defines where the figure should float. The backend may choose to ignore this.") ])
+                          Attr('float',default='no', descr="(left|right|no) Defines where the figure should float. The backend may choose to ignore this.") ])
     structuralElement = True
 
 class TableNode(Node):
@@ -3078,7 +3078,9 @@ class PreformattedNode(Node):
                     Attr('firstline',descr="Index of the first line to use from the url (1-based)."),
                     Attr('lastline',descr="Index of the last line+1 to use from the url (1-based)."),
                     Attr('xml:space',default='preserve'),
-                    Attr('type',default='text/plain',descr="MIME type of the text element content or of the URL target."),
+                    Attr('type',default='text/plain',descr=
+                         "MIME type of the text element content or of the URL target.\n"
+                         "SDoc can hilight a few types, currently 'source/LANG', where LANG is one of: python, c, java, csharp or matlab."),
                     Attr('encoding',default='ascii'), # (ascii|utf-8)
                     Attr('macroexpand',default='no',descr="Tells if macros should be processed in the content of the element. For external sources this is ignored."), # (yes|no)
                     Attr('cond')])
@@ -3227,10 +3229,10 @@ class ReferenceNode(Node):
     nodeName    = 'ref'
     macroMode   = MacroMode.Text
     acceptAttrs = Attrs([ Attr('class'), 
-                          Attr('ref'),
+                          Attr('ref',descr='A globally unique ID of another element'),
                           Attr('type'),
                           Attr('exuri'),
-                  ]) 
+                  ])
     traceInfo   = True
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
     paragraphElement = False

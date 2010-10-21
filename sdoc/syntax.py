@@ -21,6 +21,43 @@ python_syntax = re.compile('|'.join([r'(?P<cmnt>#.*)',
                                      r'(?P<mlstr>"""|\'\'\')',# Note: This will fail in the freak case where e.g. '\"""' appeared inside a multi-line string.
                                      ]))
 
+matlab_keywords = [ 'break', 'case', 'catch', 'classdef', 'continue', 'else',
+                    'elseif', 'end', 'for', 'function', 'global', 'if', 'otherwise',
+                    'parfor', 'persistent', 'return', 'spmd', 'switch', 'try',
+                    'while',
+                    'function','class',]
+#atlab_keywords = [ 'builtin', 'eval', 'feval', 'function', 'global', 'nargchk', 'script', 'break',
+#                   'case', 'else', 'elseif', 'end', 'error', 'for', 'if', 'otherwise', 'return', 
+#                   'switch', 'warning', 'while', 'all', 'any', 'exist', 'find', 'logical', 'input', 
+#                   'keyboard', 'menu', 'pause', 'class', 'double', 'inferiorto', 'inline', 'isa', 
+#                   'superiorto', 'uint8' ]
+
+matlab_language = [ 'sparse','eye','ones','zeros','any','all','uint8','double','error','warning','script','inf','NaN' ]
+matlab_syntax = re.compile('|'.join([r'(?P<cmnt>%.*)',
+                                     r'(?P<str>\'(?:[^\']|\\\')*\')',
+                                     r'(?P<dotdotdot>\.\.\.)',
+                                     r'(?P<word>\w+)',
+                                     ]))
+
+c_keywords = [ 'auto', 'break', 'case', 'chart', 'const', 'continue',
+               'default', 'do', 'double', 'else', 'enum', 'extern', 'float',
+               'for', 'goto', 'if', 'int', 'long', 'register', 'return',
+               'short', 'signed', 'sizeof', 'static', 'struct', 'switch',
+               'typedef', 'union', 'unsigned', 'void', 'volatile', 'while', ]
+cpp_keywords = c_keywords + [
+               'catch', 'class', 'delete', 'inline', 'friend', 'namespace',
+               'new', 'operator', 'private', 'protected', 'public', 'template',
+               'this', 'throw', 'try', 'using', 'virtual', ]
+c_language = [ 'stdin','stdout','stderr','printf','FILE' ] # and lots more...
+cpp_language = c_language + [ 'std','cin','cout','cerr','string' ]
+c_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
+                                r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                r'(?P<word>\w+)',
+                                r'(?P<newline>\n)',
+                                r'(?P<mlcmntstart>/\*)',
+                                r'(?P<mlcmntend>\*/)',
+                                ]))
+
 # NOTE: List of keywords is taken from the official Java 1.6 language documentation.
 java_keywords = [   "abstract", "assert", "boolean", "break", "byte",
                     "case", "catch", "char", "class", "const",
@@ -105,7 +142,6 @@ kw_string   = 'string'
 kw_keyword  = 'keyword'
 kw_language = 'language'
 
-
 class CodeHilighter:
     def __init__(self,mimetype='text/plain'):
         self.__state = None
@@ -115,11 +151,56 @@ class CodeHilighter:
             self.process = self.process_Java
         elif mimetype == 'source/csharp':
             self.process = self.process_CSharp
+        elif mimetype == 'source/matlab':
+            self.process = self.process_Matlab
+        elif mimetype == 'source/c':
+            self.process = self.process_C
         elif mimetype == 'text/xml':
             self.process = self.process_XML
         else:
             self.process = self.process_plaintext
 
+    def process_C(self,l):
+        lres = []
+        pos = 0
+
+        for o in c_syntax.finditer(l):
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('mlcmntstart'):
+                    self.__state = o.group(0)
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('newline'):
+                    lres.append(u'\n')
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in c_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in c_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+            else:# inside multi-line string
+                if o.group('mlcmntend') and o.group(0) == self.__state:
+                    lres.append((kw_comment,l[pos:o.end(0)]))
+                    pos = o.end(0)
+                    self.__state = None                        
+                elif o.group('newline'):
+                    lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append(u'\n')
+                    pos = o.end(0)
+        if pos < len(l):
+            if self.__state is None:
+                lres.append(l[pos:])
+            else:
+                lres.append((kw_comment,l[pos:]))
+        return lres
     def process_CSharp(self,l):
         lres = []
         pos = 0
@@ -278,9 +359,7 @@ class CodeHilighter:
                 lres.append((kw_comment, l[pos:]))
             else:
                 lres.append(l[pos:])
-        return lres
-                
-
+        return lres 
 
     def process_Python(self,l):
         lres = []
@@ -323,10 +402,40 @@ class CodeHilighter:
             else:
                 lres.append((kw_string,l[pos:]))
         return lres
+
+    def process_Matlab(self,l):
+        lres = []
+        pos = 0
+
+        for o in matlab_syntax.finditer(l):
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('dotdotdot') is not None:
+                    lres.append((kw_language,o.group(0)))
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in matlab_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in matlab_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+        if pos < len(l):
+            if self.__state is None:
+                lres.append(l[pos:])
+            else:
+                lres.append((kw_string,l[pos:]))
+        return lres
+
     def process_plaintext(self,data):
         return [data]
         
-
 def hilightCode(data,mimetype='text/plain'):
     if mimetype == 'source/python':
         res = []
