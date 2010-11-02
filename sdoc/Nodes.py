@@ -33,10 +33,8 @@ err = msglog.error
 #    sys.stderr.write('\n')
 
 def debug(*args):
-    if 0:
-        sys.stderr.write('[D]')
-        sys.stderr.write((' '.join([ unicode(s) for s in args ])).encode('utf8'))
-        sys.stderr.write('\n')
+    pass
+    #msglog.debug('[D]' + (' '.join([ unicode(s).encode('utf-8') for s in args ])) + '\n')
 
 simpleTextNodeList = [ 'em','tt','bf','sc','font','nx','span','br', 'note' ]
 structTextNodeList = [ 'ilist','dlist','div','table','float','img','noexpand','pre','center','flushleft','flushright' ]
@@ -54,7 +52,6 @@ _structTextNodes = ' '.join([ '<%s>' % i for i in structTextNodeList ])
 _linkNodes       = ' '.join([ '<%s>' % i for i in linkNodeList ])
 _mathEnvNodes    = ' '.join([ '<%s>' % i for i in mathEnvNodeList ])
 _mathNodes       = ' '.join([ '<%s>' % i for i in mathNodeList ])
-
 
 
 ######################################################################
@@ -87,6 +84,8 @@ class MacroArgErrorX(MotexException):
 class MacroArgError(MotexException):
     pass
 class NodeError(MotexException):
+    pass
+class FindFileError(MotexException):
     pass
 
 class XMLIdError(MotexException):
@@ -344,20 +343,20 @@ class LazyElement(UnexpandedItem,UserList):
         self.nodeName = name
 
     def newChild(self,name,attrs,filename,line):
-        debug('LazyElement %s: Add node %s' % (self.__name,name))
+        #debug('LazyElement %s: Add node %s' % (self.__name,name))
 
         node = LazyElement(name,attrs,filename,line)
         self.append(node)
         return node
 
     def handleText(self,data,filename,line):
-        debug('\tLazyElement.handleText @ %s:%d (%s): ' % (filename,line,repr(data)))
+        #debug('\tLazyElement.handleText @ %s:%d (%s): ' % (filename,line,repr(data)))
         node = MacroEvent_ExpandText(data,filename,line)
         self.data.append(node)
     
     def linearize(self,res,args,kwds):
         res.append(MacroEvent_StartTag(self.__name,self.__attrs,self.__filename,self.__line))
-        debug('LazyElement %s: Linearize' % (self.__name))
+        #debug('LazyElement %s: Linearize' % (self.__name))
 
         for i in self:
             if isinstance(i,MacroEvent_ExpandText):
@@ -395,7 +394,7 @@ class Group(UserList,UnexpandedItem):
         except MacroArgErrorX, e:
             raise MacroArgError('%s at %s:%d' % (e.msg,self.pos[0],self.pos[1]))
     def append(self,value):
-        debug("%s.append %s" % (self.__class__.__name__,repr(value)))
+        #debug("%s.append %s" % (self.__class__.__name__,repr(value)))
         assert not self.__closed
         UserList.append(self,value)
     def end(self):
@@ -442,7 +441,7 @@ class UnexpandedEnvironment(UnexpandedItem):
         self.__data     = [] # the environment content
     
     def append(self,value):
-        debug("Env argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
+        #debug("Env argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
         assert not isinstance(value,ContentManager)
         
         if len(self.__args) < self.nArgs():
@@ -466,7 +465,7 @@ class UnexpandedEnvironment(UnexpandedItem):
             raise MacroError("Too few arguments for environment '%s' at %s:%d" % (self.__macro.macroName(),self.pos[0],self.pos[1]))
         args = []
         for a in self.__args:
-            debug("  Expand arg: ",repr(a))
+            #debug("  Expand arg: ",repr(a))
             args.append(a.linearize([],[],{}))
         
         cont = []
@@ -476,7 +475,6 @@ class UnexpandedEnvironment(UnexpandedItem):
                 cont.append(MacroEvent_NoExpandText(a,self.pos[0],self.pos[1]))
             else:
                 a.linearize(cont,[],{})
-        debug('UnexpandedMacro.linearize. Before: ',repr(res))
         self.__macro.linearize(res,args,kwds,self.pos[0],self.pos[1])
     
         return res
@@ -514,21 +512,21 @@ class UnexpandedMacro(UnexpandedItem):
         self.__superscript = a
     
     def append(self,value):
-        debug("Macro argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
+        #debug("Macro argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
         assert not isinstance(value,ContentManager)
 
         if (isinstance(value,unicode) or isinstance(value,str)) and not value.strip():
             pass
         else:
             if not isinstance(value,BraceGroup):
-                raise MacroError('Expected an argument for macro at %s:%d' % self.pos)
+                raise MacroError('Expected an argument for macro "%s" at %s:%d' % (self.__macro.macroName(),self.pos[0],self.pos[1]))
             elif  len(self.__args) < self.__macro.nArgs():
                 self.__args.append(value)
                 
                 if len(self.__args) == self.__macro.nArgs() and self.__onclose is not None:
                     self.__onclose()
             else:
-                raise MacroError('too many arguments for macro at %s:%d' % self.pos)
+                raise MacroError('Too many arguments for macro "%s" at %s:%d' % (self.__macro.macroName(),self.pos[0],self.pos[1]))
         if False and self.__macro.macroName() == 'frac':
             print "nargs = ",self.nArgs()
             print 'got = ',len(self.__args)
@@ -545,7 +543,7 @@ class UnexpandedMacro(UnexpandedItem):
             raise MacroError("Too few arguments for macro '%s' at %s:%d" % (self.__macro.macroName(),self.pos[0],self.pos[1]))
         args = []
         for a in self.__args:
-            debug("  Expand arg: ",a)
+            #debug("  Expand arg: ",a)
             try:
                 args.append(a.linearize([],[],{}))
             except MacroArgErrorX,e:
@@ -555,7 +553,7 @@ class UnexpandedMacro(UnexpandedItem):
             kwds['SUBSCRIPT'] = self.__subscript.linearize([],[],{})
         if self.__superscript is not None:
             kwds['SUPERSCRIPT'] = self.__superscript.linearize([],[],{})
-        debug('UnexpandedMacro.linearize. Before: ',res)
+        #debug('UnexpandedMacro.linearize. Before: ',res)
         
         try:
             self.__macro.linearize(res,args,kwds,self.pos[0],self.pos[1])
@@ -708,9 +706,9 @@ class ContentManager:
         return self.__managed
 
     def append(self,item):
-        debug("ContentManager (mode=%s) got (%s): %s" % (MacroMode.toStr(self.__mode),repr(type(item)),repr(item)))
+        #debug("ContentManager (mode=%s) got (%s): %s" % (MacroMode.toStr(self.__mode),repr(type(item)),repr(item)))
         if isinstance(item,SubSuperBraceGroup):
-            debug('\tlast = %s' % str(self.__last))
+            #debug('\tlast = %s' % str(self.__last))
             if self.__last is None:
                 raise MacroError('Invalid use of inorder operation %s at %s:%d' % (item.op,item.pos[0],item.pos[1]))
             elif isinstance(self.__last,UnexpandedInorderop):
@@ -726,13 +724,13 @@ class ContentManager:
                 self.__last = UnexpandedInorderop(c,item.pos)
                 self.__last.append(item)
             elif isinstance(self.__last,UnexpandedItem):
-                debug("Accepts subscript ? %s" % self.__last.acceptsSubscript())
-                debug("Accepts superscript ? %s" % self.__last.acceptsSuperscript())
+                #debug("Accepts subscript ? %s" % self.__last.acceptsSubscript())
+                #debug("Accepts superscript ? %s" % self.__last.acceptsSuperscript())
                 if isinstance(item,SubBraceGroup) and self.__last.acceptsSubscript():
-                    debug("Put subscript.")
+                    #debug("Put subscript.")
                     self.__last.putSubscript(item)      
                 elif isinstance(item,SuperBraceGroup) and self.__last.acceptsSuperscript():
-                    debug("Put superscript.")
+                    #debug("Put superscript.")
                     self.__last.putSuperscript(item)
                 else:
                     self.__last = UnexpandedInorderop(self.__last,item.pos)
@@ -741,12 +739,12 @@ class ContentManager:
                 print('Unexpected type: ',self.__last) 
                 assert 0
         else:
-            debug("ContentManager. Add:",repr(item))
-            debug("ContentManager. last =",repr(self.__last))
+            #debug("ContentManager. Add:",repr(item))
+            #debug("ContentManager. last =",repr(self.__last))
 
             if isinstance(item,Node):
                 if self.__last is not None:
-                  debug("__last =",self.__last)
+                  #debug("__last =",self.__last)
                   last = self.__last
                   assert last is not self
                   self.__last = None
@@ -762,7 +760,7 @@ class ContentManager:
                 self.__last = item
     
     def flush(self):
-        debug('ContentManager.end. last = %s' % repr(self.__last))
+        #debug('ContentManager.end. last = %s' % repr(self.__last))
         if self.__last is not None:
             last = self.__last
             self.__last = None
@@ -928,6 +926,9 @@ class Node:
     # the node that actually will contain it. We assume that the dictionary is
     # static so it's should be correct.
 
+    def error(self,msg):
+        self.__manager.Error(msg)
+
     def getMacroDefs(self):
         return self.__cmddict.items()
     def newChild(self,name,attrs,filename,line):
@@ -946,7 +947,7 @@ class Node:
             cstack = self.__cstack
             def on_close():
                 item = cstack.pop()
-                debug('Onstack close %s' % item)
+                #debug('Onstack close %s' % item)
                 if isinstance(item,LazyElement):
                     cstack[-1].append(item)
                 else:
@@ -955,11 +956,11 @@ class Node:
             node = LazyElement(name,attrs,filename,line,on_close)
             self.__cstack.append(node)
         else:
-            debug('Node.newChild: <%s>' % name)
+            #debug('Node.newChild: <%s>' % name)
             try:
                 nodecon = self.__nodeDict[name]
             except KeyError:
-                debug(self.__nodeDict)
+                #debug(self.__nodeDict)
                 #print repr(self),self.__class__.__name__,self.nodeName
                 raise NodeError('Unknown element <%s> in <%s> at %s:%d' % (name,self.nodeName, filename,line))
             cond = True
@@ -969,11 +970,11 @@ class Node:
                 cond = self.__manager.evalCond(attrs['cond'],filename,line)
             if cond:
                 node = nodecon(self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
-                debug('Node(%s).newChild : ' % self,node)
+                #debug('Node(%s).newChild : ' % self,node)
                 self.__cstack[-1].append(node)
             else:
                 node = DummyNode(name,self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
-                debug("Ignored node %s" % node.nodeName) 
+                #debug("Ignored node %s" % node.nodeName) 
 
         return node
 
@@ -983,9 +984,6 @@ class Node:
     # \param item A Node or a Unicode string.
     def appendItem(self,item,filename,line):
         if not isinstance(item,Node) and not isinstance(item,unicode):
-            #if isinstance(item,UnexpandedMacro):
-            print repr(item)
-            assert 0
             for i in item.expand():
                 self.appendItem(i)
         else:
@@ -994,14 +992,18 @@ class Node:
                     self.append(item)
                 else:
                     if isinstance(item,unicode):
-                        raise NodeError('1Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
-                    else: 
-                        raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                        self.error('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                        #raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                    else:
+                        self.error('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                        #raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
             except Iters.ContentIteratorError:
                 if isinstance(item,unicode):
-                    raise NodeError('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
+                    self.error('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
+                    #raise NodeError('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
                 else:
-                    raise NodeError('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                    self.error('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                    #raise NodeError('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
                 
 
     ##\brief Append an item to the root scope, and expand it if necessary.
@@ -1011,7 +1013,7 @@ class Node:
     # \param item A Node or a unicode string.
     def append(self,item):
         assert len(self.__cstack) == 1
-        debug("Node.append :",repr(item))
+        #debug("Node.append :",repr(item))
         assert not self.__closed
         if   self.__sealed:
             raise NodeError("Content not allowed in <%s> at %s:%d" % (self.nodeName, self.pos[0],self.pos[1]))
@@ -1024,25 +1026,30 @@ class Node:
                         self.__content.append(item)
                     else:
                         if isinstance(item,unicode):
-                            filename,line = self.pos
-                            raise NodeError('2Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                            print "GOT: %s" % item
+                            self.error('Text not allowed in <%s> at %s:%d' % (self.nodeName,self.pos[0],self.pos[1]))
+                            #raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
                         else: 
-                            filename,line = item.pos
-                            debug('In element <%s>' % self.nodeName)
-                            raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                            self.error('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,self.pos[0],self.pos[1]))
+                            #raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
                 except Iters.ContentIteratorError:
                     if isinstance(item,unicode):
                         filename,line = self.pos
-                        raise NodeError('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
+                        print "GOT: %s" % item
+                        self.error('Does not accept text in <%s> at %s:%d' % (self.nodeName,self.pos[0],self.pos[1]))
+                        #raise NodeError('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
                     else:
-                        filename,line = item.pos
-                        raise NodeError('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                        self.error('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,item.pos[0],item.pos[1]))
+                        #raise NodeError('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
                 except:
                     raise
         elif isinstance(item,UnexpandedItem):
             res = item.linearize([],[],{})
-            debug('Node.append: handlig events',res)
-            self.__handleSAXEvents(res,item.pos[0],item.pos[1])
+            try:
+                self.__handleSAXEvents(res,item.pos[0],item.pos[1])
+            except:
+                print item.pos
+                raise
         else:
             print item,repr(item)
             assert 0
@@ -1060,11 +1067,11 @@ class Node:
                 #debug('Delayed SAX event: TAGOPEN %s @ %s:%s:' % (e,e.filename,e.line),e)
                 cstack.append(cstack[-1].newChild(e.name,e.attrs,e.filename,e.line))
             elif isinstance(e,MacroEvent_EndTag):
-                if not (cstack and cstack[-1].nodeName == e.name):
-                    debug('CStack =',cstack)
-                    debug('Top name = %s' % cstack[-1].nodeName)
-                    debug('End name = %s' % e.name)
-                    debug('At %s:%d' % (filename,line))
+                #if not (cstack and cstack[-1].nodeName == e.name):
+                    #debug('CStack =',cstack)
+                    #debug('Top name = %s' % cstack[-1].nodeName)
+                    #debug('End name = %s' % e.name)
+                    #debug('At %s:%d' % (filename,line))
                 assert cstack and cstack[-1].nodeName == e.name
                 cstack[-1].endOfElement(filename,line)
                 cstack.pop()
@@ -1095,10 +1102,10 @@ class Node:
 
             if pos < o.start(0):
                 self.__cstack[-1].append(data[pos:o.start(0)])
-                debug('Added math data: ',data[pos:o.start(0)])
+                #debug('Added math data: ',data[pos:o.start(0)])
             pos = o.end(0)
 
-            debug('Got math item: ',repr(o.group(0)))
+            #debug('Got math item: ',repr(o.group(0)))
             if   o.group('macro'):
                 macroname = o.group('macro')
                 try: macro = self.__cmddict[macroname]
@@ -1223,14 +1230,14 @@ class Node:
                 assert 0
         if pos < len(data):
             self.__cstack[-1].append(data[pos:])
-            debug('Added math data: ',data[pos:])
+            #debug('Added math data: ',data[pos:])
 
 
     ##\brief Handle text. Called by the SAX parser to pass a text string.
     #  
     # This function handles expansion of macros in both text and math mode (and no-expand mode).
     def handleText(self,data,filename,line):
-        debug('\tNode.handleText @ %s:%d (%s): ' % (filename,line,MacroMode.toStr(self.macroMode)), repr(data))
+        #debug('\tNode.handleText @ %s:%d (%s): ' % (filename,line,MacroMode.toStr(self.macroMode)), repr(data))
         if  self.macroMode in [ MacroMode.Invalid, MacroMode.NoExpand ]:
             self.handleRawText(data,filename,line)
         elif self.macroMode == MacroMode.Text:
@@ -1241,8 +1248,8 @@ class Node:
                         assert 0
                         continue
                 if pos < o.start(0):
-                    debug('Node.handleText (remaining) append :',repr(data[pos:o.start(0)]))
-                    debug('  Top element :',repr(self.__cstack[-1]))
+                    #debug('Node.handleText (remaining) append :',repr(data[pos:o.start(0)]))
+                    #debug('  Top element :',repr(self.__cstack[-1]))
                     self.__cstack[-1].append(data[pos:o.start(0)])
                 pos = o.end(0)
 
@@ -1363,7 +1370,7 @@ class Node:
                     print "ERROR: got '%s'" % o.group(0)
                     assert 0
             if pos < len(data):
-                debug('Node.handleText (remaining) append :',repr(data[pos:]))
+                #debug('Node.handleText (remaining) append :',repr(data[pos:]))
                 self.__cstack[-1].append(data[pos:])
         elif self.macroMode in [ MacroMode.Math, MacroMode.SimpleMath ]:
             self.__handleText_Math(data,filename,line)
@@ -1408,13 +1415,13 @@ class Node:
                 if self.hasAttr ('id'):
                     maybeid = self.getAttr('id')
 
-                debug('#### Close node <%s id="%s"> %d' % (self.nodeName,maybeid,id(self)))
+                #debug('#### Close node <%s id="%s"> %d' % (self.nodeName,maybeid,id(self)))
                 if 0:
                     import traceback
                     traceback.print_stack()
                 
                 if len(self.__cstack) != 1:
-                    debug('SCOPE STACK:',self.__cstack)
+                    #debug('SCOPE STACK:',self.__cstack)
                     raise NodeError('Unended scope or macro at %s:%d' % (filename,line))
                 elif isinstance(self.__cstack[-1],ContentManager):
                     self.__cstack[-1].flush()
@@ -1681,15 +1688,7 @@ class IncDefNode(Node):
         self.__url = attrs['url']
 
         fullname = manager.findFile(self.__url,filename)
-        if 0:
-            proto,server,path,r0,r1,r2 = self.__url
-            if proto and proto != 'file':
-                log(self.__url)
-                raise NodeError('Only local includes allowed, got "%s"' % attrs['url'])
-
-            basepath = os.path.dirname(filename)
-            fullname = os.path.join(basepath,path) # currently only relative paths allowed. No checking done
-
+        
         P = xml.sax.make_parser()
         N = ExternalDefineRoot(manager,self,self.__cmddict,nodeDict,fullname,1)
         h = handler(fullname,N) 
@@ -1758,7 +1757,7 @@ class _DefDataNode(Node):
     structuralElement = True
 
     def linearize(self,res,args,kwds,filename,line,dolookup):
-        debug("%s: %s" % (self.__class__.__name__,repr([repr(s) for s in self])))
+        #debug("%s: %s" % (self.__class__.__name__,repr([repr(s) for s in self])))
         for data in self:
             if isinstance(data,LookupNode):
                 data.linearize(res,args,kwds,filename,line,dolookup)
@@ -1902,7 +1901,7 @@ class DefMacroRefNode(Node):
         for i in self:
             largs.append(i.linearize([],args,kwds,filename,line,dolookup))
         self.__macro.linearize(res,largs,filename,line,dolookup)
-        debug("DefMacroRefNode: ", repr(res))
+        #debug("DefMacroRefNode: ", repr(res))
         return res
         
 
@@ -2140,7 +2139,7 @@ def SectionNode(manager,parent,cmddict,nodedict,attrs,filename,line):
     if attrs.has_key('url'):
         url = urlparse.urlparse(attrs['url'])
         fullpath = manager.findFile(attrs['url'],filename)
-
+        
         P = xml.sax.make_parser()
         N = ExternalSectionRoot(manager,parent, cmddict,nodedict,attrs,filename,line)
         h = handler(fullpath,N) 
@@ -3096,7 +3095,9 @@ class PreformattedNode(Node):
 
         if self.hasAttr('url'):
             url = self.getAttr('url')
-            self.__realurl = os.path.abspath(manager.findFile(url,filename))
+            fullname = manager.findFile(url,filename)
+            
+            self.__realurl = os.path.abspath(fullname)
             lines = manager.readFrom(self.__realurl,self.getAttr('encoding')).split('\n')
             firstline = 0
             if self.hasAttr('firstline'):
@@ -3106,20 +3107,23 @@ class PreformattedNode(Node):
                 lastline = min(int(self.getAttr('lastline'))-1,lastline)
 
             if firstline >= lastline:
-                raise NodeError('Empty inclusion from "%s" in <pre> at %s:%d' % (url,self.pos[0],self.pos[1]))
+                firstline = lastline
+                manager.Warning('Empty inclusion from "%s" in <pre> at %s:%d' % (url,self.pos[0],self.pos[1]))
+
             
             while firstline < lastline and not lines[firstline].strip():
                 firstline += 1
             while firstline < lastline and not lines[lastline-1].strip():
                 lastline -= 1
             if firstline == lastline:
-                raise NodeError('Only blank lines in inclusion in <pre> at %s:%d' % self.pos)
-            inclines = lines[firstline:lastline]
+                manager.Warning( 'Only blank lines in inclusion in <pre> at %s:%d' % self.pos)
+            else:
+                inclines = lines[firstline:lastline]
 
-            for l in inclines[:-1]:
-                self.handleRawText(l,filename,line)
-                self.handleRawText(u'\n',filename,line)
-            self.handleRawText(inclines[-1],filename,line)
+                for l in inclines[:-1]:
+                    self.handleRawText(l,filename,line)
+                    self.handleRawText(u'\n',filename,line)
+                self.handleRawText(inclines[-1],filename,line)
 
             self.__firstline = firstline
             self.seal()
@@ -3654,9 +3658,13 @@ class MathTableRowNode(_MathNode):
         cells += [ None ] * (rowlen - len(cells))
 
         for c in cells:
-            n = c.toXML(doc)
-            if n is not None:
-                node.appendChild(n)
+            if c is None:
+                node.appendChild(doc.createElement('mtd'))
+            else:
+                n = c.toXML(doc)
+                if n is not None:
+                    node.appendChild(n)
+
         return node
 
 
@@ -3763,6 +3771,16 @@ class Manager:
         self.__ids = {} # all IDs necountered
         self.__reqids = [] # ID references encountered
 
+        self.__log = msglog
+        self.__fail = False
+
+    def Warning(self,msg): self.__log.warning(msg)
+    def Error(self,msg):   
+        self.__fail = True
+        self.__log.error(msg)
+    def fail(self): self.__fail = True
+    def failed(self): return self.__fail
+
     def getCiteRefs(self):
         #print  [ (k,n.getAttr('type')) for (k,n) in self.__reqids ]
         return [ (k,n) for (k,n) in self.__reqids if n.getAttr('type') == 'cite' ] 
@@ -3817,7 +3835,8 @@ class Manager:
                 #print "check: %s" % fullname
                 if os.path.exists(fullname):
                     return fullname
-            raise NodeError('File "%s" not found' % url) 
+            self.Error('File "%s" not found' % url) 
+            raise FindFileError('Not found "%s"' % url)
     def checkSectionDepth(self,d):
         return self.__maxsectdepth is None or self.__maxsectdepth >= d
 
@@ -3825,7 +3844,7 @@ class Manager:
         errs = []
         for k,src in self.__reqids:
             if not self.__ids.has_key(k):
-                err('Missing ID: "%s" referenced at %s:%d' % (k,src.pos[0],src.pos[1]))
+                self.Error('Missing ID: "%s" referenced at %s:%d' % (k,src.pos[0],src.pos[1]))
                 errs.append('Missing ID: "%s" referenced at %s:%d' % (k,src.pos[0],src.pos[1]))
         return errs
 

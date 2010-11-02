@@ -154,7 +154,7 @@ def decodeDefineString(s):
 
 if __name__ == "__main__":
     P = xml.sax.make_parser()
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
 
     sdocbase = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]),'..'))
 
@@ -379,6 +379,8 @@ if __name__ == "__main__":
                     pass
                 makemacroref(macroref,docRoot,macrorefsecname) 
                 
+            if manager.failed():
+                sys.exit(1)
             if outputfile  is not None:
                 try:
                     os.makedirs(os.path.dirname(outputfile))
@@ -415,6 +417,10 @@ if __name__ == "__main__":
             msg('Checking cross-references')
             errs = []
             errs.extend(manager.checkIdRefs())
+        if manager.failed():
+            msg('Warning! There were errors!')
+            #sys.exit(1)
+
         msg('Fini!')
     except MotexException,e:
         if showtrace:

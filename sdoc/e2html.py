@@ -723,6 +723,8 @@ class Node(UserList.UserList):
         else:
             self.__sect = parent.getSection()
 
+
+
     def getParent(self):
         return self.__parent
 
@@ -1002,6 +1004,10 @@ class SectionNode(Node):
         if self.__head is not None and not self.__sections:
             if self.data or data.strip():
                 self.append(data)
+    def getBody(self):
+        return self.__body
+    def getSections(self):
+        return self.__sections
     def getAuthors(self):
         return self.__head.getAuthors()
     def linkText(self):
@@ -1196,7 +1202,7 @@ class SectionNode(Node):
                 res.tag('li')
                 sidx = s.getSectionIndex()
                 #res.span('sidebar-content-list-button-div')
-                enable_expandable_toc = False
+                enable_expandable_toc = True
                 
                 if enable_expandable_toc:
                     res.tag('div',{ 'style' : 'float:left; width:0px;' })
@@ -2023,13 +2029,13 @@ class ItemListNode(Node):
             r.end('itemize').lf()
 class DefinitionListNode(Node):
     htmlTag = 'dl'
-    def toTeX(self,r) :
-        if len(self) > 0:
+    def toTeX(self,r):
+        nodes = [ n for n in self if isinstance(n,Node) ]
+        if len(nodes) > 0:
             r.comment()
             r.begin('description')
-            for i in self:
-                if isinstance(i,Node):
-                    i.toTeX(r)
+            for i in nodes:
+                i.toTeX(r)
             r.end('description').lf()
 class ListItemNode(_StructuralNode): 
     htmlTag = 'li'
@@ -2158,6 +2164,9 @@ class FloatNode(_StructuralNode):
         else:
             self.__index = None
 
+    def getCaption(self):
+        return self.__caption
+    def getBody(self): return self.__body
     def getLabel(self):
         if self.__index is None:
             return None
@@ -2265,6 +2274,9 @@ class PreformattedNode(Node):
             self.__firstline = int(attrs['firstline'])
         self.__unique_index = manager.getUniqueNumber()
 
+    def getURLBase(self): return self.__urlbase
+    def getFirstLine(self): returnself.__firstline
+
     def toHTML(self,r):
         clss = []
         if self.hasAttr('class'):
@@ -2360,10 +2372,8 @@ class PreformattedNode(Node):
         nodes = list(self)
 
         if lineno is not None and self.__urlbase is not None and not clsd.has_key('link:no'):
-            #r.macro('beginpre').group(self.__urlbase).group(str(lineno)).macro('nullbox').group()
             r.macro('beginpre').group(self.__urlbase).group(str(lineno)).comment()
         else:
-            #r.macro('beginpreplain').macro('nullbox').group()
             r.macro('beginpreplain').comment()
         
         for n in nodes:
@@ -3336,6 +3346,7 @@ class Manager:
         zi = zipfile.ZipInfo(self.__topdir + '/' + filename, self.__timestamp)
         zi.internal_attr |= 1 # text file
         zi.external_attr = 0x81a40001 #0x80000001 + (0688 << 16). Permissions
+        zi.compress_type = zipfile.ZIP_STORED
         self.__zipfile.writestr(zi, text)
     def writeHTMLfile(self,filename,items,type='node'):
         """

@@ -414,7 +414,7 @@ def SequenceOfIterator(iters):
             self.__ended = False
         def any(self,item): 
             if   self.__ended:
-                return BaseContentIterator.element(item)
+                return BaseContentIterator.element(self,item)
             else:
                 while not self.__it(item):
                     if self.__iters:
