@@ -8,8 +8,10 @@
 from   UserDict import UserDict
 from   UserList import UserList
 
-from   EvHandler import handler, dtdhandler, entityhandler
+from   EvHandler import AlternativeSAXHandler, dtdhandler, entityhandler, Pos
 from   bibtexml import BibDB
+
+from util import *
 
 import urlparse
 import xml.sax
@@ -21,20 +23,26 @@ import cond
 import re
 import logging
 
+import macro
+from macro import DelayedText, DelayedMacro, DelayedEnvironment, DelayedSubScript, DelayedSuperScript, DelayedElement, DelayedGroup, DelayedTableContent
 
-msglog = logging.getLogger("SDocML Expander")
-msg = msglog.info
-err = msglog.error
+log = logging.getLogger("SDocML Expander")
+log.setLevel(logging.INFO)
+msg = log.info
 
-#def msg(m):
-#    m = unicode(m)
-#    sys.stderr.write('SDocML Expander: ')
-#    sys.stderr.write(m.encode('utf-8'))
-#    sys.stderr.write('\n')
+ERROR_OCCURRED = False # Not nice, but it works.
+def err(msg):
+    global ERROR_OCCURRED
+    log.error(msg)
+    
+def dbg(msg,*args):
+    if args:
+        log.debug(msg % args)
+    else:
+        log.debug(msg)
 
 def debug(*args):
     pass
-    #msglog.debug('[D]' + (' '.join([ unicode(s).encode('utf-8') for s in args ])) + '\n')
 
 simpleTextNodeList = [ 'em','tt','bf','sc','font','nx','span','br', 'note' ]
 structTextNodeList = [ 'ilist','dlist','div','table','float','img','noexpand','pre','center','flushleft','flushright' ]
@@ -44,7 +52,7 @@ textNodeList       = [ 'ilist','dlist','table','a','ref','href','float', 'img' ]
 
 mathNodeList       = [ 'mrow','msup','msub','msubsup','mfenced', 'mi','mo','mn','mtable', 'mvector', 'mfont', 'mtext', 'mfrac', 'mroot','msqrt' ]
 
-mathFonts          = [ 'mathbb','mathcal','mathtt','mathrm','mathfrac' ]
+mathFonts          = [ 'mathbb','mathcal','mathtt','mathrm','mathit','mathfrac' ]
 textFonts          = [ 'tt','rm','sc','sans','serif' ]
 
 _simpleTextNodes = ' '.join([ '<%s>' % i for i in simpleTextNodeList ])
@@ -53,6 +61,16 @@ _linkNodes       = ' '.join([ '<%s>' % i for i in linkNodeList ])
 _mathEnvNodes    = ' '.join([ '<%s>' % i for i in mathEnvNodeList ])
 _mathNodes       = ' '.join([ '<%s>' % i for i in mathNodeList ])
 
+def lineiter(s):
+    p = 0
+    while True:
+        pt = s.find('\n',p)
+        if pt < 0:
+            break
+        else:
+            yield s[p:pt+1]
+            p = pt+1
+    yield s[p:]
 
 ######################################################################
 #  ERRORS
@@ -65,70 +83,9 @@ def dummy(name):
             assert 0
     return _dummy
 
-class BibItemError(Exception):
-    pass
-class MotexException(Exception):
-    pass
-
-class MathError(MotexException):
-    pass
-
-class MacroError(MotexException):
-    pass
-
-class MacroArgErrorX(MotexException):
-    def __init__(self,msg):
-        Exception.__init__(self,msg)
-        self.msg = msg
-
-class MacroArgError(MotexException):
-    pass
-class NodeError(MotexException):
-    pass
-class FindFileError(MotexException):
-    pass
-
-class XMLIdError(MotexException):
-    pass
-class XMLIdRefError(MotexException):
-    pass
-
-class XMLError(MotexException):
-    pass
-
-class DocumentAssert(MotexException):
-    pass
-
-class CondError(MotexException):
-    pass
-
-class NodeIncludeError(MotexException):
-    pass
-    
-
 ######################################################################
 #  Helper functionality
 ######################################################################
-
-class CondOpr(str):
-    pass
-
-class Cond:
-    And = CondOpr('+')
-    Or  = CondOpr('|')
-    Xor = CondOpr('/')
-    Not = CondOpr('!')
-
-class CondTerm(unicode):
-    pass
-
-class CondIsDef(unicode):
-    pass
-
-
-class CondExp(list):
-    pass
-
 
 def escape(s):
     def repl(o):
@@ -147,44 +104,6 @@ def xescape(s):
 
 class Attr:
     defaultDescr = {
-        'cond' : '\n'.join(['Conditional statement. The values of this attribute',
-                            'is a space-separated list of keys referring to global',
-                            'conditional values. If at least one of the keys evaluated to "True"',
-                            'the condition is met and the tag is expanded.'
-                            ''
-                            'The special conditions "true" and "false" always evaluates to "True"',
-                            'and "False" respectively. All others are defined globally either on',
-                            'the command line or in an options file.',
-                            ''
-                            'The syntax for conditional expressions is:',
-                            '<pre>',
-                            'exp    -> subexp | "!" subexp',
-                            'subexp -> TERM | "(" explst ")" | isdef',
-                            'explst -> andlst | orlst | xorlst',
-                            'orlst  -> exp | exp "|" orlst',
-                            'andlst -> exp | exp "+" andlst',
-                            'xorlst -> exp | exp "/" xorlst',
-                            'isdef  -> ? TERM',
-                            '</pre>',
-                            'For example:',
-                            '<pre>',
-                            '(c1 | c2 | !c3)',
-                            '( (c1 / c2) + c3 )',
-                            '((?c1 + c1) | (?c2 + c2))',
-                            '</pre>',
-                            'Note: The exact meanings of',
-                            '<dlist>',
-                            '  <dt><tt>a|b|c</tt></dt>',
-                            '  <dd>At least one of <tt>a</tt>, <tt>b</tt> and <tt>a</tt> must be true</dd>',
-                            '  <dt><tt>a+b+c</tt></dt>',
-                            '  <dd>All of one of <tt>a</tt>, <tt>b</tt> and <tt>a</tt> must be true</dd>',
-                            '  <dt><tt>a/b/c</tt></dt>',
-                            '  <dd>Exactly one of <tt>a</tt>, <tt>b</tt> and <tt>a</tt> must be true</dd>',
-                            '</dlist>',
-                            'Evaluaten is the normal lazy logic evaluation. This means that while referring to',
-                            'a variable <tt>a</tt> which is not defined causes an error, but an expression ',
-                            '<tt>?a+a</tt> (meaning: If <tt>a</tt> is defined and <tt>a</tt> is true) is valid.'
-                            ]),
         'id'          : 'A globally unique ID that may be used to refer to this element.',
         'class'       : 'A space-separated list of class names that will be passed on to the backend as is.',
         'macroexpand' : '(yes|no) Tells the front end to either expand or ignore macros.',
@@ -205,16 +124,6 @@ class Attr:
         else:
             self.descr = descr
 
-class DfltDict(UserDict):
-    def __init__(self,cons=lambda: None):
-        UserDict.__init__(self)
-        self.__cons = cons
-    def __ensurekey(self,k):
-        if not self.data.has_key(k):
-            self.data[k] = self.__cons()
-    def __getitem__(self,k):
-        self.__ensurekey(k)
-        return self.data[k]
 
 
 class Attrs(UserDict):
@@ -223,449 +132,14 @@ class Attrs(UserDict):
     def defaultValues(self):
         return dict([ (item.name, item.default) for item in self.values()])
 
-
-class CommandDict(UserDict):
-    def __init__(self,parent=None):
-        UserDict.__init__(self)
-
-        assert parent is None or isinstance(parent,CommandDict)
-        self.__parent = parent
-
-        self.__lookuptable = {}
-
-    def __getitem__(self,key):
-        try:
-            return self.data[key]
-        except KeyError:
-            if self.__parent is not None:
-                return self.__parent[key]
-            else:
-                raise
-
-    def has_key(self,key):
-        return self.data.has_key(key) or self.__parent.has_key(key)
-
-    def __setitem__(self,key,value):
-        if not self.data.has_key(key):
-            self.data[key] = value
-        else:
-            raise KeyError('Macro "%s" already defined' % key)
-
-    def dictLookup(self,key):
-        if self.__lookuptable.has_key(key):
-            return self.__lookuptable[key]
-        elif self.__parent is not None:
-            return self.__parent.dictLookup(key)
-        else:
-            raise KeyError('No Dictionary entry for %s' % key)
-    def _dictKeys(self):
-        if self.__parent is not None:
-            s = self.__parent._dictKeys()
-        else:
-            s = set()
-        return s | set(self.__lookuptable.keys())
-    def dictSet(self,key,value):
-        if not self.__lookuptable.has_key(key):
-            self.__lookuptable[key] = value
-        else:
-            raise KeyError('Dictionary entry for %s already defined' % key)
-
-    def dump(self,depth=0):
-        for k,v in self.data.items():
-            print '%*s = %s' % (depth*2,k,v)
-        if isinstance(self.__parent,CommandDict):
-            self.__parent.dump(depth+1)
-        else:
-            print '%*s' % (depth*2,str(self.__parent))
-
-    def __collect(self,d):
-        if self.__parent is not None:
-            self.__parent.__collect(d)
-        d.update(self.data)
-        return d
         
-    def items(self):
-        return self.__collect({}).items()
-        
+
 ######################################################################
 # Macro expansion helper functionality
 ######################################################################
+#class UnexpandedItem: pass
 
-class MacroEvent_StartTag:
-    def __init__(self,name,attrs,filename,line):
-        assert name is not None
-        self.name = name
-        self.attrs = attrs
-        self.filename = filename 
-        self.line = line
-    def __str__(self): return '<%s>' % self.name
-    def __repr__(self): return '<%s>' % self.name
-class MacroEvent_EndTag:
-    def __init__(self,name,filename,line):
-        self.name = name
-        self.filename = filename
-        self.line = line
-    def __str__(self): return '</%s>' % self.name
-    def __repr__(self): return '</%s>' % self.name
-
-class MacroEvent_Text:
-    def __init__(self,data,filename,line):
-        self.data = data
-        self.filename = filename
-        self.line = line
-    def __str__(self): return '"%s"' % self.data
-    def __repr__(self): return '"%s"' % self.data
-
-class MacroEvent_ExpandText(MacroEvent_Text):
-    pass
-
-class MacroEvent_NoExpandText(MacroEvent_Text):
-    pass
-
-class UnexpandedItem:
-    def acceptsSubscript(self):
-        return False
-    def acceptsSuperscript(self):
-        return False
-
-class LazyElement(UnexpandedItem,UserList):
-    def __init__(self,name,attrs,filename,line,ev_close=None):
-        UserList.__init__(self)
-        self.__name     = name
-        self.__attrs    = attrs
-        self.__filename = filename
-        self.__line     = line
-
-        self.pos = filename,line
-
-        self.__ev_close = ev_close
-
-        self.nodeName = name
-
-    def newChild(self,name,attrs,filename,line):
-        #debug('LazyElement %s: Add node %s' % (self.__name,name))
-
-        node = LazyElement(name,attrs,filename,line)
-        self.append(node)
-        return node
-
-    def handleText(self,data,filename,line):
-        #debug('\tLazyElement.handleText @ %s:%d (%s): ' % (filename,line,repr(data)))
-        node = MacroEvent_ExpandText(data,filename,line)
-        self.data.append(node)
-    
-    def linearize(self,res,args,kwds):
-        res.append(MacroEvent_StartTag(self.__name,self.__attrs,self.__filename,self.__line))
-        #debug('LazyElement %s: Linearize' % (self.__name))
-
-        for i in self:
-            if isinstance(i,MacroEvent_ExpandText):
-                res.append(i)
-            else:
-                i.linearize(res,args,kwds)
-        
-        res.append(MacroEvent_EndTag(self.__name,self.__filename, self.__line))
-        return res
-    def endOfElement(self,filename,line):
-        if self.__ev_close:
-            self.__ev_close()
-        
-    def __str__(self):
-        return '%s(%s)' % (self.__class__.__name__,self.__name)
-    def __repr__(self):
-        return str(self)
-
-
-    
-
-class Group(UserList,UnexpandedItem):
-    def __init__(self,filename,line):
-        UserList.__init__(self)
-        self.pos = filename,line
-        self.__closed = False
-    def linearize(self,res,args,kwds):
-        try:
-            for i in self:
-                if isinstance(i,unicode):
-                    res.append(MacroEvent_NoExpandText(i,self.pos[0],self.pos[1]))
-                else:
-                    i.linearize(res,args,kwds)
-            return res
-        except MacroArgErrorX, e:
-            raise MacroArgError('%s at %s:%d' % (e.msg,self.pos[0],self.pos[1]))
-    def append(self,value):
-        #debug("%s.append %s" % (self.__class__.__name__,repr(value)))
-        assert not self.__closed
-        UserList.append(self,value)
-    def end(self):
-        assert not self.__closed
-        self.__closed = True
-    def __repr__(self):
-        return "%s{%s}" % (self.__class__.__name__,repr([repr(s) for s in self]))
-    def __str__(self):
-        return repr(self)
-
-class BraceGroup(Group):
-    pass
-
-class LazyTableItem(Group):
-    def __init__(self,name,filename,line):
-        Group.__init__(self,filename,line)
-        assert name is not None
-        self.name       = name
-    def linearize(self,res,args,kwds):
-        #print "LINEARIZE TABLE ITEM %s" % self.__class__.__name__
-        res.append(MacroEvent_StartTag(self.name,{},self.pos[0],self.pos[1]))
-        Group.linearize(self,res,args,kwds)
-        res.append(MacroEvent_EndTag(self.name,self.pos[0],self.pos[1]))
-        return res
-    
-class LazyTableRow(LazyTableItem):
-    pass
-class LazyTableCell(LazyTableItem):
-    pass
-class SubSuperBraceGroup(BraceGroup):
-    pass
-
-class SubBraceGroup(SubSuperBraceGroup):
-    pass
-class SuperBraceGroup(SubSuperBraceGroup):
-    pass
-
-class UnexpandedEnvironment(UnexpandedItem):
-    def __init__(self,env,pos):
-        self.pos       = pos
-        self.__macro   = env
-        
-        self.__args     = [] # actual arguments
-        self.__data     = [] # the environment content
-    
-    def append(self,value):
-        #debug("Env argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
-        assert not isinstance(value,ContentManager)
-        
-        if len(self.__args) < self.nArgs():
-            if isinstance(value,BraceGroup):
-                self.__args.append(value)
-            elif isinstance(value,unicode) and valule.strip():
-                raise MacroError('Expected an argument for environment at %s:%d' % self.pos)
-            else:
-                pass
-        else:
-            self.__data.append(value)
-
-    def isFinished(self):
-        return len(self.__args) == self.__macro.nArgs()
-    
-    def nArgs(self):
-        return self.__macro.nArgs()
-
-    def linearize(self,res,args,kwds): # args is a dummy - we will never use it
-        if len(self.__args) < self.__macro.nArgs():
-            raise MacroError("Too few arguments for environment '%s' at %s:%d" % (self.__macro.macroName(),self.pos[0],self.pos[1]))
-        args = []
-        for a in self.__args:
-            #debug("  Expand arg: ",repr(a))
-            args.append(a.linearize([],[],{}))
-        
-        cont = []
-        kwds['BODY'] = cont
-        for a in self.__data:
-            if isinstance(a,unicode):
-                cont.append(MacroEvent_NoExpandText(a,self.pos[0],self.pos[1]))
-            else:
-                a.linearize(cont,[],{})
-        self.__macro.linearize(res,args,kwds,self.pos[0],self.pos[1])
-    
-        return res
-    def envName(self):
-        return self.__macro.macroName()
-
-    def end(self):
-        if not self.isFinished():
-            raise MacroError("Too few arguments for environment '%s' at %s:%d" % (self.__macro.macroName(),self.pos[0],self.pos[1]))
-            
-
-    def __repr__(self):
-        return 'unexpanded env %s' % self.__macro
-
-class UnexpandedMacro(UnexpandedItem):
-    def __init__(self,macro,pos,onclose_action=None):
-        self.pos     = pos
-        self.__macro   = macro
-        self.__onclose = onclose_action
-        self.__args = []
-        self.__subscript   = None
-        self.__superscript = None
-
-    def acceptsSubscript(self):
-        return self.__macro.acceptsSubscript() and self.__subscript is None
-    def acceptsSuperscript(self):
-        return self.__macro.acceptsSuperscript() and self.__superscript is None
-    def putSubscript(self,a):
-        if not self.acceptsSubscript():
-            raise MacroError('Subscript not accepted by macro at %s:%d' % self.pos)
-        self.__subscript = a
-    def putSuperscript(self,a):
-        if not self.acceptsSuperscript():
-            raise MacroError('Superscript not accepted by macro at %s:%d' % self.pos)
-        self.__superscript = a
-    
-    def append(self,value):
-        #debug("Macro argument for %s: (%d) '%s'" % (self.__macro.macroName(),id(value),repr(value)))
-        assert not isinstance(value,ContentManager)
-
-        if (isinstance(value,unicode) or isinstance(value,str)) and not value.strip():
-            pass
-        else:
-            if not isinstance(value,BraceGroup):
-                raise MacroError('Expected an argument for macro "%s" at %s:%d' % (self.__macro.macroName(),self.pos[0],self.pos[1]))
-            elif  len(self.__args) < self.__macro.nArgs():
-                self.__args.append(value)
-                
-                if len(self.__args) == self.__macro.nArgs() and self.__onclose is not None:
-                    self.__onclose()
-            else:
-                raise MacroError('Too many arguments for macro "%s" at %s:%d' % (self.__macro.macroName(),self.pos[0],self.pos[1]))
-        if False and self.__macro.macroName() == 'frac':
-            print "nargs = ",self.nArgs()
-            print 'got = ',len(self.__args)
-
-
-    def isFinished(self):
-        return len(self.__args) == self.__macro.nArgs()
-    
-    def nArgs(self):
-        return self.__macro.nArgs()
-
-    def linearize(self,res,args_,kwds_): # args_ and kwds_ are dummies - we will never use them
-        if len(self.__args) < self.__macro.nArgs():
-            raise MacroError("Too few arguments for macro '%s' at %s:%d" % (self.__macro.macroName(),self.pos[0],self.pos[1]))
-        args = []
-        for a in self.__args:
-            #debug("  Expand arg: ",a)
-            try:
-                args.append(a.linearize([],[],{}))
-            except MacroArgErrorX,e:
-                raise MacroArgError(e.msg + ' in \\%s at %s:%d' % (self.__macroName,self.pos[0],self.pos[1]))
-        kwds = { }
-        if self.__subscript is not None:
-            kwds['SUBSCRIPT'] = self.__subscript.linearize([],[],{})
-        if self.__superscript is not None:
-            kwds['SUPERSCRIPT'] = self.__superscript.linearize([],[],{})
-        #debug('UnexpandedMacro.linearize. Before: ',res)
-        
-        try:
-            self.__macro.linearize(res,args,kwds,self.pos[0],self.pos[1])
-        except MacroArgErrorX,e:
-            raise MacroArgError(e.msg + ' in \\%s at %s:%d' % (self.__macro.macroName(),self.pos[0],self.pos[1]))
-    
-        #print "Linearize %s" % self.__macro.macroName()
-        #for i in res:
-        #    print "  %s" % repr(i)
-
-        return res
-    
-    def __repr__(self):
-        return 'unexpanded %s' % self.__macro
-
-class InorderOp:
-    def __init__(self,op,file,line):
-        self.op = op
-        self.pos = file,line
-    def __repr__(self):
-        return "InorderOp(%s)" % self.op
-
-
-class UnexpandedInorderop(UnexpandedItem):
-    def __init__(self,base,pos):
-        self.pos            = pos
-        self.__base         = base
-        self.__subscr       = None
-        self.__superscr     = None
-
-    def append(self,item):
-        if isinstance(item,SubBraceGroup):
-            if self.__subscr is not None:
-                raise MathError('Only one subscript per element is allowed')
-            self.__subscr = item
-        elif isinstance(item,SuperBraceGroup):
-            if self.__superscr is not None:
-                raise MathError('Only one superscript per element is allowed')
-            self.__superscr = item
-        else:
-            assert 0 
-
-    def linearize(self,res, args,kwds): # args is a dummy
-        if self.__subscr is not None and self.__superscr is not None:
-            # Expand as <msubsup> 
-            res.append(MacroEvent_StartTag('msubsup',{},self.pos[0],self.pos[1]))
-            
-            res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
-            if isinstance(self.__base,unicode):
-                res.append(MacroEvent_NoExpandText(self.__base,self.pos[0],self.pos[1]))
-            else:
-                self.__base.linearize(res,[],{})
-            res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
-            
-            res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
-            if isinstance(self.__subscr,unicode):
-                res.append(MacroEvent_NoExpandText(self.__subscr,self.pos[0],self.pos[1]))
-            else:
-                self.__subscr.linearize(res,[],{})
-
-            res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
-
-            res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
-            if isinstance(self.__superscr,unicode):
-                res.append(MacroEvent_NoExpandText(self.__superscr,self.pos[0],self.pos[1]))
-            else:
-                self.__superscr.linearize(res,[],{})
-            res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
-
-            res.append(MacroEvent_EndTag('msubsup',self.pos[0],self.pos[1]))
-        elif self.__subscr is not None:
-            # Expand as <msub> 
-            res.append(MacroEvent_StartTag('msub',{},self.pos[0],self.pos[1]))
-            
-            res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
-            if isinstance(self.__base,unicode):
-                res.append(MacroEvent_NoExpandText(self.__base,self.pos[0],self.pos[1]))
-            else:
-                self.__base.linearize(res,[],{})
-            res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
-            
-            res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
-            if isinstance(self.__subscr,unicode):
-                res.append(MacroEvent_NoExpandText(self.__subscr,self.pos[0],self.pos[1]))
-            else:
-                self.__subscr.linearize(res,[],{})
-            res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
-
-            res.append(MacroEvent_EndTag('msub',self.pos[0],self.pos[1]))
-        elif self.__superscr is not None:
-            # Expand as <msuper> 
-            res.append(MacroEvent_StartTag('msup',{},self.pos[0],self.pos[1]))
-            
-            res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
-            if isinstance(self.__base,unicode):
-                res.append(MacroEvent_NoExpandText(self.__base,self.pos[0],self.pos[1]))
-            else:
-                self.__base.linearize(res,[],{})
-            res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
-            
-            res.append(MacroEvent_StartTag('mrow',{},self.pos[0],self.pos[1]))
-            if isinstance(self.__superscr,unicode):
-                res.append(MacroEvent_NoExpandText(self.__superscr,self.pos[0],self.pos[1]))
-            else:
-                self.__superscr.linearize(res,[],{})
-            res.append(MacroEvent_EndTag('mrow',self.pos[0],self.pos[1]))
-
-            res.append(MacroEvent_EndTag('msup',self.pos[0],self.pos[1]))
-        else:
-            self.__base.linearize(res,[],{},self.pos[0],self.pos[1])
-
-        return res
+class ExpandedList(UserList): pass
 
 class MacroMode:
     Invalid        = 0 # Neither text or macros are not allowed
@@ -687,95 +161,83 @@ class MacroMode:
 ######################################################################
 # Node base class
 ######################################################################
-##\brief This class wraps a scope inside an XML element class to handle items
-#        that are contained in the scope.
-#
-# Specificly, the one relevant thing that this class does is to make sure that
-# "^" and "_" constructions in math mode are correctly expanded.
-class ContentManager:
-    def __init__(self,managed,mode=None):
-        self.__managed = managed
-        self.__inorder_op = None
-        self.__last = None
-        self.__mode = mode
-
-        assert not isinstance(managed,str)
-        assert not isinstance(managed,unicode)
-
-    def Managed(self):
-        return self.__managed
-
-    def append(self,item):
-        #debug("ContentManager (mode=%s) got (%s): %s" % (MacroMode.toStr(self.__mode),repr(type(item)),repr(item)))
-        if isinstance(item,SubSuperBraceGroup):
-            #debug('\tlast = %s' % str(self.__last))
-            if self.__last is None:
-                raise MacroError('Invalid use of inorder operation %s at %s:%d' % (item.op,item.pos[0],item.pos[1]))
-            elif isinstance(self.__last,UnexpandedInorderop):
-                self.__last.append(item)
-            elif isinstance(self.__last,unicode):
-                last = self.__last
-                self.__last = None
-                c = last[-1]
-                if not c.strip(): 
-                    raise MacroError('Invalid use of inorder operation %s at %s:%d' % (item.op,item.pos[0],item.pos[1]))
-                
-                self.__managed.append(last[:-1])
-                self.__last = UnexpandedInorderop(c,item.pos)
-                self.__last.append(item)
-            elif isinstance(self.__last,UnexpandedItem):
-                #debug("Accepts subscript ? %s" % self.__last.acceptsSubscript())
-                #debug("Accepts superscript ? %s" % self.__last.acceptsSuperscript())
-                if isinstance(item,SubBraceGroup) and self.__last.acceptsSubscript():
-                    #debug("Put subscript.")
-                    self.__last.putSubscript(item)      
-                elif isinstance(item,SuperBraceGroup) and self.__last.acceptsSuperscript():
-                    #debug("Put superscript.")
-                    self.__last.putSuperscript(item)
-                else:
-                    self.__last = UnexpandedInorderop(self.__last,item.pos)
-                    self.__last.append(item)
+class ExpectScriptArg:
+    def __init__(self,base,tp):
+        self.pos = base.pos
+        assert isinstance(self.pos,utils.Position)
+        if base.__class__ is DelayedGroup:
+            base = ResolvedSubSuperScript(base.pos,base)
+        elif not isinstance(base,ResolvedSubSuperScript):
+            assert 0
+        self.base = base
+        
+        self.__tp = tp
+    def apply(self,arg):
+        if self.__tp == '^':
+            if self.base.superscr is None:
+                self.base.superscr = arg
             else:
-                print('Unexpected type: ',self.__last) 
-                assert 0
+                raise MacroError('%s: Duplicate superscript argument' % self.base.pos)
         else:
-            #debug("ContentManager. Add:",repr(item))
-            #debug("ContentManager. last =",repr(self.__last))
-
-            if isinstance(item,Node):
-                if self.__last is not None:
-                  #debug("__last =",self.__last)
-                  last = self.__last
-                  assert last is not self
-                  self.__last = None
-                  self.__managed.append(last)
-                self.__managed.append(item)
+            if self.base.subscr is None:
+                self.base.subscr = arg
             else:
-                assert not isinstance(item,ContentManager)
-                if self.__last is not None:
-                    last = self.__last
-                    self.__last = None
-                    
-                    self.__managed.append(last)
-                self.__last = item
-    
-    def flush(self):
-        #debug('ContentManager.end. last = %s' % repr(self.__last))
-        if self.__last is not None:
-            last = self.__last
-            self.__last = None
-            self.__managed.append(last)
+                raise MacroError('%s: Duplicate subscript argument' % self.base.pos)
+        return self.base
+        
 
-    def __repr__(self):
-        return "ContentManager(%s)" % repr(self.__managed)
 
-class DontAcceptNoneList(UserList):
+######################################################################
+# 
+######################################################################
+
+
+
+#class DontAcceptNoneList(UserList):
+#    def append(self,item):
+#            assert item is not None
+#            assert not isinstance(item,UnexpandedItem)
+#            UserList.append(self,item)
+class CheckedAppendError(Exception): pass
+
+class CheckedAppend:
+    def __init__(self,check,data):
+        self.__check = check
+        self.data = data
+    def __len__(self):
+        return len(self.data)
+    def pop(self):
+        return self.data.pop()
     def append(self,item):
-        assert item is not None
-        assert not isinstance(item,UnexpandedItem)
-        UserList.append(self,item)
+        if not  self.__check(item):
+            raise CheckedAppendError("Failed check: %s" % repr(item))
+        self.data.append(item)
+    def __iter__(self):
+        return iter(self.data)
+    def __getitem__(self,key):
+        return self.data.__getitem__(key)
+    def __delitem__(self,key):
+        self.data.__delitem__(key)
+    def extend(self,items):
+        for i in items:
+            self.append(item)
+    def __repr__(self):
+        #return 'CheckedAppend(%s)' % (self.data.__class__.__name__)        
+        return 'CheckedAppend(%s)' % (repr(self.__check))
+     
      
 
+macro_re = re.compile('|'.join([
+    r'\\(?P<env>begin|end)\s*\{(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\}',
+    r'\\(?P<macro>[a-zA-Z@][a-zA-Z0-9@]*|[:!\\_\^\{\}]|[~\'"`,.\-%#][a-zA-Z]?)',
+    r'(?P<group>[{}])',
+    r'(?P<subsuperscr>[_^])',
+    r'(?P<longdash>---*)', 
+    r'(?P<leftdquote>``)', 
+    r"(?P<rightdquote>'')", 
+    r'(?P<nbspace>~)',
+    r'(?P<newline>\n)'
+    ]))
 
 class Node:
     nodeName     = "<none>"
@@ -793,7 +255,6 @@ class Node:
     paragraphElement = True # The element starts its own paragraph (like <center>, <div> etc.)
     structuralElement = False # Don't break up the content (remove spaces, make paragraphs etc.)
     mathElement       = False
-
     
     ################################################################################  
     ##
@@ -811,45 +272,42 @@ class Node:
     ##
     ################################################################################  
 
-    mathmodemacro_regex = re.compile('|'.join([r'\\(?P<env>begin|end)\s*\{\s*(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\s*\}',
-                                               r'\\(?P<macro>[a-zA-Z@][a-zA-Z0-9@:]*|[^\\:!])',
-                                               #r'\\(?P<bkslash>\\)',
-                                               # Special table macros (horrible hack!)
-                                               r'\\(?P<tr>:)',
-                                               r'\\(?P<td>!)',
-                                               # General math stuff
-                                               r'(?P<brace>[{}])',
-                                               r'(?P<subsupgrp>[\^\_]{)',
-                                               r'(?P<subsupc>[\^\_][^\\])',
-                                               r'(?P<nbspace>~)',
-                                               ]))
-    textmodemacro_regex = re.compile('|'.join([r'\\(?P<env>begin|end)\s*\{\s*(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\s*\}',
-                                               r'\\(?P<bkslash>\\)',
-                                               # Special table macros (horrible hack!)
-                                               r'\\(?P<tr>:)',
-                                               r'\\(?P<td>!)',
-                                               # A few special abbrewations
-                                               r'(?P<longdash>---?)', 
-                                               r'(?P<leftdquote>``)', 
-                                               r"(?P<rightdquote>'')", 
-                                               # General math stuff
-                                               r'\\(?P<macro>[a-zA-Z][a-zA-Z0-9@]*|["~\'`^\\][a-zA-Z]|[^\\:!])',
-                                               r'(?P<brace>[\{\}])',
-                                               r'(?P<nbspace>~)']))
     def __init__(self,
                  manager,
                  parent,
                  macroDict, # dictionary of available macros
-                 nodeDict, # dictionary of all known element names
+                 nodeDict,  # dictionary of all known element names ??
                  attrs, # None or a dictionary of attributes
-                 filename,
-                 line):
-        assert filename is not None
-        self.pos = filename,line
+                 pos):
+        #print "START :: <%s> @ %s" % (self.nodeName,pos)
+        self.pos = pos 
         self.__manager = manager
 
-        self.__sealed = False # disallow any more content
-        self.__closed = False
+        self.__sealed   = False # disallow any more content
+        self.__closed   = False
+        
+        self.__cmddict  = macroDict
+        self.__id       = None
+        self.__ns       = None # do we even use this?
+        self.__parent   = parent
+        self.__nodeDict = nodeDict
+        self.__attrs    = {}
+
+        class NodeContentChecker(CheckedAppend):
+            def __init__(self,data):
+                CheckedAppend.__init__(self,lambda item: item is not None,data)
+
+        self.__content  = NodeContentChecker(XList())
+
+        #self.__cstack   = [ ContentManager(ExpandManager(self.__cmddict,self), self.__cmddict) ] 
+        class DelayedItemChecker(CheckedAppend):
+            def __init__(self,data):
+                CheckedAppend.__init__(self,lambda item: isinstance(item,macro._DelayedItem),data)
+        class NotNodeChecker(CheckedAppend):
+            def __init__(self,data):
+                CheckedAppend.__init__(self,lambda item: not isinstance(item,Node),data)
+        self.__cstack   = NotNodeChecker( [ DelayedItemChecker([]) ])
+        
         if attrs.has_key('macroexpand'):
             if attrs['macroexpand'].lower() == 'yes':
                 self.macroMode = MacroMode.Text
@@ -872,7 +330,11 @@ class Node:
             self.macroMode = parent.macroMode
 
         if attrs.has_key('id'):
-            manager.saveId(attrs['id'],self)
+            try:
+                manager.saveId(attrs['id'],self)
+            except XMLIdError:
+                err('%s: Duplicate ID "%s"' % (pos,attrs['id']))
+                raise
         if attrs.has_key('ref'):
             manager.refId(attrs['ref'],self)
 
@@ -893,12 +355,6 @@ class Node:
         #    generated node tree). 
         self.__fakeopen = 0
 
-        self.__cmddict  = macroDict
-        self.__id       = None
-        self.__ns       = None
-        self.__parent   = parent
-        self.__nodeDict = nodeDict
-        self.__attrs    = {}
         
         self.__attrs.update(self.acceptAttrs.defaultValues())
         if attrs is not  None:
@@ -908,10 +364,8 @@ class Node:
                 elif k == 'xmlns':
                     pass
                 else:
-                    raise NodeError('Invalid attribute "%s" in <%s> at %s:%d' % (k,self.nodeName,filename,line))
+                    raise NodeError('Invalid attribute "%s" in <%s> at %s' % (k,self.nodeName,pos))
 
-        self.__content = DontAcceptNoneList([])
-        self.__cstack  = [ ContentManager(self) ] # used for scopes opened by expanded macros
     
     def seal(self):
         self.__sealed = True
@@ -919,6 +373,93 @@ class Node:
         return iter(self.__content)
     def __len__(self):
         return len(self.__content)
+
+    def __flushCStack(self):
+        #if len(self.__cstack) > 1:
+        dbg('In <%s>: Flush stack. Cstack = \n\t%s', self.nodeName,'\n\t'.join([ repr(i) for i in self.__cstack]))
+        
+        assert len(self.__cstack) == 1
+        l = self.__cstack[0][:]
+
+
+        if len(l) > 0:
+            del self.__cstack[0][:]
+            cstack = [ self ]
+
+            try:
+                for e in macro.eval(l, self.__cmddict):
+                    pos = e.pos
+                    ec = e.__class__
+                    if   ec is macro.SAXEvText:
+                        cstack[-1].handleRawText(e.data,pos)
+                    elif   ec is macro.SAXEvUnexpandedText:
+                        cstack[-1].handleText(e.data,pos)
+                    elif ec is macro.SAXEvStartTag:                                    
+                        dbg('(%s): Create <%s> in <%s>' % (self.nodeName, e.name, cstack[-1].nodeName))
+                        try:
+                            cstack.append( cstack[-1].startChildElement(e.name,e.attrs,pos) )
+
+                            if 0: 
+                                if len(cstack) == 1:
+                                    dbg('(%s): Create (direct) <%s> in <%s>' % (self.nodeName, e.name,self.nodeName))
+                                    cstack.append( cstack[-1].startElement(e.name,e.attrs,pos) )
+                                else:
+                                    dbg('(%s): Create <%s> in <%s>' % (self.nodeName, e.name, cstack[-1].nodeName))
+                                    cstack.append( cstack[-1].startChildElement(e.name,e.attrs,pos) )
+                        except MotexException,exc:
+                            #if e.trace:
+                            #    err('%s:\n\t%s' % (exc, '\n\t'.join([ 'from %s' % p for p in e.trace])))
+                            #else:
+                            #    err(str(exc))
+                            exc.trace.extend(e.trace)
+                            raise
+                    elif ec is macro.SAXEvEndTag:
+                        dbg('(%s): End <%s>' % (self.nodeName,e.name))
+                        assert cstack and cstack[-1].nodeName == e.name
+                        cstack.pop().end(e.pos)
+                        cstack[-1].endChildElement(e.name,e.pos)
+                        #cstack[-1].append(i)
+
+#                    elif ec is macro.SAXEvSpecialTableRowBegin:
+#                        top = cstack[-1]
+#                        if not top.allowTableSyntax:
+#                            raise NodeError('%s: Table syntax not allowed in <%s>' % (top.pos,top.nodeName))
+#                        else:
+#                            top.newTableRow(pos)
+#                    elif ec is macro.SAXEvSpecialTableCellBegin:
+#                        
+#                        top = cstack[-1]
+#                        if not top.allowTableSyntax:
+#                            raise NodeError('%s: Table syntax not allowed in <%s>' % (top.pos,top.nodeName))
+#                        else:
+#                            top.newTableCell(pos)
+                    elif ec is macro.SAXEvTableRowStart:
+                        cstack.append( cstack[-1].startChildElement(self.tablerowelement,{},e.pos) )
+                    elif ec is macro.SAXEvTableCellStart:
+                        cstack.append( cstack[-1].startChildElement(self.tablecellelement,{},e.pos) )
+                    elif ec is macro.SAXEvTableRowEnd:
+                        assert cstack and cstack[-1].nodeName == self.tablerowelement
+                        cstack.pop().end(e.pos)
+                        cstack[-1].endChildElement(self.tablerowelement,e.pos)
+                    elif ec is macro.SAXEvTableCellEnd:
+                        assert cstack and cstack[-1].nodeName == self.tablecellelement
+                        cstack.pop().end(e.pos)
+                        cstack[-1].endChildElement(self.tablecellelement,e.pos)
+                    else:
+                        print e,type(e)
+                        assert 0
+                        raise Exception('BUBBLE BABBLE')
+            except AssertionError:
+                print "trace : %s. l = %s" % (self.pos,''.join(['\n\t%s' % i for i in l ]))
+                raise
+        else:
+            dbg('Cstack is empty')
+        
+
+    def closeThisElement(self,name,pos):
+        if len(self.__cstack) == 1:
+            self.__flushCStack()
+            self.end(pos)
    
     ##\brief Append a new child, append it and return it. This is called by the
     #        SAX parser when an tag-open event occurs.
@@ -926,454 +467,230 @@ class Node:
     # the node that actually will contain it. We assume that the dictionary is
     # static so it's should be correct.
 
-    def error(self,msg):
-        self.__manager.Error(msg)
-
     def getMacroDefs(self):
         return self.__cmddict.items()
-    def newChild(self,name,attrs,filename,line):
-        assert filename is not None
-        if name == 'sdocml:conditional':
-            #print "sdocml:conditional @ %s:%d. cond = %s -> %s" % (filename,line,attrs['cond'],self.__manager.evalCond(attrs['cond'],filename,line))
-            try:
-                if attrs.has_key('cond') and attrs['cond'].strip() and self.__manager.evalCond(attrs['cond'],filename,line):
-                    self.__fakeopen += 1
-                    return self
-                else:
-                    node = DummyNode(name,self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
-            except KeyError,e:
-                raise NodeError('%s at %s:%d' % (e,filename,line))
-        elif len(self.__cstack) > 1:
-            cstack = self.__cstack
-            def on_close():
-                item = cstack.pop()
-                #debug('Onstack close %s' % item)
-                if isinstance(item,LazyElement):
-                    cstack[-1].append(item)
-                else:
-                    raise NodeError('Tag <%s> starting at %s:%d is not correctly closed' % (name,self.nodeName, filename,line))
 
-            node = LazyElement(name,attrs,filename,line,on_close)
-            self.__cstack.append(node)
+    def endChildElement(self,name,pos):
+        """
+        End current child element.
+        """
+        #print "END :: <%s> @ %s--%s" % (self.nodeName,self.pos,pos)
+        assert len(self.__cstack) > 1
+        top = self.__cstack.pop().data
+        
+        if top.nodeName != name:    
+            raise MacroError('%s: Mismatched end tag </%s>' % (pos,name))
+
+        if isinstance(top,Node):
+            pass
+        elif isinstance(top,macro.DelayedElement) and top.name == name:
+            pass
         else:
-            #debug('Node.newChild: <%s>' % name)
-            try:
-                nodecon = self.__nodeDict[name]
-            except KeyError:
-                #debug(self.__nodeDict)
-                #print repr(self),self.__class__.__name__,self.nodeName
-                raise NodeError('Unknown element <%s> in <%s> at %s:%d' % (name,self.nodeName, filename,line))
-            cond = True
-            if attrs.has_key('cond') and \
-               attrs['cond'] is not None and \
-               attrs['cond'].strip():
-                cond = self.__manager.evalCond(attrs['cond'],filename,line)
-            if cond:
-                node = nodecon(self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
-                #debug('Node(%s).newChild : ' % self,node)
-                self.__cstack[-1].append(node)
-            else:
-                node = DummyNode(name,self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
-                #debug("Ignored node %s" % node.nodeName) 
+            assert 0
 
+    def startElement(self,name,attrs,pos):
+        if not len(self.__cstack) == 1:
+            print "@@@@@ <%s> @ %s in <%s> @ %s" % (name,pos,self.nodeName,self.pos)
+            print "self.__cstack =",self.__cstack
+            assert 0
+
+        try:
+            nodecon = self.__nodeDict[name]
+        except KeyError:
+            raise NodeError('Unknown element <%s> in <%s> at %s' % (name,self.nodeName, pos))
+
+        try:
+            node = nodecon(self.__manager,self,self.__cmddict,self.__nodeDict,attrs,pos)
+        except TypeError:
+            print "Failed to instantiate: <%s>" % name
+            raise
+        
+        return node 
+
+    def startChildElement(self,name,attrs,pos):
+        dbg('startChildElement: %s' % name)
+        if len(self.__cstack) == 1:
+            dbg("--- BEG FLUSH SCOPE (%s)" % self.nodeName)
+            self.__flushCStack()
+            dbg("--- END FLUSH SCOPE (%s)" % self.nodeName)
+        elif name in ['section','sdocml','head']:
+            raise NodeError('%s: <%s> may not be used in macros' % (pos,name))
+
+        if len(self.__cstack) > 1: # currently inside an \begin{x}...\end{x} environment or a { ... } group.
+            dbg('(%s) Delayed element <%s>' % (self.nodeName,name))
+            dbg('<%s>.__cstack = %s' % (self.nodeName, self.__cstack))
+            dattrs = dict([ (k,[ DelayedText(v,pos) ]) for k,v in attrs.items()])
+            node = DelayedElement(name,dattrs,pos)
+            self.__emitOpen(node)
+        else:
+            node = self.startElement(name,attrs,pos)
+            self.append(node)
+            def notallowed(key):
+                print "Adding content to a node when a child node is open is not allowed!"
+                return False
+            self.__cstack.append(CheckedAppend(notallowed, node))
         return node
 
-        
-
-    ##\brief Append an item to the current inner-most scope.
-    # \param item A Node or a Unicode string.
-    def appendItem(self,item,filename,line):
-        if not isinstance(item,Node) and not isinstance(item,unicode):
-            for i in item.expand():
-                self.appendItem(i)
-        else:
+    def __emitOpen(self,item,drop=False):
+        if not drop:
             try:
-                if self.__citer(item):
-                    self.append(item)
-                else:
-                    if isinstance(item,unicode):
-                        self.error('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
-                        #raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
-                    else:
-                        self.error('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
-                        #raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
-            except Iters.ContentIteratorError:
-                if isinstance(item,unicode):
-                    self.error('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
-                    #raise NodeError('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
-                else:
-                    self.error('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
-                    #raise NodeError('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
-                
+                assert not isinstance(item,Node) or len(self.__cstack) == 1
+                self.__cstack[-1].append(item)
+            except CheckedAppendError:
+                print "self.__cstack : %d, contains : %s" % (len(self.__cstack),self.__cstack)
+                raise
+        self.__cstack.append(CheckedAppend(lambda item: isinstance(item,macro._DelayedItem),item))
+        assert self.__cstack[-1].data is item
+    def __emitClose(self,item,pos):
+        assert len(self.__cstack) > 1
+        top = self.__cstack.pop()
+    def __emitItem(self,item):
+        self.__cstack[-1].append(item)
 
-    ##\brief Append an item to the root scope, and expand it if necessary.
-    # 
-    #   - If item is a Node or a string, the function will check that the Node or that text in general is allowed in the current context.
-    #   - If item is an UnexpandedItem, it will be expanded and the resulting nodes and text will be appended using this function.
-    # \param item A Node or a unicode string.
+    ##\brief Handle text. Called by the SAX parser to parse a text string.
+    def handleText(self,data,pos):
+        assert pos is not  None
+        if  self.macroMode in [ MacroMode.Invalid, MacroMode.NoExpand ]:
+            dbg('<%s>.handleRawText: %s' % (self.nodeName,repr(data)))
+            self.handleRawText(data,pos)
+        elif self.macroMode in [ MacroMode.Text, MacroMode.Math ]:
+            dbg('<%s>.handleText: %s' % (self.nodeName,repr(data)))
+            p = 0
+            for o in macro_re.finditer(data):
+                if p < o.start(0):
+                    self.__cstack[-1].append(DelayedText(data[p:o.start(0)],pos))
+                p = o.end(0)
+                
+                if   o.group('macro'):
+                    name = o.group('macro')
+                    assert name not in ['begin','end']
+                    if name == ':':
+                        try:
+                            dbg("%s: New table row" % pos)
+                            self.__cstack[-1].data.row(pos)
+                        except AttributeError:
+                            dbg("%s: Start Table syntax" % pos)
+                            self.__emitOpen(DelayedTableContent(pos))
+                    elif name == '!':
+                        try:
+                            dbg("%s: New table cell" % pos)
+                            self.__cstack[-1].data.cell(pos)
+                        except AttributeError:
+                            dbg('%s: cstack = %s' % (pos,self.__cstack))
+                            raise MacroError('%s: Table syntax must start with a row \\:' % pos)
+                    else:
+                        self.__cstack[-1].append(DelayedMacro(o.group('macro'),pos))
+                elif o.group('env'):
+                    name = o.group('envname')
+                    if o.group('env') == 'begin':
+                        self.__emitOpen(DelayedEnvironment(name,pos))
+                    else:
+                        dbg('End environment "%s" @ %s' % (name,pos))
+                        self.__emitClose(name,pos)
+                elif o.group ('group'):
+                    tok = o.group('group')
+                    if tok == '{': 
+                        self.__emitOpen(DelayedGroup(pos))
+                    else:
+                        if len(self.__cstack) <= 1:
+                            raise MacroError("%s: Unmatched group close" % pos)
+
+                        top = self.__cstack.pop().data
+                elif o.group('subsuperscr'):
+                    if o.group('subsuperscr') == '_':
+                        self.__emitItem(DelayedSubScript(pos))
+                    else:
+                        self.__emitItem(DelayedSuperScript(pos))
+                elif   o.group('longdash') is not None:
+                    if   o.group('longdash') == '--':
+                        self.__emitItem(DelayedText(u'\u2013',pos)) # &ndash;
+                    elif o.group('longdash') == '---':
+                        self.__emitItem(DelayedText(u'\u2014',pos)) # &ndash;
+                    else:
+                        self.__emitItem(DelayedText(o.group('longdash'),pos)) # &ndash;
+                elif o.group('leftdquote') is not None:
+                    self.__emitItem(DelayedText(u'\u201c',pos)) # &ldquote
+                elif o.group('rightdquote') is not None:
+                    self.__emitItem(DelayedText(u'\u201d',pos)) # &rdquote
+                elif o.group('nbspace'):
+                    self.__emitItem(DelayedText(u'\xa0',pos)) # &nbsp;
+                elif o.group('newline'):
+                    self.__emitItem(DelayedText(u'\n',pos))
+                    pos = Pos(pos.filename,pos.line + 1)
+                else:
+                    #print 'GOT: "%s"' % o.group(0)
+                    assert 0
+            if p < len(data):
+                #print "NODE : <%s>" % self.nodeName
+                #print len(self.__cstack),self.__cstack[-1].data
+                #print repr(self.__cstack[-1])
+                self.__cstack[-1].append(DelayedText(data[p:],pos))
+        else:
+            assert 0 
+                
     def append(self,item):
+        if len(self.__cstack) > 1:
+            dbg('Append item. Cstack = \n\t%s' % '\n\t'.join([ repr(i) for i in self.__cstack]))
         assert len(self.__cstack) == 1
-        #debug("Node.append :",repr(item))
         assert not self.__closed
+
         if   self.__sealed:
-            raise NodeError("Content not allowed in <%s> at %s:%d" % (self.nodeName, self.pos[0],self.pos[1]))
+            raise NodeError('%s: Content not allowed in <%s>' % (self.pos,self.nodeName, self.pos))
+            #raise NodeError("Content not allowed in <%s> at %s" % (self.nodeName, self.pos))
         elif isinstance(item,Node) or isinstance(item,unicode):
             if isinstance(item,Node) and item.metaElement:
                 pass # Allowed everywhere, ignored
             else:
                 try:
+                    #debug('Check item: %s', repr(item))
                     if self.__citer(item):
-                        self.__content.append(item)
+                        try:
+                            self.__content.append(item)
+                        except TypeError:
+                            raise
+                            
                     else:
+                        #print repr(self.__citer)
+                        #print self.contIter
                         if isinstance(item,unicode):
-                            print "GOT: %s" % item
-                            self.error('Text not allowed in <%s> at %s:%d' % (self.nodeName,self.pos[0],self.pos[1]))
-                            #raise NodeError('Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                            pos = self.pos
+
+                            raise NodeError('%s: Text not allowed in <%s>' % (self.pos,self.nodeName))
+                            #raise NodeError('Text not allowed in <%s> at %s' % (self.nodeName,pos))
                         else: 
-                            self.error('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,self.pos[0],self.pos[1]))
-                            #raise NodeError('Element <%s> not allowed in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                            pos = item.pos
+                            raise NodeError('%s: Element <%s> not allowed in <%s>' % (item.pos,item.nodeName,self.nodeName))
+                            #raise NodeError('Element <%s> not allowed in <%s> at %s' % (item.nodeName,self.nodeName,pos))
                 except Iters.ContentIteratorError:
                     if isinstance(item,unicode):
-                        filename,line = self.pos
-                        print "GOT: %s" % item
-                        self.error('Does not accept text in <%s> at %s:%d' % (self.nodeName,self.pos[0],self.pos[1]))
-                        #raise NodeError('Does not accept text in <%s> at %s:%d' % (self.nodeName,filename,line))
+                        pos = self.pos
+                        raise NodeError('%s: Does not accept text in <%s>' % (self.pos, self.nodeName))
+                        #raise NodeError('Does not accept text in <%s> at %s' % (self.nodeName,pos))
                     else:
-                        self.error('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,item.pos[0],item.pos[1]))
-                        #raise NodeError('Does not accept <%s> in <%s> at %s:%d' % (item.nodeName,self.nodeName,filename,line))
+                        pos = item.pos
+                        raise NodeError('%s: Does not accept <%s> in <%s>' % (item.pos, item.nodeName,self.nodeName))
+                        #raise NodeError('Does not accept <%s> in <%s> at %s' % (item.nodeName,self.nodeName,pos))
                 except:
                     raise
-        elif isinstance(item,UnexpandedItem):
-            res = item.linearize([],[],{})
-            try:
-                self.__handleSAXEvents(res,item.pos[0],item.pos[1])
-            except:
-                print item.pos
-                raise
         else:
             print item,repr(item)
             assert 0
 
-    def __handleSAXEvents(self,events,filename,line):
-        cstack = [ self ]
-        #debug("EVENTS:\n",'\n'.join([repr(e) for e in events]))
-        for e in events:
-            if isinstance(e,MacroEvent_NoExpandText):
-                cstack[-1].handleRawText(e.data,e.filename,e.line)
-            elif isinstance(e,MacroEvent_ExpandText):
-                #debug('Delayed SAX event: TEXT @ %s:%s' % (e.filename,e.line),e)
-                cstack[-1].handleText(e.data,e.filename,e.line)
-            elif isinstance(e,MacroEvent_StartTag):
-                #debug('Delayed SAX event: TAGOPEN %s @ %s:%s:' % (e,e.filename,e.line),e)
-                cstack.append(cstack[-1].newChild(e.name,e.attrs,e.filename,e.line))
-            elif isinstance(e,MacroEvent_EndTag):
-                #if not (cstack and cstack[-1].nodeName == e.name):
-                    #debug('CStack =',cstack)
-                    #debug('Top name = %s' % cstack[-1].nodeName)
-                    #debug('End name = %s' % e.name)
-                    #debug('At %s:%d' % (filename,line))
-                assert cstack and cstack[-1].nodeName == e.name
-                cstack[-1].endOfElement(filename,line)
-                cstack.pop()
-            else:
-                print e
-                assert 0
-                
-
-    def handleRawText(self,data,filename,line):
+            
+    def handleRawText(self,data,pos):
         """
         Handle text without expansion.
         """
         if self.macroMode == MacroMode.Invalid:
             if data.strip():
-                raise NodeError('3Text not allowed in <%s> at %s:%d' % (self.nodeName,filename,line))
+                #raise NodeError('Text not allowed in <%s> at %s' % (self.nodeName,pos))
+                raise NodeError('%s: Text not allowed in <%s>' % (pos,self.nodeName))
             else:
                 # Just ignore.
                 pass
         else:
-            self.appendItem(data,filename,line)
+            self.append(data)
 
-    def __handleText_Math(self,data,filename,line):
-        pos = 0
-        for o in self.mathmodemacro_regex.finditer(data):
-            if (o.group('tr') or o.group('td')):
-                if not self.allowTableSyntax:
-                    continue
-
-            if pos < o.start(0):
-                self.__cstack[-1].append(data[pos:o.start(0)])
-                #debug('Added math data: ',data[pos:o.start(0)])
-            pos = o.end(0)
-
-            #debug('Got math item: ',repr(o.group(0)))
-            if   o.group('macro'):
-                macroname = o.group('macro')
-                try: macro = self.__cmddict[macroname]
-                except KeyError: 
-                    raise NodeError('Undefined macro "%s" at %s:%d' % (macroname,filename, line))
-
-                if macro.nArgs() > 0:
-                    def popMacro():
-                        g = self.__cstack.pop()
-                        assert self.__cstack
-                        self.__cstack[-1].append(g)
-
-                    self.__cstack.append(UnexpandedMacro(macro, (filename,line), popMacro))
-                else:
-                    self.__cstack[-1].append(UnexpandedMacro(macro, (filename,line)))
-
-            elif o.group('brace'):
-                if o.group('brace') == '{':
-                    self.__cstack.append(ContentManager(BraceGroup(filename,line)))
-                else: # '}'
-                    if not isinstance(self.__cstack[-1],ContentManager) or not isinstance(self.__cstack[-1].Managed(),BraceGroup):
-                        raise NodeError('Unmatched end-group } at %s:%d' % (filename,line))
-                    g = self.__cstack.pop()
-                    g.flush()
-                    assert self.__cstack
-                    self.__cstack[-1].append(g.Managed())
-            elif o.group('subsupgrp'):
-                op = o.group('subsupgrp')
-                if op == '_{':
-                    g = SubBraceGroup(filename,line)
-                else:
-                    g = SuperBraceGroup(filename,line)
-                self.__cstack.append(ContentManager(g))
-            elif o.group('subsupc'):
-                op = o.group('subsupc')[0]
-                c  = o.group('subsupc')[1]
-
-                if op == '_':
-                    g = SubBraceGroup(filename,line)
-                else:
-                    g = SuperBraceGroup(filename,line)
-
-                g.append(c) 
-                g.end()
-                self.__cstack[-1].append(g)
-
-            elif o.group('tr'):
-                # if special table syntax is used, this must be used
-                # for _all_ rows and cells. This means that table
-                # syntax elements must appear _only_ at the top-level
-                # of a table and not be preceded by anything.
-              
-                if   len(self.__cstack) == 1: # we are at top-level, must be the first row.
-                    self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
-                    self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                elif len(self.__cstack) == 3 and \
-                     isinstance(self.__cstack[-1],ContentManager):
-                    topcell = self.__cstack[-1].Managed()
-                    if isinstance(topcell,LazyTableCell):
-                        # end the current cell
-                        item = self.__cstack.pop()
-                        item.flush()
-                        self.__cstack[-1].append(item.Managed())
-                        # Then end the current row
-                        top = self.__cstack[-1]
-                        if isinstance(top,ContentManager) and \
-                           isinstance(top.Managed(), LazyTableRow):
-                            item = self.__cstack.pop()
-                            item.flush()
-                            self.__cstack[-1].append(item.Managed())
-                            # Finally start a new row and a new cell 
-                            self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
-                            self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                        else:
-                            raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                    else:
-                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                else:
-                    raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-            elif o.group('td'):
-                if len(self.__cstack) == 3 and \
-                     isinstance(self.__cstack[-1],ContentManager):
-                    topcell = self.__cstack[-1].Managed()
-                    if isinstance(topcell,LazyTableCell):
-                        # end the current cell
-                        item = self.__cstack.pop()
-                        item.flush()
-                        self.__cstack[-1].append(item.Managed())
-                        self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                    else:
-                        print "len cstack:",len(self.__cstack)
-                        print 'cstack top:',self.__cstack[-1]
-                        print 'topcell:',topcell
-                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                else:
-                    print "len cstack:",len(self.__cstack)
-                    print 'cstack top:',self.__cstack[-1]
-                    raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-            elif o.group('env'):
-                macroname = o.group('envname')
-                try: macro = self.__cmddict[macroname]
-                except KeyError: 
-                    raise NodeError('Undefined environment "%s" at %s:%d' % (macroname,filename, line))
-                if not isinstance(macro,DefEnvNode):
-                    raise NodeError('Tried to use "%s" as environment at %s:%d' % (macroname,filename, line))
-
-                if o.group('env') == 'begin' :
-                    self.__cstack.append(UnexpandedEnvironment(macro, (filename,line)))
-                else: # o.group('env') == 'end'
-                    top = self.__cstack.pop() 
-                    if not isinstance(top,UnexpandedEnvironment):
-                        raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
-                    elif top.envName() != macroname:
-                        raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
-                    else:
-                        top.end()
-                        self.__cstack[-1].append(top)
-            elif o.group('nbspace'):
-                self.__cstack[-1].append(u'\u00a0') # &nbsp;
-            else:
-                print "GOT: ",o.group(0)
-                assert 0
-        if pos < len(data):
-            self.__cstack[-1].append(data[pos:])
-            #debug('Added math data: ',data[pos:])
-
-
-    ##\brief Handle text. Called by the SAX parser to pass a text string.
-    #  
-    # This function handles expansion of macros in both text and math mode (and no-expand mode).
-    def handleText(self,data,filename,line):
-        #debug('\tNode.handleText @ %s:%d (%s): ' % (filename,line,MacroMode.toStr(self.macroMode)), repr(data))
-        if  self.macroMode in [ MacroMode.Invalid, MacroMode.NoExpand ]:
-            self.handleRawText(data,filename,line)
-        elif self.macroMode == MacroMode.Text:
-            pos = 0
-            for o in self.textmodemacro_regex.finditer(data):
-                if (o.group('tr') or o.group('td')):
-                    if not self.allowTableSyntax:
-                        assert 0
-                        continue
-                if pos < o.start(0):
-                    #debug('Node.handleText (remaining) append :',repr(data[pos:o.start(0)]))
-                    #debug('  Top element :',repr(self.__cstack[-1]))
-                    self.__cstack[-1].append(data[pos:o.start(0)])
-                pos = o.end(0)
-
-                if   o.group('longdash') is not None:
-                    if o.group('longdash') == '--':
-                        self.__cstack[-1].append(u'\u2013') # &ndash;
-                    else:
-                        self.__cstack[-1].append(u'\u2014') # &ndash;
-                elif o.group('leftdquote') is not None:
-                    self.__cstack[-1].append(u'\u201c') # &ldquote
-                elif o.group('rightdquote') is not None:
-                    self.__cstack[-1].append(u'\u201d') # &rdquote
-                elif o.group('bkslash'):
-                    self.__cstack[-1].append(u'\\')
-                elif o.group('tr'):
-                    # if special table syntax is used, this must be used
-                    # for _all_ rows and cells. This means that table
-                    # syntax elements must appear _only_ at the top-level
-                    # of a table and not be preceded by anything.
-                  
-                    if   len(self.__cstack) == 1: # we are at top-level, must be the first row.
-                        self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
-                        self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                    elif len(self.__cstack) == 3 and \
-                         isinstance(self.__cstack[-1],ContentManager):
-                        topcell = self.__cstack[-1].Managed()
-                        if isinstance(topcell,LazyTableCell):
-                            # end the current cell
-                            item = self.__cstack.pop()
-                            item.flush()
-                            self.__cstack[-1].append(item.Managed())
-                            # Then end the current row
-                            top = self.__cstack[-1]
-                            if isinstance(top,ContentManager) and \
-                               isinstance(top.Managed(), LazyTableRow):
-                                item = self.__cstack.pop()
-                                item.flush()
-                                self.__cstack[-1].append(item.Managed())
-                                # Finally start a new row and a new cell 
-                                self.__cstack.append(ContentManager(LazyTableRow(self.tablerowelement,filename,line)))
-                                self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                            else:
-                                raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                        else:
-                            raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                    else:
-                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                elif o.group('td'):
-                    if len(self.__cstack) == 3 and \
-                         isinstance(self.__cstack[-1],ContentManager):
-                        topcell = self.__cstack[-1].Managed()
-                        if isinstance(topcell,LazyTableCell):
-                            # end the current cell
-                            item = self.__cstack.pop()
-                            item.flush()
-                            self.__cstack[-1].append(item.Managed())
-                            self.__cstack.append(ContentManager(LazyTableCell(self.tablecellelement,filename,line)))
-                        else:
-                            raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                    else:
-                        raise NodeError('Table syntax not allowed at %s:%d' % self.pos)
-                elif o.group('macro'):
-                    macroname = o.group('macro')
-                    try: macro = self.__cmddict[macroname]
-                    except KeyError: 
-                        print "Match = %s" % o.group(0)
-                        print "Text = '%s'" % data[o.start(0):o.start(0)+20]
-                        print "Data size = %d" % len(data)
-                        print "data =\n",data
-                        raise NodeError('Undefined macro "%s" at %s:%d' % (macroname,filename, line))
-                    if not isinstance(macro,DefNode):
-                        raise NodeError('Tried to use "%s" as macro at %s:%d' % (macroname,filename, line))
-                    if macro.nArgs() > 0:
-                        def popMacro():
-                            g = self.__cstack.pop()
-                            assert self.__cstack
-                            assert isinstance(g,UnexpandedMacro)
-                            self.__cstack[-1].append(g)
-
-                        self.__cstack.append(UnexpandedMacro(macro, (filename,line), popMacro))
-                    else:
-                        self.__cstack[-1].append(UnexpandedMacro(macro, (filename,line)))
-
-                elif o.group('brace'):
-                    if o.group('brace') == '{':
-                        self.__cstack.append(ContentManager(BraceGroup(filename,line)))
-                    else: # '}'
-                        if not isinstance(self.__cstack[-1],ContentManager) or not isinstance(self.__cstack[-1].Managed(),BraceGroup):
-                            raise NodeError('Unmatched end-group } at %s:%d' % (filename,line))
-                        g = self.__cstack.pop()
-                        g.flush()
-                        assert self.__cstack
-                        #debug("Popped brace group from cstack. Adding to:",self.__cstack[-1])
-                        #debug('  Group =',g.Managed())
-                        self.__cstack[-1].append(g.Managed())
-                elif o.group('env'):
-                    macroname = o.group('envname')
-                    try: macro = self.__cmddict[macroname]
-                    except KeyError: 
-                        raise NodeError('Undefined environment "%s" at %s:%d' % (macroname,filename, line))
-                    if not isinstance(macro,DefEnvNode):
-                        raise NodeError('Tried to use "%s" as environment at %s:%d' % (macroname,filename, line))
-
-                    if o.group('env') == 'begin' :
-                        self.__cstack.append(UnexpandedEnvironment(macro, (filename,line)))
-                    else: # o.group('env') == 'end'
-                        top = self.__cstack.pop() 
-                        if not isinstance(top,UnexpandedEnvironment):
-                            raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
-                        elif top.envName() != macroname:
-                            raise NodeError('Unmatched %s at %s:%d' % (o.group(0),filename, line))
-                        else:
-                            top.end()
-                            self.__cstack[-1].append(top)
-                elif o.group('nbspace'):
-                    self.__cstack[-1].append(u'\xa0') # &nbsp;
-                else:
-                    print "ERROR: got '%s'" % o.group(0)
-                    assert 0
-            if pos < len(data):
-                #debug('Node.handleText (remaining) append :',repr(data[pos:]))
-                self.__cstack[-1].append(data[pos:])
-        elif self.macroMode in [ MacroMode.Math, MacroMode.SimpleMath ]:
-            self.__handleText_Math(data,filename,line)
 
     def getID(self):
         return self.__id
@@ -1389,13 +706,23 @@ class Node:
         for k,v in self.__attrs.items():
             if v is not None:
                 node.setAttribute(k,v)
-    def end(self,filename,line):
-        pass
+    def end(self,pos):
+        while len(self.__cstack) > 1 and self.__cstack[-1].data.autoClose:
+            self.__cstack.pop()
+        if len(self.__cstack) != 1:
+            print MacroError("%s: Mismatched end element" % pos)
+            print "len = %d" % len(self.__cstack)
+            print self.__cstack[-1].data.__class__.__name__
+            #assert 0
+            raise MacroError("%s: Mismatched end element" % pos)
+        self.__flushCStack()
+        dbg('End this <%s> @ %s' % (self.nodeName,pos))
 
-    def endOfElement(self,filename,line):
+    def endOfElement(self,pos):
         """
         Called at the end of the scope.
         """
+        assert 0
         if not self.__closed:
             if self.__fakeopen > 0:
                 self.__fakeopen -= 1
@@ -1415,20 +742,20 @@ class Node:
                 if self.hasAttr ('id'):
                     maybeid = self.getAttr('id')
 
-                #debug('#### Close node <%s id="%s"> %d' % (self.nodeName,maybeid,id(self)))
+#/g'#### Close node <%s id="%s"> %d' % (self.nodeName,maybeid,id(self)))
                 if 0:
                     import traceback
                     traceback.print_stack()
                 
                 if len(self.__cstack) != 1:
-                    #debug('SCOPE STACK:',self.__cstack)
-                    raise NodeError('Unended scope or macro at %s:%d' % (filename,line))
+#/g'SCOPE STACK:',self.__cstack)
+                    raise NodeError('Unended scope or macro at %s' % (pos))
                 elif isinstance(self.__cstack[-1],ContentManager):
                     self.__cstack[-1].flush()
                     self.__cstack.pop()
                 self.__closed = True
 
-                self.end(filename,line)
+                self.end(pos)
 
     def paragraphifyXML(self,lst,doc,node):
         # generate paragraphs 
@@ -1484,6 +811,7 @@ class Node:
                 par = doc.createElement('p')
                 node.appendChild(par)
                 for item in p:
+                    assert not isinstance(item,list)
                     par.appendChild(item)
         
     def toXML(self,doc,node=None):
@@ -1500,6 +828,7 @@ class Node:
                         node.appendChild(doc.createTextNode(item))
                     else:
                         n = item.toXML(doc)
+                        assert not isinstance(n,list)
                         if n is not None:
                             node.appendChild(n)
             else:
@@ -1519,6 +848,7 @@ class Node:
                     for item in lst:
                         if not isinstance(item,list):
                             n = item.toXML(doc)
+                            assert not isinstance(n,list)
                             if n is not None:
                                 node.appendChild(n)
                         else:
@@ -1526,21 +856,22 @@ class Node:
                             node.appendChild(doc.createTextNode(text))
 
             for k,v in self.__attrs.items():
-                if v is not None and k not in [ 'cond','macroexpand' ]:
+                if v is not None and k not in [ 'macroexpand' ]:
                     node.setAttribute(k,v)
             if self.traceInfo:
-                assert self.pos[0] is not None
-                assert self.pos[1] is not None
-                node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
-                node.setAttribute('trace:file',str(self.pos[0]))
-                node.setAttribute('trace:line',str(self.pos[1]))
-            return node
+                if self.pos is not None and self.pos.filename is not None and self.pos.line is not None:
+                    node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
+                    node.setAttribute('trace:file',str(self.pos.filename))
+                    node.setAttribute('trace:line',str(self.pos.line))
+        assert not isinstance(node,list)
+        return node
 
     def __str__(self):
+        return '<%s%s>' % (self.nodeName,' '.join([' %s="%s"' % itm for itm in self.__attrs.items() if itm[1]]))
         if self.hasAttr('id'):
-            return '<%s id="%s">' % (self.nodeName,self.getAttr('id') )
+            return '<%s id="%s" @ %s>' % (self.nodeName,self.getAttr('id'),self.pos.brief() )
         else:
-            return "<%s>" % self.nodeName
+            return "<%s @ %s>" % (self.nodeName, self.pos.brief())
 
     __repr__ = __str__
 
@@ -1549,67 +880,7 @@ class _MathNode(Node):
     contIter = ' [ T %s ]* ' % _mathNodes
     mathElement = True
   
-    def __init__(self,
-                 manager,
-                 parent,
-                 cmddict,
-                 nodeDict,
-                 attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
-        self.__cmddict  = cmddict
-        self.__nodeDict = nodeDict
-        self.__manager  = manager
-        self.__filename = filename
-        self.__line     = line
-
-
-class NullNode(Node):
-    def __init__(self,
-                 name,
-                 manager,
-                 parent,
-                 cmddict,
-                 nodeDict,
-                 attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
-    def newChild(self,name,attrs,filename,line):
-        return DummyNode(name,self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
-    def handleText(self,data,filename,line):
-        pass
-    def endOfElement(self,filename,line):
-        pass
-        
-
-class DummyNode:
-    nodeName = '*dummy*'
-    def __init__(self,
-                 name,
-                 manager,
-                 parent,
-                 cmddict,
-                 nodeDict,
-                 attrs,
-                 filename,
-                 line):
-        self.nodeName = name
-        self.__manager  = manager
-        self.__parent   = parent
-        self.__cmddict  = cmddict
-        self.__nodeDict = nodeDict
-        self.__filename = filename
-        self.__line     = line
-    def newChild(self,name,attrs,filename,line):
-        return DummyNode(name,self.__manager,self,self.__cmddict,self.__nodeDict,attrs,filename,line)
-    def handleText(self,data,filename,line):
-        pass
-    def handleRawText(self,data,filename,line):
-        pass
-    def endOfElement(self,filename,line):
-        pass
+    #__init__ = Node.__init__
 
 
 ######################################################################
@@ -1643,33 +914,37 @@ class DictEntryNode(Node):
                '''
     nodeName = 'dictentry'
     metaElement = True
-    acceptAttrs = Attrs([Attr('key',required=True,descr="The key under which the text is saved."),
-                         Attr('cond')])
+    acceptAttrs = Attrs([Attr('key',required=True,descr="The key under which the text is saved.")])
     macroMode   = MacroMode.NoExpand
     contIter = ' T '
     structuralElement = True
 
-    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         self.__cmddict = cmddict
-    def end(self,filename,line):
+    def end(self,pos):
         key = self.getAttr('key')
         self.value = u''.join(self)
-        self.__cmddict.dictSet(key,self)
-
-        
-    
+        try:
+            self.__cmddict.dictSet(key,self)
+        except KeyError:
+            e = self.__cmddict.dictLookup(key)
+            raise NodeError('%s: Key "%s" already defined at "%s"' % (self.pos, key, e.pos))
+        Node.end(self,pos)
 
 class IncDefNode(Node):
     comment     = '''
                     Include an external file containing macro definitions. This
                     file must be a valid XML file having the TeXML
                     \\tagref{defines} as the document element.
+
+                    It works as if the definitions from the included file was inserted
+                    directly into the context where the inclusion appears, i.e.
+                    there must be no local name clashes.
                   '''
     nodeName    = 'incdef'
     acceptAttrs = Attrs([Attr('url',descr='The address of the definition file to incude.'),
-                         Attr('type',default='text/xml-defines'), 
-                         Attr('cond')])
+                         Attr('type',default='text/xml-defines')])
     contIter    = ''
     structuralElement = True
     
@@ -1679,19 +954,28 @@ class IncDefNode(Node):
                  cmddict,
                  nodeDict,
                  attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+                 pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         self.__cmddict = cmddict
 
         #self.__url = urlparse.urlparse(attrs['url'])
         self.__url = attrs['url']
 
+        filename = pos.filename
+
         fullname = manager.findFile(self.__url,filename)
-        
+        if 0:
+            proto,server,path,r0,r1,r2 = self.__url
+            if proto and proto != 'file':
+                log(self.__url)
+                raise NodeError('Only local includes allowed, got "%s"' % attrs['url'])
+
+            basepath = os.path.dirname(filename)
+            fullname = os.path.join(basepath,path) # currently only relative paths allowed. No checking done
+
         P = xml.sax.make_parser()
-        N = ExternalDefineRoot(manager,self,self.__cmddict,nodeDict,fullname,1)
-        h = handler(fullname,N) 
+        N = ExternalDefineRoot(manager,self,self.__cmddict,nodeDict,Pos(fullname,1))
+        h = AlternativeSAXHandler(fullname,N,manager) 
         P.setContentHandler(h)
         P.setEntityResolver(manager.getEntityResolver())
 
@@ -1701,9 +985,10 @@ class IncDefNode(Node):
         except Exception,e:
             import traceback
             traceback.print_exc()
-            raise NodeError('Failed to parse file "%s" included at %s:%d' % (fullname,self.pos[0],self.pos[1]))
+            raise NodeError('%s: Failed to parse file "%s":\n\t%s' % (pos,fullname,str(e)))
 
 class DefElementNode(Node):
+    nodeName    = 'e'
     comment     = """
                     This node denotes a specific element in a macro definition. The content of the 
                     tag will end up as the content of the expanded tag in the expanded macro.
@@ -1716,32 +1001,25 @@ class DefElementNode(Node):
                     </ilist>
                   """
 
-    nodeName    = 'e'
     acceptAttrs = Attrs([ Attr('n',descr='The name of the element')])
     macroMode   = MacroMode.Invalid
     contIter    = ' <attr>* [ <e> <d> <c> <lookup> ]*'
     structuralElement = True
-    
-    def linearize(self,res,args,kwds,filename,line,dolookup):
+   
+    def asDef(self,res):
         attrs = {}
-        content = []
+        body = []
         for i in self:
             if isinstance(i,DefElementAttrNode):
-                r = i.linearize([],args,kwds,filename,line,dolookup)
-                try:
-                    attrs[i.getName()] = ''.join([ d.data for d in r ])
-                except:
-                    print r
-                    raise
-
+                attrs[i.getName()] = i.asDef([])
+                #attrs[i.getName()] = [ attr.asDef([]) for attr in i ]
             else:
-                content.append(i)
+                body.append(i.asDef(DelayedGroup(self.pos)))
+        r = DelayedElement(self.getAttr('n'),attrs,self.pos)
+        r.extend(body)
+        res.append(r)
+        return res
 
-        elmname = self.getAttr('n')
-        res.append(MacroEvent_StartTag(elmname, attrs,filename,line ))
-        for i in content:
-            i.linearize(res,args,kwds,filename,line,dolookup)
-        res.append(MacroEvent_EndTag(elmname,filename,line))
     
     def __repr__(self):
         return '<e n="%s"><\e>' % (self.getAttr('n'))
@@ -1753,44 +1031,63 @@ class _DefDataNode(Node):
     macroMode   = MacroMode.NoExpand
     contIter    = ' [ T <lookup> ]* '
 
-    argre = re.compile(r'{{(?:([0-9]+)|(BODY|SUBSCRIPT|SUPERSCRIPT))}}')
+    argre = re.compile(r'{{(?:(?P<intref>[0-9]+)|(?P<nameref>BODY|SUBSCRIPT|SUPERSCRIPT))}}')
     structuralElement = True
 
-    def linearize(self,res,args,kwds,filename,line,dolookup):
-        #debug("%s: %s" % (self.__class__.__name__,repr([repr(s) for s in self])))
-        for data in self:
-            if isinstance(data,LookupNode):
-                data.linearize(res,args,kwds,filename,line,dolookup)
-            else:
-                pos = 0
-                for o in self.argre.finditer(data):
-                    if pos < o.start(0):
-                        res.append(MacroEvent_NoExpandText(data[pos:o.start(0)],filename,line))
-                    pos = o.end(0)
-
-                    try:
-                        if o.group(1) is not None:
-                            res.extend(args[int(o.group(1))])
+    def asDef(self,res):
+        if True:
+            for i in self:
+                if isinstance(i,basestring):
+                    text = i
+                    p = 0
+                    for o in self.argre.finditer(text):
+                        if p < o.start(0):
+                            res.append(macro.DelayedText(text[p:o.start(0)],self.pos))
+                        p = o.end(0)
+                        if   o.group('intref') is not None:
+                            res.append(macro.DelayedArgRef(int(o.group('intref')),self.pos))
                         else:
-                            k = o.group(2)
-                            if kwds.has_key(k):
-                                res.extend(kwds[k])
-                    except IndexError:
-                        raise MacroArgErrorX('Tried to refer to non-existant macro argument %s' % o.group(1))
-                if pos < len(data):
-                    res.append(MacroEvent_NoExpandText(data[pos:],filename,line))
-        return res
+                            res.append(macro.DelayedArgRef(o.group('nameref'),self.pos))
+                    if p < len(text):
+                        res.append(macro.DelayedText(text[p:],self.pos))
+                else:
+                     i.asDef(res)
+            
+            return res
+        else:
+            p = 0
+            text = ''.join(self)
+            #print text
+            for o in self.argre.finditer(text):
+                if p < o.start(0):
+                    #print "+ %s" % text[p:o.start(0)]
+                    res.append(macro.DelayedText(text[p:o.start(0)],self.pos))
+                p = o.end(0)
+                if   o.group('intref') is not None:
+                    #print "+ arg#%d" % int(o.group('intref'))
+                    res.append(macro.DelayedArgRef(int(o.group('intref'))))
+                else:
+                    #print "+ arg %s" % o.group('nameref')
+                    res.append(macro.DelayedArgRef(o.group('nameref')))
+            if p < len(text):
+                #print "+ %s" % text[p:]
+                res.append(macro.DelayedText(text[p:],self.pos))
+            
+            #print "ret ",repr(res)
+            return res
+            
 
 class DefDataNode(_DefDataNode):
+    nodeName    = 'd'
     comment     = '''
                     Text entry in a macro definition. The content is pure text,
                     but the placeholders {{n}} where "n" is a number, and
                     {{BODY}} are expanded to the corresponding argument and the
                     environment content (for \\tagref{defenv} only).
                   '''
-    nodeName    = 'd'
 
 class LookupNode(_DefDataNode):
+    nodeName = 'lookup'
     comment =   '''
                     The \\tag{lookup} looks up the dictionary entry made with \\tagref{dictentry}.
                 '''
@@ -1799,32 +1096,17 @@ class LookupNode(_DefDataNode):
                  '<def m="lookupXYZ"><d>The Value of XYZ is "<lookup>XYZ</lookup>"</d></def>'),
                 ("Define a macro performing lookup of a key given as a macro argument:",
                  '<def m="lookup" n="1"><lookup>{{0}}</lookup></def>')]
-    nodeName = 'lookup'
-    acceptAttrs = Attrs([Attr('cond')])
+    acceptAttrs = Attrs([])
     macroMode   = MacroMode.NoExpand
     contIter    = ' T '
    
-    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         self.__cmddict = cmddict
-    def linearize(self,res,args,kwds,filename,line,dolookup):
-        r = []
-        _DefDataNode.linearize(self,r,args,kwds,filename,line,dolookup)
-        for i in r:
-            if not isinstance(i,MacroEvent_NoExpandText):
-                raiseMacroArgError('Invalid use of <lookup> at %s:%d' % (filename,line))
-
-        if dolookup:
-            key = ''.join([ i.data for i in r ])
-            try:
-                node = self.__cmddict.dictLookup(key)
-                res.append(MacroEvent_NoExpandText(node.value,filename,line))
-            except KeyError:
-                raise KeyError('Undefined dictionary entry "%s" at %s:%d' % (key,filename,line))
-        else:
-            res.append(MacroEvent_NoExpandText('{{DICT[',filename,line))
-            res.extend(r)
-            res.append(MacroEvent_NoExpandText(']}}',filename,line))
+    def asDef(self,res):
+        res.append(macro.DelayedLookup(self.pos, _DefDataNode.asDef(self,[])))
+        #r = _DefDataNode.asDef(self,[])
+        #res.append(macro.DelayedLookup(r))
         return res
 
 class DefElementAttrNode(_DefDataNode):
@@ -1836,9 +1118,6 @@ class DefElementAttrNode(_DefDataNode):
     nodeName    = 'attr'
     acceptAttrs = Attrs([Attr('n',descr='Name of the attribute.')])
     macroMode   = MacroMode.NoExpand
-#    contIter    = ' T '
-
-#    argre = re.compile(r'{{([0-9]+)}}')
     
     def getName(self):
         return self.getAttr('n')
@@ -1850,34 +1129,18 @@ class DefElementAttrNode(_DefDataNode):
                 print "Invalid item: %s" % repr(i)
                 raise MacroArgError('Elements are not allowed in attributes')
     
-    
-#    def linearize(self,res,args,filename,line):
-#        r = res
-#        for data in self:
-#            pos = 0
-#            for o in self.argre.finditer(data):
-#                if pos < o.start(0):
-#                    r.append(MacroEvent_NoExpandText(data[pos:o.start(0)],filename,line))
-#                pos = o.end(0)
-#
-#                argidx = int(o.group(1))
-#                self.__checkarg(args[argidx])
-#                r.extend(args[argidx])
-#            if pos < len(data):
-#                r.append(MacroEvent_NoExpandText(data[pos:],filename,line))
-#        return r
 
 
 class DefMacroRefNode(Node):
     comment     = """
-                  This can be used inside a macro definition to refer to a
-                  previously defined macro.
+                  This can be used inside a macro definition to refer to another
+                  defined macro. The macro referred need not be defined at the
+                  point where the current macro is defined, but it must be
+                  defined at the point where the current macro is expanded.
 
-                  Note that the macro referred must be defined: For example,
-                  suppose that a macro \\tt{\\\\one}, refers to another macro
-                  \\tt{\\\\two}. When \\tt{\\\\one} is expanded, it will expand
-                  \\tt{\\\\two} as it was defined at the point where
-                  \\tt{\\\\one} was defined.
+                  In other words: If the definition of a  macro \\\\A contains a
+                  reference to a macro \\\\B, then \\\\B will expand to whatever
+                  \\\\B is in the context where \\\\A is used.
                   """
     nodeName    = 'c'
     acceptAttrs = Attrs([ Attr('n',descr='Name of the macro (without preceding backslash) that is referred.')])
@@ -1891,17 +1154,28 @@ class DefMacroRefNode(Node):
                  cmddict,
                  nodeDict,
                  attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
-        self.__macro = cmddict[self.getAttr('n')]
+                 pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
+        self.__name = self.getAttr('n')
+        self.__subscr = None
+        self.__superscr = None
     
-    def linearize(self,res,args,kwds,filename,line,dolookup):    
-        largs = []
-        for i in self:
-            largs.append(i.linearize([],args,kwds,filename,line,dolookup))
-        self.__macro.linearize(res,largs,filename,line,dolookup)
-        #debug("DefMacroRefNode: ", repr(res))
+    def asDef(self,res):
+        subscr = None
+        superscr = None
+        if self.__subscr is not None:
+            subscr = self.__subscr.asDef()
+        if self.__superscr is not None:
+            superscr = self.__superscr.asDef()
+    
+        args = [ item.asDef(DelayedGroup(self.pos)) for item in self ]
+        #print "MACRO ref:%s" % self.__name
+        #print "  args = %s" % self,[i for i in self],len(args)
+        #print "  args[0] =",args[0] if args else None
+        res.append(macro.DelayedMacro(self.__name, self.pos, 
+                                      args=args,
+                                      subscr = subscr,
+                                      superscr = superscr))
         return res
         
 
@@ -1912,12 +1186,15 @@ class DefMacroArgNode(Node):
     contIter    = ' [ <d> <e> <c> <lookup> ]* '
     structuralElement = True
 
-    def linearize(self,res,args,kwds,filename,line,dolookup):
+    def asDef(self,res):       
         for i in self:
-            i.linearize(res,args,kwds,filename,line,dolookup)
+            i.asDef(res)
         return res
 
+
+
 class DefNode(Node):
+    nodeName    = 'def'
     comment     = """
                   Define a new macro.
 
@@ -1927,12 +1204,10 @@ class DefNode(Node):
                   In math mode subscript and superscript can be referred to
                   using "\\{\\{SUBSCRIPT\\}\\}" and "\\{\\{SUBSCRIPT\\}\\}".
                   """
-    nodeName    = 'def'
     acceptAttrs = Attrs([Attr('m',descr="Name of the macro."),
                          Attr('n',default='0', descr='Number of arguments required by the macro.'),
                          Attr('subscript-arg',   default='no', descr='(yes|no) The macro accepts subscript. Only relevant in math mode.'),
-                         Attr('superscript-arg', default='no', descr='(yes|no) The macro accepts superscript. Only relevant in math mode.'),
-                         Attr('cond')])
+                         Attr('superscript-arg', default='no', descr='(yes|no) The macro accepts superscript. Only relevant in math mode.') ])
     macroMode   = MacroMode.Invalid
     contIter    = ' <desc>? [ <d> <e> <c> <lookup>]* '
     structuralElement = True
@@ -1943,14 +1218,15 @@ class DefNode(Node):
                  cmddict,
                  nodeDict,
                  attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+                 pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         self.__cmddict = cmddict
         self.__name = attrs['m']
         self.__accept_subscr = attrs.has_key('subscript-arg')   and attrs['subscript-arg'].lower()   == 'yes'
         self.__accept_supscr = attrs.has_key('superscript-arg') and attrs['superscript-arg'].lower() == 'yes'
         self.__descr = None
+
+        self.macro = None 
     
     def acceptsSubscript(self):
         return self.__accept_subscr
@@ -1963,44 +1239,35 @@ class DefNode(Node):
     def macroName(self):
         return self.getAttr('m')
 
-    def linearize(self,res,args,kwds,filename,line,dolookup=True):
-        for i in self:
-            if not isinstance(i,DescriptionNode):
-                i.linearize(res,args,kwds,filename,line,dolookup)
-        return res
-
     def docExpandMacro(self):
-        events = self.linearize([],[ [MacroEvent_NoExpandText('{{%d}}' % i,'??',0) ] for i in range(self.nArgs()) ],{},'??',0,False)
-        r = []
-        for e in events:
-            if isinstance(e,MacroEvent_Text):
-                r.append(escape(e.data))
-            elif isinstance(e,MacroEvent_StartTag):
-                if e.attrs:
-                    attrstr = ' ' + ' '.join([ '%s="%s"' % item for item in e.attrs.items() ])
-                else:
-                    attrstr = ''
-                r.append('<%s%s>' % (e.name,attrstr))
-            elif isinstance(e,MacroEvent_EndTag):
-                r.append('</%s>' % e.name)
-            else:
-                print repr(e)
-                assert 0
-        return ''.join(r)
+        return ''.join(self.macro.asDoc([]))
  
     def nArgs(self):
         return int(self.getAttr('n'))
 
-    def end(self,filename,line):
+    def end(self,pos):
+        
         try:
             self.__cmddict[self.__name] = self
         except KeyError:
             m = self.__cmddict[self.__name]
-            raise MacroError('Macro "\\%s" at %s:%d  already defined at %s:%d' % (self.__name,filename,line,m.pos[0],m.pos[1]))
+            raise MacroError('Macro "\\%s" at %s  already defined at %s' % (self.__name,pos,m.pos))
+        
+        body = macro.DelayedGroup(self.pos)
+        self.__desc = None
         for d in self:
             if isinstance(d,DescriptionNode):
                 self.__descr = d
-
+            else:
+                d.asDef(body)
+        #print "Macro def \\%s" % self.__name
+        #print "  = %s" % repr(body)
+        
+        if self.__desc is not None:
+            desc = ''.join(self.__desc)
+        else:
+            desc = None
+        self.macro = macro.Macro(self.__name, desc, self.nArgs(), body)
     def __repr__(self):
         return 'macro(%s)' % self.__name
     def __str__(self):
@@ -2039,7 +1306,7 @@ blabla
     acceptAttrs = Attrs([Attr('m',descr='Name of the environment.'),
                          Attr('n',default='0',descr='Number of arguments required by the environment.')]) 
     macroMode   = MacroMode.Invalid
-    contIter    = ' <desc>? [ <d> <e> <c> <lookup> ]* '
+    contIter    = ' <desc>? <defines>? [ <d> <e> <c> <lookup> ]* '
     structuralElement = True
 
     def __init__(self,
@@ -2048,13 +1315,15 @@ blabla
                  cmddict,
                  nodeDict,
                  attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
-        self.__cmddict = cmddict
+                 pos):
+        self.__localdict = CommandDict() 
+        Node.__init__(self,manager,parent,self.__localdict,nodeDict,attrs,pos)
         self.__name = attrs['m']
+        self.__defs = None
+        self.__cmddict = cmddict
 
         self.__descr = None
+
 
     def getDescr(self):
         return self.__descr and ''.join(self.__descr)
@@ -2062,47 +1331,31 @@ blabla
     def macroName(self):
         return self.getAttr('m')
 
-    def linearize(self,res,args,kwds,filename,line,dolookup=True):
-        for i in self:
-            if not isinstance(i,DescriptionNode):
-                i.linearize(res,args,kwds,filename,line,dolookup)
-        return res
 
     def docExpandMacro(self):
-        args = [ [MacroEvent_NoExpandText(u'{{%d}}' % i,'??',0) ] for i in range(self.nArgs()) ]
-        kwds = { 'BODY' : [MacroEvent_NoExpandText(u'{{BODY}}','??',0)] }
-        events = self.linearize([],args,kwds,'??',0,False)
-        r = []
-        for e in events:
-            if isinstance(e,MacroEvent_Text):
-                r.append(escape(e.data))
-            elif isinstance(e,MacroEvent_StartTag):
-                if e.attrs:
-                    attrstr = ' ' + ' '.join([ '%s="%s"' % item for item in e.attrs.items() ])
-                else:
-                    attrstr = ''
-                r.append('<%s%s>' % (e.name,attrstr))
-            elif isinstance(e,MacroEvent_EndTag):
-                r.append('</%s>' % e.name)
-            elif isinstance(e,unicode):
-                r.append(escape(e))
-            else:
-                print e
-                assert 0
-        return ''.join(r)
+        return ''.join(self.env.asDoc([]))
 
     def nArgs(self):
         return int(self.getAttr('n'))
 
-    def end(self,filename,line):
+    def end(self,pos):
         try:
             self.__cmddict[self.__name] = self
         except KeyError:
             m = self.__cmddict[self.__name]
-            raise MacroError('Macro "\\%s" at %s:%d  already defined at %s:%d' % (self.__name,filename,line,m.pos[0],m.pos[1]))
+            raise MacroError('%s: Macro "\\%s"  already defined at %s' % (pos,self.__name,m.pos))
+        
+        body = macro.DelayedGroup(self.pos)
         for d in self:
-            if isinstance(d,DescriptionNode):
+            dcls = d.__class__
+            if   dcls is DescriptionNode:
                 self.__descr = d
+            elif dcls is DefinesNode:
+                self.__defs = d
+            else:
+                d.asDef(body)
+        desc = self.__descr
+        self.env = macro.Environment(self.__name,desc,self.__localdict,self.nArgs(), None, body)
 
     def __repr__(self):
         return 'macro(%s)' % self.__name
@@ -2127,22 +1380,27 @@ class DefinesNode(Node):
                  cmddict,
                  nodeDict,
                  attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+                 pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
+        #print "Defines node @ %s" % pos
         self.__cmddict = cmddict
-    def end(self,file,line):
+    def append(self,item):
+        return Node.append(self,item)
+    def end(self,pos):
+        #print "Defines end @ %s. dict = %s" % (pos,self.__cmddict)
         pass
 
 
-def SectionNode(manager,parent,cmddict,nodedict,attrs,filename,line):
+def SectionNode(manager,parent,cmddict,nodedict,attrs,pos):
     if attrs.has_key('url'):
+        #msg("Include section '%s'" % attrs['url'])
+        filename = pos.filename
         url = urlparse.urlparse(attrs['url'])
         fullpath = manager.findFile(attrs['url'],filename)
-        
+
         P = xml.sax.make_parser()
-        N = ExternalSectionRoot(manager,parent, cmddict,nodedict,attrs,filename,line)
-        h = handler(fullpath,N) 
+        N = ExternalSectionRoot(manager,parent, cmddict,nodedict,attrs,pos)
+        h = AlternativeSAXHandler(fullpath,N,manager) 
         P.setContentHandler(h)
         P.setEntityResolver(manager.getEntityResolver())
       
@@ -2152,11 +1410,11 @@ def SectionNode(manager,parent,cmddict,nodedict,attrs,filename,line):
         else: # except Exception,e:
             import traceback
             traceback.print_exc()
-            raise NodeError('Failed to parse file "%s" included at %s:%d' % (path,filename,line))
+            raise NodeError('%s: Failed to parse file "%s"' % (pos,path))
 
         return N.documentElement
     else:
-        return _SectionNode(manager,parent,cmddict,nodedict,attrs,filename,line) 
+        return _SectionNode(manager,parent,cmddict,nodedict,attrs,pos) 
 
 class _SectionBaseElement(Node):
   # Base class for all elements that may produce a section
@@ -2179,21 +1437,19 @@ class BibliographyNode(_SectionBaseElement):
     nodeName    = 'bibliography'
     macroMode   = MacroMode.Invalid
     acceptAttrs = Attrs([Attr('id'), 
-                         Attr('url',descr='Adderess of the external bibliography database to use.'),
-                         #Attr('xmlns:bib',default="http://bibtexml.sf.net/",descr="For convenience, define namespace of BibTeXML."),
-                         Attr('cond')])
+                         Attr('url',descr='Adderess of the external bibliography database to use.')])
     #contIter    = ' <head>  <bibitem> * '
     contIter    = ' <bibitem> * '
 
-    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
-        _SectionBaseElement.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,filename,line)
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        _SectionBaseElement.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,pos)
         self.__bibdb = None
-        self.__cmddict = cmddict
+        self.__cmddict  = cmddict
         self.__nodedict = nodeDict
-        self.__manager = manager
+        self.__manager  = manager
 
         if self.hasAttr('url'):
-            biburl = manager.findFile(self.getAttr('url'),filename)
+            biburl = manager.findFile(self.getAttr('url'),pos.filename)
             self.__bibdb = BibDB(biburl)
         else:
             self.__bibdb = None
@@ -2202,8 +1458,8 @@ class BibliographyNode(_SectionBaseElement):
         self.__pp = False # postprocessed
         self.__endpos = None
     
-    def end(self,filename,line):
-        self.__endpos = filename,line
+    def end(self,pos):
+        self.__endpos = pos
 
     def createTextNode(self,*args):
         assert 0
@@ -2220,7 +1476,6 @@ class BibliographyNode(_SectionBaseElement):
                     #print "-- Lookup cite key '%s'" % k
                     if k not in bibkeys:
                         #print "-- Cite key %s must be externally resolved" % k
-
                         if not citedb.has_key(k):
                             cites.append(k)
                         citedb[k].append(n)
@@ -2230,7 +1485,7 @@ class BibliographyNode(_SectionBaseElement):
 
                 for k in cites:
                     if not self.__bibdb.has_key(k):
-                        Warning('No bib item found for "%s". Referenced at: \n\t%s' % (k, '\n\t'.join([ '%s:%d' % n.pos for n in citedb[k]])))
+                        Warning('No bib item found for "%s". Referenced at: \n\t%s' % (k, '\n\t'.join([ '%s' % n.pos for n in citedb[k]])))
                     else:
                         item = self.__bibdb[k]
                         
@@ -2239,9 +1494,9 @@ class BibliographyNode(_SectionBaseElement):
                                            self,
                                            self.__cmddict,
                                            self.__nodedict,
-                                           { 'key' : k },
-                                           self.__endpos[0],
-                                           self.__endpos[1])
+                                           { 'key' : k,
+                                             'id'  : k },
+                                           self.__endpos)
 
                         node.formatBibEntry(item)
                         self.__genitems.append(node)
@@ -2265,40 +1520,29 @@ class BibliographyNode(_SectionBaseElement):
         for i in self:
             if i.nodeName == 'bibitem':
                 n = i.toXML(doc)
+                assert not isinstance(n,list)
                 if n is not None:
                     node.appendChild(n)
                 num += 1
                     
         for i in self.__genitems:
             n = i.toXML(doc)
+            assert not isinstance(n,list)
             if n is not None:
                 node.appendChild(n)
 
+        assert not isinstance(node,list)
         return node
 
 class BibItemNode(Node):
     nodeName = 'bibitem'
     contIter = ' [ T %s <href> <m> ] * ' % _simpleTextNodes
-    acceptAttrs = Attrs([Attr('key',descr="The cite key.") ])
+    acceptAttrs = Attrs([Attr('key',descr="The cite key."),
+                         Attr('id'), # temporary hack
+                          ])
     macroMode = MacroMode.Text
     paragraphElement = False 
 
-    # These need a serious hand, possibly more features.
-    #bibtemplate = { 'article'       : '${author}. ${title}. ${journal}$[month]{ ${month}}$[(number|volume)]{ ${number|volume}$[pages]{:${pages}}{}}{$[pages]{p. ${pages}}{}}.$[note]{ ${note}}',
-    #                'book'          : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
-    #                'booklet'       : '$[author]{${author}. }${title}. $[howpublished]{${howpublished}$[year]{, ${year}.}}{$[year]{$year}.$[note]{ ${note}}}',
-    #                'conference'    : '${author}. ${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
-    #                'inbook'        : '$[author]{${author}}{${editor}, editor}. ${title}$[series&(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
-    #                'incollection'  : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[chapter|pages]{ $[chapter]{chapter ${chapter}}{p. ${pages}}}, ${year}. ${publisher}$[address]{, ${address}}.',
-    #                'inproceedings' : '${author}. ${title}, ${booktitle}$[series]{, ${series}}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}. ${publisher}$[address]{, ${address}}.',
-    #                'manual'        : '$[author]{${author}. }${title}$[edition]{, ${edition} edition}$[year]{, ${year}}.$[organization]{ ${organization}$[address]{, ${address}}.}$[note]{ ${note}',
-    #                'mastersthesis' : '${author}. $[type]{${type}}{Masters thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
-    #                'misc'          : '$[author]{${author}. }$[title]{${title}. }$[howpublished]{${howpublished}. }$[note]{${note}.}',
-    #                'phdthesis'     : '${author}. $[type]{${type}}{PhD thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
-    #                'proceedings'   : '$[author]{${author}. }{$[editor]{${editor}, editor. }}${title}, ${booktitle}, $[volume]{vol. ${volume}}{no. ${number}}$[organization]{, ${organization}}, ${year}.$[publisher]{ ${publisher}$[address]{, ${address}}.}',
-    #                'techreport'    : '${author}. $[type]{${type}: }${title}$[number]{ no. ${number}}, ${year}. ${institution}$[address]{, ${address}}.$[note]{ ${note}}',
-    #                'unpublished'   : '${author}. ${title}$[year]{, ${year}}. ${note}.',
-    #                }  
     bibtemplate = { 'article'       : '${author}. ${title}. ${journal}$[month]{ ${month}}$[(number|volume)]{ ${number|volume}$[pages]{:${pages}}{}}{$[pages]{p. ${pages}}{}}.$[note]{ ${note}}',
                     'book'          : '$[author]{${author}}{${editor}, editor}. ${title}$[series+(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
                     'booklet'       : '$[author]{${author}. }${title}. $[howpublished]{${howpublished}$[year]{, ${year}.}}{$[year]{$year}.$[note]{ ${note}}}',
@@ -2318,43 +1562,46 @@ class BibItemNode(Node):
     fmtre = re.compile(r'\$\{(?P<ref>[a-z\|]+)\}|\$\[(?P<cond>[a-z\|\(\)\+! \n\t\r]+)\]|(?P<endbrace>\})|(?P<beginbrace>\{)|(?P<space>\s+)')
     bracere = re.compile(r'(?P<endbrace>})|(?P<beginbrace>{)')
     condre = re.compile(r'([()&|])|([^()&|]+)')
-    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
-        Node.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,filename,line)
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        Node.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,pos)
         self.__manager = manager
 
-    def handleText(self,text,filename,line):
-        #print '-- handleText: "%s"' % text
-        Node.handleText(self,unicode(text),filename,line)
+    def handleText(self,text,pos):
+        Node.handleText(self,unicode(text),pos)
     def __handleText(self,text):
-        self.handleText(text,self.pos[0],self.pos[1])
+        #print "GOT : %s" % text
+        self.handleText(text,self.pos)
     def formatBibEntry(self,node):
         #
         #!!TODO!! Bib entry formatting should be handled in a more flexible way.
         #
         d = node
         keyd = dict([ (k,node.has_key(k)) for k in node.bibitems.keys() ])
-        filename,line = self.pos
-        
+        pos = self.pos
+
         def formatentry(k):
-            
             items = d[k]
             if isinstance(items,str) or isinstance(items,unicode):
-                n = self.newChild('span',{ 'class' : 'bib-item-%s' % k},filename,line)
-                n.handleText(items,filename,line)
-                n.endOfElement(filename,line)
+                n = self.startChildElement('span',{ 'class' : 'bib-item-%s' % k},pos)
+                n.handleText(items,pos)                
+                n.end(pos)
+                self.endChildElement('span',pos)
             else:
                 
                 assert len(items) > 0
                     
-                n = self.newChild('span',{ 'class' : 'bib-item-%s' % k},filename,line)
-                n.handleText(items[0],filename,line)
-                n.endOfElement(filename,line)
+                n = self.startChildElement('span',{ 'class' : 'bib-item-%s' % k},pos)
+                n.handleText(items[0],pos)
+                n.end(pos)
+                self.endChildElement('span',pos)
                 if   len(items) > 1:
                     for sep,i in zip([ ', '] * (len(items)-2) + [' and '],items[1:]):
-                        self.handleText(sep,filename,line)
-                        n = self.newChild('span',{ 'class' : 'bib-item-%s' % k},filename,line)
-                        n.handleText(i,filename,line)
-                        n.endOfElement(filename,line)
+                        self.handleText(sep,pos)
+                        n = self.startChildElement('span',{ 'class' : 'bib-item-%s' % k},pos)
+                        n.handleText(i,pos)
+                        n.end(pos)
+                        self.endChildElement('span',pos)
+
 
         def formatref(ref):
             refs = [ r for r in ref.split('|') if d.has_key(r) ]
@@ -2387,10 +1634,13 @@ class BibItemNode(Node):
 
             p += 1
             lvl = 1
+            #print "PROG = ...%s" % s[p:]
             while lvl > 0:
                 o = self.fmtre.search(s,p)  
 
                 if o is not None:
+                    #print "TEXT='%s'" % s[p:o.start(0)]
+                    #print "G = '%s'" % o.group(0)
                     if p < o.start(0):
                         self.__handleText(s[p:o.start(0)])
                     if o.group('ref'):
@@ -2433,6 +1683,7 @@ class BibItemNode(Node):
             \param s is the format string
             \param p is the current position in the string
             """
+            #print "parsefmtstr: ...%s" % s[p:]
             while p < len(s):
                 #print "-- parsefmtstr: |%s" % s[p:]
                 o = self.fmtre.search(s,p)
@@ -2471,6 +1722,7 @@ class BibItemNode(Node):
 
         if node.name in self.bibtemplate.keys():
             try:
+                #print "FORMAT BibItem %s" % node.name
                 parsefmtstr(self.bibtemplate[node.name], 0)
             except BibItemError,e:
                 print e
@@ -2496,7 +1748,7 @@ class _SectionNode(_SectionBaseElement):
     acceptAttrs = Attrs([Attr('id'),
                          Attr('class'),
                          Attr('url',descr='Read the section content from an external source. If this is given, the section element must be empty.'),
-                         Attr('cond')])
+                         ])
     contIter    = ' <head> [ T %s %s %s %s ]* <section>* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
     
     def __init__(self,
@@ -2505,10 +1757,9 @@ class _SectionNode(_SectionBaseElement):
                  cmddict,
                  nodeDict,
                  attrs,
-                 filename,
-                 line):
+                 pos):
         assert isinstance(nodeDict, dict)
-        _SectionBaseElement.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,filename,line)
+        _SectionBaseElement.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,pos)
 
         self.__head = None
         if parent is not None:
@@ -2520,7 +1771,7 @@ class _SectionNode(_SectionBaseElement):
             raise NodeError('Section nested too deep:\n\t' + '\n\t'.join(self.makeSectionTrace([])))
    
     def makeSectionTrace(self,res):
-        res.append('Section at %s:%d' % self.pos)
+        res.append('Section at %s' % self.pos)
         if self.__parent is not None:
             self.__parent.makeSectionTrace(res)
         return res
@@ -2528,10 +1779,11 @@ class _SectionNode(_SectionBaseElement):
 
     def getDepth(self):
         return self.__depth
-    def end(self,filename,line):
+    def end(self,pos):
         for n in self:
             if isinstance(n,Node) and n.nodeName == 'head':
                 self.__head = n
+        _SectionBaseElement.end(self,pos)
     
     def getHeadNode(self):
         return self.__head
@@ -2543,19 +1795,23 @@ class _SectionNode(_SectionBaseElement):
                 node.setAttribute('class', self.getAttr('class'))
             if self.hasAttr('id'):
                 node.setAttribute('id', self.getAttr('id'))
+        
+        nodes = PushIterator(self) 
+        while nodes and not isinstance(nodes.peek(),HeadNode):
+            nodes.next()
 
-        nodes = [ n for n in self  ]
-        while not isinstance(nodes[0],HeadNode):
-            nodes.pop(0)
-        node.appendChild(nodes.pop(0).toXML(doc))
+        if nodes: 
+            n = nodes.next().toXML(doc)
+            assert not isinstance(n,list)
+            node.appendChild(n)
         node.appendChild(doc.createTextNode('\n'))
 
         body = doc.createElement('body')
         node.appendChild(body)
        
         lst = [] 
-        while nodes and not isinstance(nodes[0],_SectionNode):
-            item = nodes.pop(0)
+        while nodes and not isinstance(nodes.peek(),_SectionNode):
+            item = nodes.next()
             if isinstance(item,unicode):
                 if not lst or isinstance(lst[-1],Node):
                     lst.append([item])
@@ -2573,13 +1829,14 @@ class _SectionNode(_SectionBaseElement):
                 node.appendChild(doc.createTextNode('\n'))
             else:
                 assert not item.strip()
+        assert not isinstance(node,list)
         return node
 
 class HeadNode(Node):
     comment = 'Contains the header definitions for a \\tagref{section} in the document.'
     nodeName = 'head'
     
-    contIter = ' [ <title> <authors> <date> <defines> <abstract> ]/ '
+    contIter = ' [ <title> <authors> <date> <defines> <abstract> ]* '
     structuralElement = True
         
     def __init__(self,
@@ -2588,9 +1845,8 @@ class HeadNode(Node):
                  cmddict,
                  nodeDict,
                  attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+                 pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         
         self.__date     = None
         self.__title    = None
@@ -2603,7 +1859,7 @@ class HeadNode(Node):
     def getDefinesNode(self):
         return self.__defines
 
-    def end(self,filename,line):
+    def end(self,pos):
         for n in self:
             if   n.nodeName == 'defines':
                 self.__defines = n
@@ -2617,7 +1873,6 @@ class HeadNode(Node):
                 self.__abstract = n
             else:
                 assert 0
-        
 
 class DateNode(Node):
     comment = 'Defines a date for a section or document'
@@ -2715,7 +1970,6 @@ class SpanNode(_SimpleTextElement):
     nodeName  = 'span'
     acceptAttrs = Attrs([ Attr('id'), 
                           Attr('class'),
-                          Attr('cond'), 
                           Attr('macroexpand',default='yes') ])
     contIter    = ' [ T %s %s ]* ' % (_simpleTextNodes,_linkNodes)
 
@@ -2724,7 +1978,6 @@ class DivNode(Node):
     nodeName  = 'div'
     acceptAttrs = Attrs([ Attr('id'),
                           Attr('class'), 
-                          Attr('cond'), 
                           Attr('macroexpand',default='yes') ])
     contIter    = ' [ T %s %s %s %s ]* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
     macroMode   = MacroMode.Text
@@ -2737,7 +1990,7 @@ class NoteNode(Node):
                 feature meant for internal use only.
               '''
     nodeName  = 'note'
-    acceptAttrs = Attrs([ Attr('cond',default="true") ])
+    acceptAttrs = Attrs([])
     contIter    = ' [ T %s %s %s %s ]* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
     macroMode   = MacroMode.Text
     paragraphElement = True
@@ -2756,7 +2009,7 @@ class SDocMLConditionalNode(Node):
                 the content is ignored and thrown away.
               '''
     nodeName  = 'sdocml:conditional'
-    acceptAttrs = Attrs([ Attr('cond') ])
+    acceptAttrs = Attrs([ ])
     contIter = ''
 
 class _AlignParagraphNode(Node):
@@ -2813,17 +2066,17 @@ class _ListElementNode(Node):
 class ListItemNode(_ListElementNode):
     comment     = 'Unordered list item.'
     nodeName = 'li'
-    acceptAttrs = Attrs([ Attr('id'), Attr('class'), Attr('cond') ])
+    acceptAttrs = Attrs([ Attr('id'), Attr('class'), ])
 
 class DefinitionTitleNode(_ListElementNode):
     comment     = 'Definition list label node.'
     nodeName = 'dt'
-    acceptAttrs = Attrs([ Attr('id'), Attr('class'), Attr('cond') ])
+    acceptAttrs = Attrs([ Attr('id'), Attr('class'), ])
 
 class DefinitionDataNode(_ListElementNode):
     comment     = 'Definition list data node.'
     nodeName = 'dd'
-    acceptAttrs = Attrs([ Attr('id'), Attr('class'), Attr('cond') ])
+    acceptAttrs = Attrs([ Attr('id'), Attr('class'), ])
 
 class FloatCaptionNode(Node):
     comment     = 'Caption for a floating element.'
@@ -2882,15 +2135,26 @@ class TableNode(Node):
                     Attr('cellhalign',descr='Horizontal alignment of cells. This is a space-separated list of (left|right|center) defining the alignment of cells in the individual columns.'), ])
     structuralElement = True
 
-    def __init__(self, manager, parent, cmddict, nodedict, attrs, filename, line):
-        Node.__init__(self,manager,parent,cmddict,nodedict,attrs,filename,line)
+    def __init__(self, manager, parent, cmddict, nodedict, attrs, pos):
+        Node.__init__(self,manager,parent,cmddict,nodedict,attrs,pos)
 
         self.__halign = None
         self.__valign = None
 
-    def end(self,filename,line):
+        self.__tablesyntaxdisabled = False
+        self.__cstack = None
+
+    def end(self,pos):
         halign = None
         valign = None
+
+        if self.__cstack is not None:
+            self.__cstack.pop().end(pos)
+            self.__cstack.pop().end(pos)
+            self.__cstack = None
+
+        Node.end(self,pos)
+        self.seal()
 
         ncells = max([ len(r) for r in self ])
 
@@ -2898,17 +2162,17 @@ class TableNode(Node):
             halign = re.split(r'\s+', self.getAttr('cellhalign'))
             for i in halign:
                 if i not in [ 'left','right','center' ]:
-                    raise NodeError('Invalid cellhalign attribute value in %s:%d' % self.pos)
+                    raise NodeError('Invalid cellhalign attribute value in %s' % self.pos)
 
         if  self.hasAttr('cellvalign'):
             valign = re.split(r'\s+', self.getAttr('cellvalign'))
             for i in valign:
                 if i not in [ 'top','bottom','middle' ]:
-                    raise NodeError('Invalid cellvalign attribute value in %s:%d' % self.pos)
+                    raise NodeError('Invalid cellvalign attribute value in %s' % self.pos)
 
         if halign is not None and valign is not None:
             if   len(halign) != len(valign):
-                raise NodeError('Vertical and horizontal alignment definitions do not match at %s:%d' % pos)
+                raise NodeError('Vertical and horizontal alignment definitions do not match at %s' % pos)
         elif halign is not None:
             valign = [ 'top' ] * len(halign)
         elif valign is not None:
@@ -2921,7 +2185,7 @@ class TableNode(Node):
         for r in self:
             if lenr > len(halign) or lenr > len(valign):
                 print "row: ",lenr,len(halign),len(valign)
-                raise NodeError('Alignment definitions do not match row width at %s:%d' % self.pos)
+                raise NodeError('Alignment definitions do not match row width at %s' % self.pos)
 
         self.__halign = halign
         self.__valign = valign
@@ -2939,13 +2203,65 @@ class TableNode(Node):
         for r in self:
             if isinstance(r,basestring):
                 if r.strip():
-                    raise NodeError('Non-whitespace text not allowed in table at %s:%d' % self.pos)
+                    raise NodeError('Non-whitespace text not allowed in table at %s' % self.pos)
             else:
                 n = r.toXML(doc,rowlen)            
                 if n is not None:
                     node.appendChild(n)
         
+        assert not isinstance(node,list)
         return node
+    def newTableRow(self,pos):
+        #print "newTableRow "
+        if self.__cstack is not None:
+            # close prev row and cell
+            assert len(self.__cstack) == 2
+            top = self.__cstack.pop()
+            top.end(pos)
+            top = self.__cstack.pop()
+            top.end(pos)
+            
+        if self.__cstack is None:
+            self.__cstack = [ ]
+
+        trnode = self.startElement(self.tablerowelement,{},pos)
+        Node.append(self,trnode)
+        self.__cstack.append(trnode)
+        tcnode = trnode.startElement(self.tablecellelement,{},pos)
+        self.__cstack[-1].append(tcnode)
+        self.__cstack.append(tcnode)
+        assert len(self.__cstack) == 2
+
+    def newTableCell(self,pos): 
+        #print "newTableCell "
+        if self.__cstack is None:
+            raise MacroError('%s: Table may not start with \\! (new cell)' % self.pos)
+
+        # close prev cell
+        assert len(self.__cstack) == 2
+        top = self.__cstack.pop()
+        top.end(pos)
+            
+        trnode = self.__cstack[-1] 
+        tcnode = trnode.startElement(self.tablecellelement,{},pos)
+        self.__cstack[-1].append(tcnode)
+        self.__cstack.append(tcnode)
+        assert len(self.__cstack) == 2
+
+    def append(self,item):
+        if  self.__cstack is not None:
+            assert len(self.__cstack) == 2
+            self.__cstack[-1].append(item)
+        else:
+            # hardcode: Only elements and space is allowed in table 
+            if isinstance(item,basestring) and len(item.strip()) == 0:
+                pass
+            elif isinstance(item,Node):
+                Node.append(self,item)
+            else:
+                raise NodeError('Text not allowed in <%s>' % self.nodeName)
+
+
 
 class TableColumnNode(Node):
     comment = 'Table column entries can be used to label a column of cells or define the format of a table.'
@@ -2963,7 +2279,7 @@ class TableRowNode(Node):
               '''
     nodeName = 'tr'
     contIter = ' <td>* '
-    acceptAttrs = Attrs([ Attr('id'), Attr('class'), Attr('cond') ])
+    acceptAttrs = Attrs([ Attr('id'), Attr('class'), ])
     structuralElement = True
 
     def __len__(self):
@@ -2980,6 +2296,7 @@ class TableRowNode(Node):
                 node.appendChild(cell.toXML(doc))
             else:
                 node.appendChild(doc.createElement('td'))
+        assert not isinstance(node,list)
         return node
 
 class TableCellNode(Node):
@@ -2987,7 +2304,7 @@ class TableCellNode(Node):
     nodeName = 'td'
     macroMode = MacroMode.Text
     contIter  = ' [ T %s %s %s %s ]* ' % (_simpleTextNodes, _structTextNodes, _linkNodes, _mathEnvNodes)
-    acceptAttrs = Attrs([ Attr('id'), Attr('class'), Attr('cond') ])
+    acceptAttrs = Attrs([ Attr('id'), Attr('class'), ])
     paragraphElement = True
 
 class DocumentNode(_SectionNode):
@@ -2995,8 +2312,8 @@ class DocumentNode(_SectionNode):
 #NOTE: we should support appendixes too at some point...
     contIter    = ' <head> [ T %s %s %s %s ]* <section>* <bibliography>?' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
 
-    def __init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line):
-        _SectionNode.__init__(self,manager,None,cmddict,globalNodeDict,attrs,filename,line)
+    def __init__(self,manager,parent,cmddict,nodeDict,attrs,pos):
+        _SectionNode.__init__(self,manager,None,cmddict,globalNodeDict,attrs,pos)
 
 
 class FontNode(_SimpleTextElement):
@@ -3082,22 +2399,25 @@ class PreformattedNode(Node):
                          "SDoc can hilight a few types, currently 'source/LANG', where LANG is one of: python, c, java, csharp or matlab."),
                     Attr('encoding',default='ascii'), # (ascii|utf-8)
                     Attr('macroexpand',default='no',descr="Tells if macros should be processed in the content of the element. For external sources this is ignored."), # (yes|no)
-                    Attr('cond')])
+                    Attr('flushleft',default='yes',
+                         descr="Flush text left as much as possible while preserving the relative indention. White-space is only remove from the top-level pre-element, not from any child nodes."),
+                    ])
     macroMode = MacroMode.NoExpand
     contIter  = ' [ T %s <a> ]* ' % (_simpleTextNodes )
     structuralElement = True
     paragraphElement = True
 
-    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
 
         self.__realurl = None
+        
+        filename = pos.filename
 
         if self.hasAttr('url'):
             url = self.getAttr('url')
-            fullname = manager.findFile(url,filename)
-            
-            self.__realurl = os.path.abspath(fullname)
+            dbg("In <pre> : url='%s', pos=%s",url,pos)
+            self.__realurl = os.path.abspath(manager.findFile(url,filename))
             lines = manager.readFrom(self.__realurl,self.getAttr('encoding')).split('\n')
             firstline = 0
             if self.hasAttr('firstline'):
@@ -3107,23 +2427,20 @@ class PreformattedNode(Node):
                 lastline = min(int(self.getAttr('lastline'))-1,lastline)
 
             if firstline >= lastline:
-                firstline = lastline
-                manager.Warning('Empty inclusion from "%s" in <pre> at %s:%d' % (url,self.pos[0],self.pos[1]))
-
+                raise NodeError('Empty inclusion from "%s" in <pre> at %s' % (url,self.pos))
             
             while firstline < lastline and not lines[firstline].strip():
                 firstline += 1
             while firstline < lastline and not lines[lastline-1].strip():
                 lastline -= 1
             if firstline == lastline:
-                manager.Warning( 'Only blank lines in inclusion in <pre> at %s:%d' % self.pos)
-            else:
-                inclines = lines[firstline:lastline]
+                raise NodeError('Only blank lines in inclusion in <pre> at %s' % self.pos)
+            inclines = lines[firstline:lastline]
 
-                for l in inclines[:-1]:
-                    self.handleRawText(l,filename,line)
-                    self.handleRawText(u'\n',filename,line)
-                self.handleRawText(inclines[-1],filename,line)
+            for l in inclines[:-1]:
+                self.handleRawText(l,pos)
+                self.handleRawText(u'\n',pos)
+            self.handleRawText(inclines[-1],pos)
 
             self.__firstline = firstline
             self.seal()
@@ -3157,22 +2474,52 @@ class PreformattedNode(Node):
             
         codelight = syntax.CodeHilighter(self.getAttr('type'))
         # special case: If first line is blank in a <pre>, we throw it away.
-                        
-        for item in items:
-            if isinstance(item,unicode):
-                for itm in codelight.process(item):
-                    if isinstance(itm,basestring):
-                        n = doc.createTextNode(itm)
-                    else:
-                        t,val = itm
-                        n = doc.createElement('span')
-                        n.setAttribute('class','language-syntax-%s' % t)
-                        n.appendChild(doc.createTextNode(val))
-                    node.appendChild(n)
+
+
+        minindent = sys.maxint
+
+        xlines = [ [] ]
+        for i in items:
+            if isinstance(i,basestring):
+                it = lineiter(i)
+                if xlines[-1] and isinstance(xlines[-1][-1],basestring):
+                    xlines[-1][-1] += it.next()
+                else:
+                    xlines[-1].append(it.next())
+                for i in it:
+                    xlines.append([ i ])
             else:
-                n = item.toXML(doc)
-                if n is not None:
-                    node.appendChild(n)
+                xlines[-1].append(i)
+
+        if self.getAttr('flushleft') != 'no':
+            for l in xlines:
+                if isinstance(l[0],basestring):
+                    if len(l) > 1 or len(l[0].strip()) > 0: # disregard all-blank lines
+                        minindent = min(minindent, len(l[0])-len(l[0].lstrip()))
+                else:
+                    minindent = 0
+        else:
+            minindent = 0
+                        
+        for line in xlines:
+            if minindent > 0:
+                line[0] = line[0][minindent:]
+                
+            for item in line:
+                if isinstance(item,basestring):
+                    for itm in codelight.process(item):
+                        if isinstance(itm,basestring):
+                            n = doc.createTextNode(itm)
+                        else:
+                            t,val = itm
+                            n = doc.createElement('span')
+                            n.setAttribute('class','language-syntax-%s' % t)
+                            n.appendChild(doc.createTextNode(val))
+                        node.appendChild(n)
+                else:
+                    n = item.toXML(doc)
+                    if n is not None:
+                        node.appendChild(n)
 
         for k in [ 'id', 'class', 'xml:space','type' ]:
             if self.hasAttr(k):
@@ -3183,11 +2530,10 @@ class PreformattedNode(Node):
             node.setAttribute('firstline',str(self.__firstline+1))
             
         if self.traceInfo:
-            assert self.pos[0] is not None
-            assert self.pos[1] is not None
             node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
-            node.setAttribute('trace:file',self.pos[0])
-            node.setAttribute('trace:line',str(self.pos[1]))
+            node.setAttribute('trace:file',self.pos.filename)
+            node.setAttribute('trace:line',str(self.pos.line))
+        assert not isinstance(node,list)
         return node
 
 ######################################################################
@@ -3273,6 +2619,8 @@ class AnchorNode(Node):
     contIter    = ' [ T %s <m> ]* ' % (_simpleTextNodes)
     paragraphElement = False
 
+
+
 class ImageNode(Node):
     comment     = '''
                     The image Node defines an image object to be inserted. It
@@ -3297,15 +2645,15 @@ class ImageItemNode(Node):
     comment     = 'Defines an instance of an image object to be inserted. '
     nodeName    = 'imgitem'
     macroMode   = MacroMode.Invalid
-    acceptAttrs = Attrs([ Attr('cond'),
-                          Attr('type'),
+    acceptAttrs = Attrs([ Attr('type'),
                           Attr('url',descr='Source of the image file.')])
     contIter    = ''
 
-    def __init__(self, manager, parent, cmddict, nodeDict, attrs, filename, line):
-        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         
         url = self.getAttr('url')
+        filename = pos.filename
         self.__realurl = os.path.abspath(manager.findFile(url,filename))
 
     def toXML(self,doc,node=None):
@@ -3318,7 +2666,8 @@ class ImageItemNode(Node):
             
             node.setAttribute('url',self.__realurl)
 
-            return node
+        assert not isinstance(node,list)
+        return node
         
 
 ######################################################################
@@ -3327,7 +2676,7 @@ class ImageItemNode(Node):
 
 class _ExceptionNode(Node):
     macroMode   = MacroMode.NoExpand
-    acceptAttrs = Attrs([ Attr('cond') ])
+    acceptAttrs = Attrs([  ])
     contIter    = ' T  '
     structuralElement = True
 
@@ -3338,17 +2687,18 @@ class _ExceptionNode(Node):
                  cmddict, # dictionary of available macros
                  nodedict, # dictionary of all known element names
                  attrs, # None or a dictionary of attributes
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,cmddict,nodedict,attrs,filename,line)
+                 pos
+                 ):
+        Node.__init__(self,manager,parent,cmddict,nodedict,attrs,pos)
     
     def onCreate(self):
         pass
 
     def toXML(self,doc,node=None):
+        return node
         pass
 
-    def end(self,filename,line):
+    def end(self,pos):
         self.onCreate()
         
 
@@ -3364,7 +2714,7 @@ class ErrorNode(_ExceptionNode):
 
     def onCreate(self):
         msg = ''.join(self)
-        raise CondError("ERROR @ %s(%d): %s" % (self.pos[0],self.pos[1],msg))
+        raise CondError("ERROR @ %s: %s" % (self.pos,msg))
 
 class WarningNode(_ExceptionNode):
     comment = """
@@ -3379,7 +2729,7 @@ class WarningNode(_ExceptionNode):
     
     def onCreate(self):
         msg = ''.join(self)
-        print "WARNING @ %s(%d): %s" % (self.pos[0],self.pos[1],msg)
+        print "WARNING @ %s: %s" % (self.pos,msg)
 
 ######################################################################
 #  Math Node classes
@@ -3388,7 +2738,6 @@ class WarningNode(_ExceptionNode):
 
 class InlineMathNode(_MathNode):
     nodeName         = 'm'
-    traceInfo        = True
     paragraphElement = False
 
     comment          = '''
@@ -3398,7 +2747,6 @@ class InlineMathNode(_MathNode):
 
 class MathEnvNode(_MathNode):
     nodeName    = 'math'
-    traceInfo   = True
     acceptAttrs = Attrs([ Attr('class'), 
                     Attr('id'),
                     Attr('numbered') ])
@@ -3411,7 +2759,6 @@ class MathEnvNode(_MathNode):
 
 class MathEqnNode(_MathNode):
     nodeName = 'eqn'
-    traceInfo   = True
     acceptAttrs = Attrs([ Attr('class'), 
                           Attr('id') ])
 
@@ -3428,9 +2775,9 @@ class MathFontNode(_MathNode):
     macroMode = MacroMode.Inherit
     acceptAttrs = Attrs([ Attr('class'), Attr('family'), Attr('style') ])
 
-    def end(self,filename,line):
+    def end(self,pos):
         if self.hasAttr('family') and not self.getAttr('family') in mathFonts:
-            raise NodeError('Invalid math font "%s" at %s:%d' % (self.getAttr('family'),self.pos[0],self.pos[1]))
+            raise NodeError('Invalid math font "%s" at %s' % (self.getAttr('family'),self.pos[0],self.pos[1]))
 
 class MathTextNode(Node):
     nodeName  = 'mtext'
@@ -3575,29 +2922,54 @@ class MathTableNode(_MathNode):
     allowTableSyntax = True
     tablerowelement = 'mtr'
     tablecellelement = 'mtd'
+    
+    def __init__(self, manager, parent, cmddict, nodedict, attrs, pos):
+        _MathNode.__init__(self,manager,parent,cmddict,nodedict,attrs,pos)
 
-    def end(self,filename,line):
+        self.__tablesyntaxdisabled = False
+        self.__cstack = None
+
+    def end(self,pos):
+        Node.end(self,pos)
+        
         halign = None
         valign = None
+
+        if self.__cstack is not None:
+            #print "@@@@@@@@@@@@@@@@ at %s" % self.pos
+            #print "@@@@@@@@@@@@@@@@ flush cstack:",self.__cstack
+            self.__cstack.pop().end(pos)
+            self.__cstack.pop().end(pos)
+            self.__cstack = None
+        
+        #print "ZZZ@@@@@@@@ <%s>::end @ %s--%s" % (self.nodeName,self.pos,pos)
+
+        self.seal()
+
         rows = [ r for r in self if isinstance(r,MathTableRowNode) ]
 
-        ncells = max([ len(r) for r in rows ])
+        if len(rows) > 0:
+            ncells = max([ len(r) for r in rows ])
+        else:
+            log.warning("TODO: Fix math tables special syntax (%s)" % (pos,))
+            #raise NodeError("%s: Empty table" % self.pos)
+            ncells = 1
 
         if  self.hasAttr('cellhalign'):
             halign = re.split(r'\s+', self.getAttr('cellhalign'))
             for i in halign:
                 if i not in [ 'left','right','center' ]:
-                    raise NodeError('Invalid cellhalign attribute value in %s:%d' % self.pos)
+                    raise NodeError('Invalid cellhalign attribute value in %s' % self.pos)
 
         if  self.hasAttr('cellvalign'):
             valign = re.split(r'\s+', self.getAttr('cellvalign'))
             for i in valign:
                 if i not in [ 'top','bottom','middle' ]:
-                    raise NodeError('Invalid cellvalign attribute value in %s:%d' % self.pos)
+                    raise NodeError('Invalid cellvalign attribute value in %s' % self.pos)
 
         if halign is not None and valign is not None:
             if   len(halign) != len(valign):
-                raise NodeError('Vertical and horizontal alignment definitions do not match at %s:%d' % pos)
+                raise NodeError('Vertical and horizontal alignment definitions do not match at %s' % pos)
         elif halign is not None:
             valign = [ 'top' ] * len(halign)
         elif valign is not None:
@@ -3608,7 +2980,7 @@ class MathTableNode(_MathNode):
 
         for r in rows:
             if len(r) > len(halign) or len(r) > len(valign):
-                raise NodeError('Alignment definitions do not match row width at %s:%d' % r.pos)
+                raise NodeError('Alignment definitions do not match row width at %s' % r.pos)
 
         self.__halign = halign
         self.__valign = valign
@@ -3629,7 +3001,58 @@ class MathTableNode(_MathNode):
             if n is not None:
                 node.appendChild(n)
         
+        assert not isinstance(node,list)
         return node
+    def newTableRow(self,pos):
+        #print "newTableRow in <%s>" % self.nodeName
+        
+        if self.__cstack is None:
+            self.__cstack = [ ]
+        else:
+            assert len(self.__cstack) == 2
+            top = self.__cstack.pop()
+            top.end(pos)
+            top = self.__cstack.pop()
+            top.end(pos)
+
+        trnode = self.startElement(self.tablerowelement,{},pos)
+        Node.append(self,trnode)
+        self.__cstack.append(trnode)
+        tcnode = trnode.startElement(self.tablecellelement,{},pos)
+        self.__cstack[-1].append(tcnode)
+        self.__cstack.append(tcnode)
+        assert len(self.__cstack) == 2
+
+    def newTableCell(self,pos): 
+        #print "newTableCell in <%s>" % self.nodeName
+        if self.__cstack is None:
+            raise MacroError('%s: Table may not start with \\! (new cell)' % self.pos)
+
+        # close prev cell
+        assert len(self.__cstack) == 2
+        top = self.__cstack.pop()
+        top.end(pos)
+            
+        trnode = self.__cstack[-1] 
+        tcnode = trnode.startElement(self.tablecellelement,{},pos)
+        self.__cstack[-1].append(tcnode)
+        self.__cstack.append(tcnode)
+        assert len(self.__cstack) == 2
+
+    def append(self,item):
+        if  self.__cstack is not None:
+            assert len(self.__cstack) == 2
+            self.__cstack[-1].append(item)
+        else:
+            # hardcode: Only elements and space is allowed in table 
+            if isinstance(item,basestring) and len(item.strip()) == 0:
+                pass
+            elif isinstance(item,Node):
+                Node.append(self,item)
+            else:
+                log.Error('%s: Text not allowed in <%s>' % (self.pos, self.nodeName))
+                #raise NodeError('Text not allowed in <%s>' % self.nodeName)
+
 
 class MathVectorNode(_MathNode):
     nodeName = 'mvector'
@@ -3644,12 +3067,17 @@ class MathTableRowNode(_MathNode):
     nodeName = 'mtr'
     macroMode = MacroMode.Math
     contIter = ' <mtd>* '
-    def __init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line):
-        _MathNode.__init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line)
+    def __init__(self,manager,parent,cmddict,nodeDict,attrs,pos):
+        _MathNode.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         self.__len = None
+
     def __len__(self):
+        if self.__len is None:
+            assert 0
         return self.__len
-    def end(self,filename,line):
+
+    def end(self,pos):
+        #print "@@@@@@@@@@@ <%s>::end @ %s--%s" % (self.nodeName,self.pos,pos)
         self.__len = len([ cell for cell in self if isinstance(cell,MathTableCellNode) ])
         
     def toXML(self,doc,rowlen):
@@ -3658,13 +3086,13 @@ class MathTableRowNode(_MathNode):
         cells += [ None ] * (rowlen - len(cells))
 
         for c in cells:
-            if c is None:
-                node.appendChild(doc.createElement('mtd'))
-            else:
+            if c is not None:
                 n = c.toXML(doc)
-                if n is not None:
-                    node.appendChild(n)
-
+            else:
+                n = doc.createElement('mtd')
+            if n is not None:
+                node.appendChild(n)
+        assert not isinstance(node,list)
         return node
 
 
@@ -3679,7 +3107,7 @@ class _RootNode:
     rootElementlass = None
     rootElement      = None
 
-    def __init__(self,manager,parent,cmddict,nodeDict,attrs,filename,line):
+    def __init__(self,manager,parent,cmddict,nodeDict,attrs,pos):
         self.documentElement = None
         self.__cmddict       = cmddict
         self.__nodeDict      = nodeDict
@@ -3688,27 +3116,30 @@ class _RootNode:
 
         assert isinstance(nodeDict,dict)
         ## Create a new XML parser and read the fileanme 
-    def newChild(self,name,attrs,filename,line):
+    def startChildElement(self,name,attrs,pos):
         if name == self.rootElement:
             if self.documentElement is not None:
-                raise NodeError('Duplicate root element <%s> at %s:%d' % (name,self.rootElementClass.nodeName,filename,line))
+                raise NodeError('Duplicate root element <%s> at %s' % (name,self.rootElementClass.nodeName,pos))
 
             self.documentElement = self.rootElementClass(self.__manager,
                                                          self.__parent,
                                                          self.__cmddict, 
                                                          self.__nodeDict, 
                                                          attrs, 
-                                                         filename, 
-                                                         line)
+                                                         pos)
             return self.documentElement
         else:
-            raise NodeError('Invalid element <%s>. Expected <%s> at %s:%d' % (name,self.rootElement,filename,line))
-    def handleText(self,data,filename,line):
+            raise NodeError('Invalid element <%s>. Expected <%s> at %s' % (name,self.rootElement,pos))
+    def endChildElement(self,name,pos):
+        pass
+
+
+    def handleText(self,data,pos):
         pass
 
     def endOfElement(self,file,line):
         self.end(file,line)
-    def end(self,file,line):
+    def end(self,pos):
         assert self.documentElement is not None 
 
 class DocumentRoot(_RootNode):
@@ -3722,8 +3153,8 @@ class DocumentRoot(_RootNode):
     acceptAttrs = Attrs([])
     macroMode = MacroMode.Text
         
-    def __init__(self,manager,parent,cmddict,nodeDict,filename,line):
-        _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,filename,line)
+    def __init__(self,manager,parent,cmddict,nodeDict,pos):
+        _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,pos)
 
     def toXML(self):
         impl = xml.dom.minidom.getDOMImplementation()
@@ -3735,12 +3166,13 @@ class DocumentRoot(_RootNode):
 class ExternalSectionRoot(_RootNode):
     rootElementClass = _SectionNode
     rootElement      = 'section'
-    def __init__(self,manager,parent,cmddict,nodeDict,attrs,file,line):
-        _RootNode.__init__(self,manager,parent,cmddict,nodeDict,attrs,file,line)
+    def __init__(self,manager,parent,cmddict,nodeDict,attrs,pos):
+        _RootNode.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         self.__attrs = attrs
-    def newChild(self,name,attrs,filename,line):
+    def startChildElement(self,name,attrs,pos):
         # Note this is a hack; we wish to use attributes from the element that included the section, not from the root element in the included file.
-        return _RootNode.newChild(self,name,self.__attrs,filename,line)
+        #print "NOTE: ExternalSectionRoot.startChildElement <%s>" % name
+        return _RootNode.startChildElement(self,name,self.__attrs,pos)
 
 class ExternalDefineRoot(_RootNode):
     rootElementClass = DefinesNode
@@ -3751,9 +3183,8 @@ class ExternalDefineRoot(_RootNode):
                  parent,
                  cmddict,
                  nodeDict,
-                 file,
-                 line):
-        _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,file,line)
+                 pos):
+        _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,pos)
 
 class Manager:
     def __init__(self,
@@ -3771,15 +3202,7 @@ class Manager:
         self.__ids = {} # all IDs necountered
         self.__reqids = [] # ID references encountered
 
-        self.__log = msglog
-        self.__fail = False
-
-    def Warning(self,msg): self.__log.warning(msg)
-    def Error(self,msg):   
-        self.__fail = True
-        self.__log.error(msg)
-    def fail(self): self.__fail = True
-    def failed(self): return self.__fail
+        self.__cached_file = {}
 
     def getCiteRefs(self):
         #print  [ (k,n.getAttr('type')) for (k,n) in self.__reqids ]
@@ -3793,13 +3216,18 @@ class Manager:
     def readFrom(self,filename,encoding):
         realurl = filename
         try:
-            msg('Reading from external data source %s' % realurl) 
-            if encoding.lower() == 'utf-8':
-                text = open(realurl).read().decode('utf-8')
-            elif encoding.lower() == 'ascii':
-                text = open(realurl).read().decode('ascii')
+            if self.__cached_file.has_key(realurl):
+                text = self.__cached_file[realurl]
             else:
-                raise NodeIncludeError("Invalid incoding of file %s" % realurl)
+                msg('Reading from external data source %s' % realurl) 
+                if encoding.lower() == 'utf-8':
+                    text = open(realurl).read().decode('utf-8')
+                elif encoding.lower() == 'ascii':
+                    text = open(realurl).read().decode('ascii')
+                else:
+                    raise NodeIncludeError("Invalid incoding of file %s" % realurl)
+                self.__cached_file[realurl] = text
+
             return text
         except IOError:
             raise NodeIncludeError("Failed to read file %s" % realurl) 
@@ -3807,7 +3235,7 @@ class Manager:
     def saveId(self,key,item):
         if self.__ids.has_key(key):
             olditem = self.__ids[key]
-            raise XMLIdError('Duplicate ID "%s" originally defined at %s:%d, redefined at %s:%d' % (key,olditem.pos[0],olditem.pos[1],item.pos[0],item.pos[1]))
+            raise XMLIdError('Duplicate ID "%s" originally defined at %s, redefined at %s' % (key,olditem.pos,item.pos))
         else:
             self.__ids[key] = item
     def refId(self,key,src):
@@ -3833,10 +3261,9 @@ class Manager:
             for p in self.__incpaths:
                 fullname = os.path.join(p,path)
                 #print "check: %s" % fullname
-                if os.path.exists(fullname):
+                if os.path.exists(fullname) and os.path.isfile(fullname):
                     return fullname
-            self.Error('File "%s" not found' % url) 
-            raise FindFileError('Not found "%s"' % url)
+            raise NodeError('File "%s" not found' % url) 
     def checkSectionDepth(self,d):
         return self.__maxsectdepth is None or self.__maxsectdepth >= d
 
@@ -3844,16 +3271,16 @@ class Manager:
         errs = []
         for k,src in self.__reqids:
             if not self.__ids.has_key(k):
-                self.Error('Missing ID: "%s" referenced at %s:%d' % (k,src.pos[0],src.pos[1]))
-                errs.append('Missing ID: "%s" referenced at %s:%d' % (k,src.pos[0],src.pos[1]))
+                err('Missing ID: "%s" referenced at %s' % (k,src.pos))
+                errs.append('Missing ID: "%s" referenced at %s' % (k,src))
         return errs
 
 
-    def evalCond(self,value,filename,line):
+    def evalCond(self,value,pos):
         try:
             return cond.eval(value,self.__conds)
         except cond.CondError,e:
-            raise CondError('%s at %s:%d' % (e,filename,line))
+            raise CondError('%s at %s' % (e,pos))
 
         condregex = re.compile('|'.join([r'\?(?P<isdef>[a-zA-Z0-9@:_\.\-\*]+)',
                                          r'(?P<not>!)',
@@ -3887,12 +3314,12 @@ class Manager:
                     stack.append(CondExp())
                 elif o.group('rpar'):
                     if len(stack) <= 1:
-                        raise CondError('Unbalanced conditional expression "%s" at %s:%d' % (value,filename,line))
+                        raise CondError('Unbalanced conditional expression "%s" at %s' % (value,pos))
                     else:
                         top = stack.pop()
                         stack[-1].append(top)
             else:
-                raise CondError('Invalid condition key "%s" at %s:%d' % (value,filename,line))
+                raise CondError('Invalid condition key "%s" at %s' % (value,pos))
 
         conds = self.__conds
         def evalc(exp):
@@ -3900,27 +3327,27 @@ class Manager:
                 if conds.has_key(exp):
                     return conds[exp]
                 else:
-                    raise CondError('Undefined condition key "%s" at %s:%d' % (exp,filename,line))
+                    raise CondError('Undefined condition key "%s" at %s' % (exp,pos))
             elif isinstance(exp,CondIsDef):
                 return conds.has_key(exp)
             else:
                 oprs = dict([ (v,v) for v in exp if isinstance(v,CondOpr) and v is not Cond.Not]).keys()
                 if len(oprs) > 1:
-                    raise CondError('Invalid condition key "%s" at %s:%d' % (value,filename,line))
+                    raise CondError('Invalid condition key "%s" at %s' % (value,pos))
                 l = exp
                 res = []
                 while l:
                     head = l.pop(0)
                     if head is Cond.Not:
                         if not l:
-                            raise CondError('Invalid condition key "%s" at %s:%d' % (value,filename,line))
+                            raise CondError('Invalid condition key "%s" at %s' % (value,pos))
                         res.append(not evalc(l.pop(0)))
                     elif isinstance(head,CondTerm) or isinstance(head,CondExp):
                         res.append(evalc(head))
                     else:
-                        raise CondError('Invalid condition key "%s" at %s:%d' % (value,filename,line))
+                        raise CondError('Invalid condition key "%s" at %s' % (value,pos))
                     if l and not (l.pop(0) is oprs[0]):
-                        raise CondError('Invalid condition key "%s" at %s:%d' % (value,filename,line))
+                        raise CondError('Invalid condition key "%s" at %s' % (value,pos))
                 if len(res) <= 1:
                     return res[0]
                 else:

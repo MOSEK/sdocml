@@ -8,9 +8,15 @@
 %HTMLspecial;
 %HTMLlat1;
 
-<!ELEMENT defines ((def|incdef)*)>
+<!ELEMENT defines ((def|incdef|defenv)*)>
 
-<!ELEMENT def ((e|c|d)*)>
+<!ELEMENT defenv (desc?,defines?,(e|c|d)*)>
+<!ATTLIST defenv 
+                m CDATA #REQUIRED
+                n CDATA "0">
+    
+
+<!ELEMENT def (desc?,(e|c|d)*)>
 <!ATTLIST def m     CDATA #REQUIRED
               n     CDATA "0">
     <!ELEMENT d (#PCDATA)>

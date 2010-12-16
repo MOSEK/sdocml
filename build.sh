@@ -1,7 +1,8 @@
 #!/bin/bash
 
 
-if [ "$1" == '-no-rebuild-xml' ]; then
+if [ "$1" == '-no-rebuild-xml' ]
+then
     if  echo '** Building HTML *****************************' && \
         python sdoc/e2html.py build/output/sdocml-expanded.xml \
           -config conf/sdoc-html.conf \

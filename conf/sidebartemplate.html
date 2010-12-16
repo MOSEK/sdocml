@@ -1,31 +1,21 @@
 <html>
 <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
     <title> <sdoc:item key="title:plain"> </title>
 
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
-    <script type="text/javascript" src="../html/javascript/base.js"/>
-    
-    <link href="../html/graphics/appicon.png" rel="shortcut icon">
     <link href="../html/style/style.css"      rel="stylesheet" type="text/css">
-    <link href="../html/style/refstyle.css"   rel="stylesheet" type="text/css">
+
+    <style>
+        .sidebar-item 
+        {
+            font-size : smaller;
+        }
+    </style>
 </head>
 
 <body>
-    <table width="100%" stype="border-spacing:0px;">
-        <tr>
-            <td class="sidebar-table-cell sidebar-head-cell"><a href="javascript:showSidebarContents()">Contents</a></td>
-            <td class="sidebar-head-sep"/>
-            <td class="sidebar-table-cell sidebar-head-cell"><a href="javascript:showSidebarIndex()">Index</a></td>
-            <td width="100%"/>
-        </tr>
-        <tr>
-            <td colspan="4" class="sidebar-table-cell">
-                <div id="sidebar-contents"><sdoc:item key="sidebar:contents"></div>
-                <div id="sidebar-index" style="display:none;"><sdoc:item key="sidebar:index"></div>
-            </td>
-        </tr>
-        <tr><td colspan="4" class="sidebar-table-cell"></td></tr>
-    </table>
-
+    <div class="sidebar-item">
+        <sdoc:item key="sidebar:item">
+    </div>
 </body>

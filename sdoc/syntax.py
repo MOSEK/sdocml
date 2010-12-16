@@ -10,72 +10,54 @@
 
 import re
 
-default_re = {
-    'str'      : r'"(?:[^"\\]|\\.)*"' + '|' + r"'(?:[^'\\]|\\.)*'",
-    'word' : '\w+',
-    #linecmnt
-    #multilinestr
-    #blockcmnt
-    }
-
 
 # NOTE: List of keywords is taken from the official Python 2.4 language documentation
 python_keywords = ['and','del','from','not','while', 'as','elif','global','or','with', 'assert','else','if','pass','yield', 'break','except','import','print', 'class','exec','in','raise', 'continue','finally','is','return', 'def','for','lambda','try',]
-python_language = ['None','True','False','dict','list','classmethod','staticmethod','super','str','unicode','object','id','__init__','__str__','__repr__']
-python_re = re.compile('|'.join([ '(?P<%s>%s)' % item for item in [
-    ('linecmnt',     r'#.*'),
-    ('word',         default_re['word']),
-    ('str',          default_re['str']),
-    ('triplesquote', r"'''"),
-    ('tripledquote', r'"""'),
-    ('newline',      r'\n'),
-    ]]))
-python_blockend_re = {
-    "'''" : re.compile(r"(?P<blockend>''')|(?P<newline>\n)"),
-    '"""' : re.compile(r'(?P<blockend>""")|(?P<newline>\n)'),
-    }
-
-            
+python_language = ['None','True','False','dict','list','classmethod','staticmethod','super','str','unicode','object','id']
+python_syntax = re.compile('|'.join([r'(?P<cmnt>#.*)',
+                                     r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                     r'(?P<word>\w+)',
+                                     r'(?P<newline>\n)',
+                                     r'(?P<mlstr>"""|\'\'\')',# Note: This will fail in the freak case where e.g. '\"""' appeared inside a multi-line string.
+                                     ]),re.MULTILINE)
 
 matlab_keywords = [ 'break', 'case', 'catch', 'classdef', 'continue', 'else',
                     'elseif', 'end', 'for', 'function', 'global', 'if', 'otherwise',
                     'parfor', 'persistent', 'return', 'spmd', 'switch', 'try',
                     'while',
                     'function','class',]
-matlab_language = [ 'sparse','eye','ones','zeros','any','all','uint8','double','error','warning','script','inf','NaN','...' ]
+#atlab_keywords = [ 'builtin', 'eval', 'feval', 'function', 'global', 'nargchk', 'script', 'break',
+#                   'case', 'else', 'elseif', 'end', 'error', 'for', 'if', 'otherwise', 'return', 
+#                   'switch', 'warning', 'while', 'all', 'any', 'exist', 'find', 'logical', 'input', 
+#                   'keyboard', 'menu', 'pause', 'class', 'double', 'inferiorto', 'inline', 'isa', 
+#                   'superiorto', 'uint8' ]
+
+matlab_language = [ 'sparse','eye','ones','zeros','any','all','uint8','double','error','warning','script','inf','NaN' ]
 matlab_syntax = re.compile('|'.join([r'(?P<cmnt>%.*)',
                                      r'(?P<str>\'(?:[^\']|\\\')*\')',
                                      r'(?P<dotdotdot>\.\.\.)',
                                      r'(?P<word>\w+)',
-                                     ]),re.MULTILINE)
-matlab_re = { 'linecmnt' : r'%.*',
-              'str'      : r"'(?:[^']|\\.)*'",
-              'word'     : r'\w+|\.\.\.',
-            }
+                                     ]))
 
-c_keywords = [ 'auto', 'break', 'case', 'chart', 'const', 'continue',
+c_keywords = [ 'auto', 'break', 'case', 'char', 'const', 'continue',
                'default', 'do', 'double', 'else', 'enum', 'extern', 'float',
                'for', 'goto', 'if', 'int', 'long', 'register', 'return',
                'short', 'signed', 'sizeof', 'static', 'struct', 'switch',
-               'typedef', 'union', 'unsigned', 'void', 'volatile', 'while', ]
+               'typedef', 'union', 'unsigned', 'void', 'volatile', 'while', 'wchar_t' ]
 cpp_keywords = c_keywords + [
                'catch', 'class', 'delete', 'inline', 'friend', 'namespace',
                'new', 'operator', 'private', 'protected', 'public', 'template',
                'this', 'throw', 'try', 'using', 'virtual', ]
-c_language = [ 'main','stdin','stdout','stderr','printf','FILE', 'NULL' ] # and lots more...
+c_language = [ 'stdin','stdout','stderr','printf','FILE' ] # and lots more...
 cpp_language = c_language + [ 'std','cin','cout','cerr','string' ]
-c_re = re.compile('|'.join([ '(?P<%s>%s)' % item for item in [
-    ('linecmnt',  '//.*'),
-    ('newline',   '\n'),
-    ('word',      default_re['word']),
-    ('str',       default_re['str']),
-    ('blockcmnt', r'/\*'),
-    ('preproc',   r'^[ ]*#[ ]*(?:define|include|if|elseif|else|endif|pragma|ifdef)')
-    ] ]))
-c_blockend_re = {
-    '/*' : re.compile(r'(?P<blockend>\*/)|(?P<newline>\n)')
-    }
-    
+c_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
+                                r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                r'(?P<word>\w+)',
+                                r'(?P<preproc>^[ ]*#[ ]*[a-zA-Z][a-zA-Z0-9]*)',
+                                r'(?P<newline>\n)',
+                                r'(?P<mlcmntstart>/\*)',
+                                r'(?P<mlcmntend>\*/)',
+                                ]),re.MULTILINE)
 
 # NOTE: List of keywords is taken from the official Java 1.6 language documentation.
 java_keywords = [   "abstract", "assert", "boolean", "break", "byte",
@@ -89,8 +71,13 @@ java_keywords = [   "abstract", "assert", "boolean", "break", "byte",
                     "switch", "synchronized", "this", "throw", "throws",
                     "transient", "try", "void", "volatile", "while" ]
 java_language = ['null','true','false','String',]
-java_re = c_re
-    
+java_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
+                                   r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                   r'(?P<word>\w+)',
+                                   r'(?P<newline>\n)',
+                                   r'(?P<mlcmntstart>/\*)',
+                                   r'(?P<mlcmntend>\*/)',
+                                   ]),re.MULTILINE)
 csharp_keywords = [ "as","explicit","null","switch",
                     "base","extern","object","this",
                     "bool","false","operator","throw",
@@ -111,7 +98,14 @@ csharp_keywords = [ "as","explicit","null","switch",
                     "else","long","static",
                     "enum","namespace","string", ]
 csharp_language = ['null','true','false','string']
-csharp_re = c_re
+csharp_syntax = re.compile('|'.join([r'(?P<cmnt>//.*)',
+                                     r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                     r'(?P<word>\w+)',
+                                     r'(?P<preproc>^[ ]*#[ ]*[a-zA-Z][a-zA-Z0-9]*)',
+                                     r'(?P<newline>\n)',
+                                     r'(?P<mlcmntstart>/\*)',
+                                     r'(?P<mlcmntend>\*/)',
+                                     ]),re.MULTILINE)
 
 xml_syntax = re.compile('|'.join([r'(?P<doctypestart><\!DOCTYPE)', # Not entirely correct since quoted strings may contain ">"
                                   r'(?P<directivestart><\?[a-zA-Z][a-zA-Z0-9:_]*)', # Not entirely correct since quoted strings may contain ">"
@@ -122,7 +116,7 @@ xml_syntax = re.compile('|'.join([r'(?P<doctypestart><\!DOCTYPE)', # Not entirel
                                   r'(?P<comment><!--(?:-[^\-]|[^\-])*-->)',
                                   r'(?P<attrkey>[a-zA-Z][a-zA-Z0-9_:]*)(?P<attreq>\s*=\s*)(?P<attrval>"[^"]*"|\'[^\']*\')',
                                   r'(?P<lf>\n)',
-                                  ]),re.MULTILINE)
+                                  ]))
 ## Add simple hilighting information to code.OB
 #
 # Hilighting is performed per-line, i.e. multi-line comments or strings are
@@ -149,111 +143,106 @@ kw_comment  = 'comment'
 kw_string   = 'string'
 kw_keyword  = 'keyword'
 kw_language = 'language'
-kw_preproc  = 'language'
+kw_preproc  = 'preproc'
 
 class CodeHilighter:
     def __init__(self,mimetype='text/plain'):
         self.__state = None
-        if   mimetype == 'source/python':
+        if   mimetype in [ 'text/x-python', 'source/python' ]:
             self.process = self.process_Python
-        elif mimetype == 'source/java':
-            self.process = self.process_Cfamily(java_keywords,java_language)
-        elif mimetype == 'source/csharp':
-            self.process = self.process_Cfamily(csharp_keywords,csharp_language)
-        elif mimetype == 'source/matlab':
+        elif mimetype in [ 'text/x-java', 'source/java' ]:
+            self.process = self.process_Java
+        elif mimetype in [ 'text/x-csharp','source/csharp' ]:
+            self.process = self.process_CSharp
+        elif mimetype in [ 'text/x-matlab', 'source/matlab' ]:
             self.process = self.process_Matlab
-        elif mimetype == 'source/c':
-            self.process = self.process_Cfamily(c_keywords,c_language)
-        elif mimetype == 'text/xml':
+        elif mimetype in [ 'text/x-c','source/c' ]:
+            self.process = self.process_C
+        elif mimetype in [ 'text/xml', 'text/sgml' ]:
             self.process = self.process_XML
         else:
             self.process = self.process_plaintext
 
-    def __blockscan(self,l,pos,lres,regex,tp):
-        o = regex.search(l,pos)
-        if   o is None: 
-            lres.append((tp,l[pos:]))
-            return len(l)
-        elif o.group('newline'):
-            if pos < o.start(0):
-                lres.append((tp,l[pos:o.start()]))
-            lres.append(u'\n')
-        elif o.group('blockend'):        
-            lres.append((tp,l[pos:o.end()]))
-            self.__state = None
-        return o.end()
+    def process_C(self,l):
+        lres = []
+        pos = 0
 
-
-    def process_Cfamily(self,keywords,language):
-        def _process(l):
-            lres = []
-          
-            regex = c_re
-            pos = 0
-
-            while pos < len(l):
-                if self.__state is '/*':
-                    pos = self.__blockscan(l,pos,lres,c_blockend_re['/*'],kw_comment)
-                else:
-                    o = regex.search(l,pos)
-
-                    if o is None: 
-                        lres.append(l[pos:])
-                        break
-
-                    if pos < o.start(0):
-                        lres.append(l[pos:o.start()])
-                    pos = o.end()
-
-                    if   o.group('linecmnt') is not None:
-                        lres.append((kw_comment,o.group(0)))
-                    elif o.group('preproc'):
-                        lres.append((kw_preproc,o.group(0)))
-                    elif o.group('str') is not None:
-                        lres.append((kw_string,o.group(0)))
-                    elif o.group('blockcmnt'):
-                        lres.append((kw_comment,o.group(0)))
-                        self.__state = '/*'
-                    elif o.group('newline'):
-                        lres.append(u'\n')
-                    else:# o.group('word') is not None
-                        w = o.group(0)
-                        if   w in c_keywords:
-                            lres.append((kw_keyword,w))
-                        elif w in c_language:
-                            lres.append((kw_language,w))
-                        else:
-                            lres.append(w)
-            return lres
-        return _process
+        for o in c_syntax.finditer(l):
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('preproc') is not None:
+                    lres.append((kw_preproc,o.group(0)))
+                elif o.group('mlcmntstart'):
+                    self.__state = o.group(0)
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('newline'):
+                    lres.append(u'\n')
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in c_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in c_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+            else: # multi-line comment
+                if o.group('mlcmntend'):
+                    lres.append((kw_comment,l[pos:o.end(0)]))
+                    pos = o.end(0)
+                    self.__state = None                        
+                elif o.group('newline'):
+                    lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append(u'\n')
+                    pos = o.end(0)
+        if pos < len(l):
+            if self.__state is None:
+                lres.append(l[pos:])
+            else:
+                lres.append((kw_comment,l[pos:]))
+        return lres
     def process_CSharp(self,l):
         lres = []
         pos = 0
 
         for o in csharp_syntax.finditer(l):
-            if pos < o.start(0):
-                lres.append(l[pos:o.start()])
-            pos = o.end()
-            if   o.group('cmnt') is not None:
-                lres.append((kw_comment,o.group(0)))
-            elif o.group('str') is not None:
-                lres.append((kw_string,o.group(0)))
-            elif o.group('cmntblock'):
-                lines = o.group('cmntblock').split('\n')
-                lres.append((kw_comment,lines[0]))
-                for l in lines[1:]:
-                    lres.append('\n')
-                    lres.append((kw_comment,l))
-            elif o.group('newline'):
-                lres.append(u'\n')
-            else:# o.group('word') is not None
-                w = o.group(0)
-                if   w in csharp_keywords:
-                    lres.append((kw_keyword,w))
-                elif w in csharp_language:
-                    lres.append((kw_language,w))
-                else:
-                    lres.append(w)
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('mlcmntstart'):
+                    self.__state = o.group(0)
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('preproc') is not None:
+                    lres.append((kw_preproc,o.group(0)))
+                elif o.group('newline'):
+                    lres.append(u'\n')
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in csharp_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in csharp_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+            else:# inside multi-line string
+                if o.group('mlcmntend'):
+                    lres.append((kw_comment,l[pos:o.end(0)]))
+                    pos = o.end(0)
+                    self.__state = None                        
+                elif o.group('newline'):
+                    lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append(u'\n')
+                    pos = o.end(0)
         if pos < len(l):
             if self.__state is None:
                 lres.append(l[pos:])
@@ -265,29 +254,36 @@ class CodeHilighter:
         pos = 0
 
         for o in java_syntax.finditer(l):
-            if pos < o.start(0):
-                lres.append(l[pos:o.start()])
-            pos = o.end()
-            if   o.group('cmnt') is not None:
-                lres.append((kw_comment,o.group(0)))
-            elif o.group('str') is not None:
-                lres.append((kw_string,o.group(0)))
-            elif o.group('cmntblock'):
-                lines = o.group('cmntblock').split('\n')
-                lres.append((kw_comment,lines[0]))
-                for l in lines[1:]:
-                    lres.append('\n')
-                    lres.append((kw_comment,l))
-            elif o.group('newline'):
-                lres.append(u'\n')
-            else:# o.group('word') is not None
-                w = o.group(0)
-                if   w in java_keywords:
-                    lres.append((kw_keyword,w))
-                elif w in java_language:
-                    lres.append((kw_language,w))
-                else:
-                    lres.append(w)
+            if self.__state is None:
+                if pos < o.start(0):
+                    lres.append(l[pos:o.start()])
+                pos = o.end()
+                if   o.group('cmnt') is not None:
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('str') is not None:
+                    lres.append((kw_string,o.group(0)))
+                elif o.group('mlcmntstart'):
+                    self.__state = o.group(0)
+                    lres.append((kw_comment,o.group(0)))
+                elif o.group('newline'):
+                    lres.append(u'\n')
+                else:# o.group('word') is not None
+                    w = o.group(0)
+                    if   w in java_keywords:
+                        lres.append((kw_keyword,w))
+                    elif w in java_language:
+                        lres.append((kw_language,w))
+                    else:
+                        lres.append(w)
+            else:# inside multi-line string
+                if o.group('mlcmntend'):
+                    lres.append((kw_comment,l[pos:o.end(0)]))
+                    pos = o.end(0)
+                    self.__state = None                        
+                elif o.group('newline'):
+                    lres.append((kw_comment,l[pos:o.start(0)]))
+                    lres.append(u'\n')
+                    pos = o.end(0)
         if pos < len(l):
             if self.__state is None:
                 lres.append(l[pos:])
@@ -375,52 +371,6 @@ class CodeHilighter:
     def process_Python(self,l):
         lres = []
         pos = 0
-
-        keywords = python_keywords
-        langauge = python_language
-        regex    = python_re
-
-        while pos < len(l):
-            if   self.__state is '"""':
-                pos = self.__blockscan(l,pos,lres,python_blockend_re['"""'],kw_string)
-            elif self.__state is "'''":
-                pos = self.__blockscan(l,pos,lres,python_blockend_re["'''"],kw_string)
-            else:
-                o = regex.search(l,pos)
-
-                if o is None: 
-                    lres.append(l[pos:])
-                    break
-
-                if pos < o.start(0):
-                    lres.append(l[pos:o.start()])
-                pos = o.end()
-
-                if   o.group('linecmnt') is not None:
-                    lres.append((kw_comment,o.group(0)))
-                elif o.group('str') is not None:
-                    lres.append((kw_string,o.group(0)))
-                elif o.group('triplesquote'):
-                    lres.append((kw_string,o.group(0)))
-                    self.__state = "'''"
-                elif o.group('tripledquote'):
-                    lres.append((kw_string,o.group(0)))
-                    self.__state = '"""'
-                elif o.group('newline'):
-                    lres.append(u'\n')
-                else:# o.group('word') is not None
-                    w = o.group(0)
-                    if   w in c_keywords:
-                        lres.append((kw_keyword,w))
-                    elif w in c_language:
-                        lres.append((kw_language,w))
-                    else:
-                        lres.append(w)
-        return lres
-
-
-
-
 
         for o in python_syntax.finditer(l):
             if self.__state is None:

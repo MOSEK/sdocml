@@ -9,15 +9,13 @@
 
 import xml.sax
 import re
-import sys,os
+import sys,os,time
 import urlparse
-from EvHandler import dtdhandler, handler
+from EvHandler import dtdhandler, handler, Pos, AlternativeSAXHandler 
 import inspect
 import math
 import config
 import logging
-
-
 import Nodes
 from Nodes import Node,NodeError,escape,xescape,MotexException,msg
 import re
@@ -96,11 +94,14 @@ def makemacroref(outfile,docRoot,title):
             if desc:
                 f.write('    <dt>Description:</dt><dd><nx>%s</nx> </dd>\n' % desc)
 
-            filename,line = d.pos
+            filename,line = d.pos.filename,d.pos.line
             filename = os.path.basename(filename)
             f.write('    <dt>Defined at:</dt><dd>%s:%d</dd>\n' % (filename,line))
             f.write('    <dt>Number of arguments:</dt> <dd>%d</dd>\n' % d.nArgs())
             f.write('    <dt>Expands to:</dt><dd><pre>')
+            
+             
+            
             f.write(xescape(d.docExpandMacro()))
             
             f.write('</pre></dd>')
@@ -123,7 +124,7 @@ def makemacroref(outfile,docRoot,title):
             f.write('  <dlist class="macro-env-entry">\n')
             if desc:
                 f.write('    <dt>Description:</dt><dd><nx> %s </nx></dd>\n' % desc)
-            filename,line = d.pos
+            filename,line = d.pos.filename,d.pos.line
             filename = os.path.basename(filename)
             f.write('    <dt> Defined at:</dt><dd>%s:%d</dd>\n' % (filename,line))
             f.write('    <dt> Number of arguments:</dt><dd> %d</dd>\n' % d.nArgs())
@@ -154,7 +155,7 @@ def decodeDefineString(s):
 
 if __name__ == "__main__":
     P = xml.sax.make_parser()
-    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
 
     sdocbase = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]),'..'))
 
@@ -231,6 +232,8 @@ if __name__ == "__main__":
     #                          'dnetapi' : False,
     #                          'javaapi' : False,
     #                          'mexapi'  : False })
+    
+    time0 = time.time()
 
     try:
         makedoc         = conf['makedoc']
@@ -362,13 +365,18 @@ if __name__ == "__main__":
 
         assert inputfile
         if inputfile is not None:
-            docRoot = Nodes.DocumentRoot(manager,None,None,Nodes.globalNodeDict,'<root>',0) 
-            h = handler(inputfile,docRoot) 
+            docRoot = Nodes.DocumentRoot(manager,None,None,Nodes.globalNodeDict,Pos('<root>',0)) 
+            h = AlternativeSAXHandler(inputfile,docRoot,manager) 
             P.setContentHandler(h)
             P.setEntityResolver(manager.getEntityResolver())
             
+            
             msg('Parse %s' % inputfile)
             P.parse(sys.argv[1])
+            time1 = time.time()
+            msg('Parse and expand: %.1f sec.' % (time1-time0))
+            time0 = time1
+
             msg('Convert to XML')
             doc = docRoot.toXML()
 
@@ -378,49 +386,51 @@ if __name__ == "__main__":
                 except OSError:
                     pass
                 makemacroref(macroref,docRoot,macrorefsecname) 
+               
                 
-            if manager.failed():
-                sys.exit(1)
-            if outputfile  is not None:
-                try:
-                    os.makedirs(os.path.dirname(outputfile))
-                except OSError:
-                    pass
+            if not Nodes.ERROR_OCCURRED:
+                if outputfile  is not None:
+                    try:
+                        os.makedirs(os.path.dirname(outputfile))
+                    except OSError:
+                        pass
 
-                f = open(outputfile,'w')
-                f.write('<?xml version="1.0" encoding="utf-8" ?>\n')
-                f.write('<!DOCTYPE sdocmlx>\n')
-                msg('Write output file')
-                # check tree
-                if False:
-                    # debugging: Verify that all nodes are unicode.
-                    stack = [doc]
-                    while stack:
-                        n = stack.pop()
-                        stack.extend(n.childNodes)
-                        if n.nodeType == n.TEXT_NODE:
-                            if not isinstance(n.data,basestring):
-                                print "parent =",n.parentNode.nodeName
-                                print "data =",repr(n.data)
-                                assert isinstance(n.data, unicode)
-                        elif n.nodeType == n.ELEMENT_NODE:
-                            for i in range(n.attributes.length):
-                                a = n.attributes.item(i)
-                                if not isinstance(a.value,basestring):
-                                    print "node =",n.nodeName
-                                    print "attr %s = %s" % (a.name,a.value)
-                                    assert isinstance(a.value,basestring) 
+                    f = open(outputfile,'w')
+                    f.write('<?xml version="1.0" encoding="utf-8" ?>\n')
+                    f.write('<!DOCTYPE sdocmlx>\n')
+                    msg('Write output file')
+                    # check tree
+                    if False:
+                        # debugging: Verify that all nodes are unicode.
+                        stack = [doc]
+                        while stack:
+                            n = stack.pop()
+                            stack.extend(n.childNodes)
+                            if n.nodeType == n.TEXT_NODE:
+                                if not isinstance(n.data,basestring):
+                                    print "parent =",n.parentNode.nodeName
+                                    print "data =",repr(n.data)
+                                    assert isinstance(n.data, unicode)
+                            elif n.nodeType == n.ELEMENT_NODE:
+                                for i in range(n.attributes.length):
+                                    a = n.attributes.item(i)
+                                    if not isinstance(a.value,basestring):
+                                        print "node =",n.nodeName
+                                        print "attr %s = %s" % (a.name,a.value)
+                                        assert isinstance(a.value,basestring) 
 
-                f.write(doc.toxml('utf-8')) 
-                f.close()
+                    f.write(doc.toxml('utf-8')) 
+                    f.close()
+                    
+                    time1 = time.time()
+                    msg('Write output file: %.1f sec.' % (time1-time0))
+                    time0 = time1
             
-            msg('Checking cross-references')
-            errs = []
-            errs.extend(manager.checkIdRefs())
-        if manager.failed():
-            msg('Warning! There were errors!')
-            #sys.exit(1)
-
+                msg('Checking cross-references')
+                errs = []
+                errs.extend(manager.checkIdRefs())
+            else:
+                msg('Errors were encountered.')
         msg('Fini!')
     except MotexException,e:
         if showtrace:

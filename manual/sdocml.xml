@@ -24,19 +24,20 @@
     <head><title>Introduction</title></head>
 
     The \sdocml documentation system defines
-    <ilist>
-      <li>A front-end XML format that allows use of pseudo-TeX macros.</li>
-      <li>A back-end format that is pure XML.</li>
-      <li>A compiler (written in Python) that translates fromt he front-end format to the back-end format.</li>
-      <li>Compilers translating the back-end format into different final formats (TeX, HTML etc.)</li>
-    </ilist>
+ 
+    \begin{itemize}      
+      \item{A front-end XML format that allows use of pseudo-TeX macros.}
+      \item{A back-end format that is pure XML.}
+      \item{A compiler (written in Python) that translates fromt he front-end format to the back-end format.}
+      \item{Compilers translating the back-end format into different final formats (TeX, HTML etc.)}
+    \end{itemize}
     The front-end format allows definition of pseudo-TeX macros and
     environments and allows mixing of macros and XML tags.
 
     <section>
       <head><title>Purpose and focus</title></head>
 
-      The purpose is to provide a fully general framework for a documentation
+      The purpose is to provide a general framework for a documentation
       system fully supporting graphics, mathematical formulas, code snippets,
       internal cross references and external document references.
 
@@ -46,13 +47,13 @@
 
       Initially the focus of the implementation will be to support features
       required to translate Mosek documentation, into HTML i.e.
-      <ilist>
-        <li>Correct expansion of all macros.</li>
-        <li>Correct and well supported math (via PDFLatex and PNG images).</li>
-        <li>Code inclusion and code snippets.</li>
-        <li>Full support for index, bibliography and cross references.</li>
-        <li>Inclusion of graphics: Raster images as PNG and JPEG, vector images as PDF or EPS.</li>
-      </ilist>
+      \begin{itemize}
+        \item{Correct expansion of all macros.}
+        \item{Correct and well supported math (via PDFLatex and PNG images).}
+        \item{Code inclusion and code snippets.}
+        \item{Full support for index, bibliography and cross references.}
+        \item{Inclusion of graphics: Raster images as PNG and JPEG, vector images as PDF or EPS.}
+      \end{itemize}
       More generally, the aim is to provide detailed error messages and exact
       file/line pointers to where things went wrong. The frontend should always
       guarantee that the output is valid \tt{sdocmlx}, and the backend should always
@@ -70,7 +71,6 @@
       (\cite{docbook:09}) was considered, but that would have required adding a
       significant number of features which are not (it seems) immediately
       supported by any DocBook tools.
-
     </section>
   </section> 
 
@@ -122,40 +122,41 @@
         element). The \tagref{head} tag contains a mandatory \tagref{title}
         element as well as a list of optional tags:
         \begin{tagdeflist}
-          \tagitem{title}
+          \item{title}
           {
             Defines the title for a section. This element may contain most
             simple text elements but not structural elements, references,
             anchors or math. See section \ref{section:simple-text}
           }
-          \tagitem{defines}
+          \item{defines}
           {
             This element defines new macros that can be used in the current
-            section and all child-sections. Macros may \em{not} be redefined
-            within the same \tagref{defines} element, but redefining a macro
-            defined in some parent section is allowed.  
+            section and all child-sections, including sections located in
+            separate files. Macros may \em{not} be redefined within the same
+            \tagref{defines} element, but redefining a macro defined in some
+            parent section is allowed.  
 
             Macros defined in the \tagref{defines} element in the \tagref{head} of the
             \tagref{sdocml} element can be used anywhere in the document.
 
             Please see section \ref{element:defines} for details.
           }
-          \tagitem{abstract}
+          \item{abstract}
           {
             A simple text section that can be used as abstract. This means
             that, in theory, each section may have it's own abstract. It is
             entirely up to the backend to use or ignore this.
 
-            Most text elements, structural text elements and 
+            Most text elements, structural text elements, math macros etc. are allowed in the absract. 
           }
-          \tagitem{authors}
+          \item{authors}
           {
             This is a structured element that allows defining authors either
             for the entire document or for individual sections.
 
             Please refer to section \ref{element:authors} for details.
           }
-          \tagitem{date}
+          \item{date}
           {
             Date for the document or section.
           }
@@ -171,26 +172,36 @@
         <head><title>The \tag{defines} element</title></head>
 
         The \tagref{defines} element may contain four different types of elements:
-
         \begin{tagdeflist}
-          \tagitem{dictentry} { Define a new dictionary entry. }
-          \tagitem{def}    { Define a new macro or overrice an existing one.  }
-          \tagitem{defenv} { Define a new environment or override an existing one.  }
-          \tagitem{incdef} { Include an external file with definitions.  }
+          \item{dictentry} { Define a new dictionary entry. }
+          \item{def}    { Define a new macro or overrice an existing one.  }
+          \item{defenv} { Define a new environment or override an existing one.  }
+          \item{incdef} { Include an external file with definitions.  }
         \end{tagdeflist}
-
 
         <section id="element:def">
           <head><title>The \tag{def} element</title></head>
-          The \tagref{def} element is used to define or redefine a macro. A macro name is defined as follows
-          <pre>[a-zA-Z][a-zA-Z0-9@]*|["~\'`^\\][a-zA-Z]|[^\\:!]</pre>
+          The \tagref{def} element is used to define or redefine a macro. A
+          macro name is defined as follows
+          <pre>[a-zA-Z@][a-zA-Z0-9@]*|[\\_\^\{\}]|[~\'"`,.\-%#][a-zA-Z]</pre>
           and furthermore, the special macros ``<tt>begin</tt>'' and
           ``<tt>end</tt>'' are reserved and cannot be redefined.
             
-          A macro may require a fixed number of arguments (optional arguments
-          are not supported). In the body of the macro definition, the first
+          A macro may require a fixed number of arguments and, optionally, subscript and supersript arguments.
+          In the body of the macro definition, the first
           argument can be referred to as ``<nx>{{0}}</nx>'', the second as
-          ``<nx>{{1}}</nx>'' and so forth.
+          ``<nx>{{1}}</nx>'' and so forth. The subscript argument can be
+          referred to as ``<nx>{{SUBSCRIPT}}</nx>'', and the superscript
+          argument as ``<nx>{{SUPERSCRIPT}}</nx>''.
+          To indicate
+          that the macro accepts superscript and subscript, use
+          <tt>superscript-arg="yes"</tt> and <tt>subscript-arg="yes"</tt>.
+          To refer to the subscript and superscript arguments inside the can be
+          referred to with ``<nx>{{SUBSCRIPT}}</nx>'' and
+          ``<nx>{{SUPERSCRIPT}}</nx>''.
+
+          A macro definition may use macros: These must be defined at the point
+          where thy are instandiated by the containing macro being expanded.
 
           Macros have limited functionality: 
           \begin{itemize}
@@ -205,27 +216,13 @@
               Since the arguments of the macro are processed before they are
               passed to the macro, it is not possible to use a macro to, say,
               force macros to not be expanded in the argments. 
+
+              You may still use e.g. \tagref{pre} or \tagref{nx} in a macro
+              body, but it may not have the desired effect.
             }
           \end{itemize}
-
-          In math mode a macro may accept subscript and/or superscript arguments, i.e.
-          <pre>\sum^{X}_{i=0} x_i</pre>
-          will be interpreted as the macro <tt>sum</tt> with superscript
-          argument <tt>X</tt> and subscript argument <tt>i=0</tt>. Using the
-          definition of <tt><nx>\sum</nx></tt> from <tt>base.xml</tt>, this will be rendered as
-          <math>
-            \sum^{X}_{i=0} x_i
-          </math>
-
-          To indicate
-          that the macro accepts superscript and subscript, use
-          <tt>superscript-arg="yes"</tt> and <tt>subscript-arg="yes"</tt>.
-          To refer to the subscript and superscript arguments inside the can be
-          referred to with ``<nx>{{SUBSCRIPT}}</nx>'' and
-          ``<nx>{{SUPERSCRIPT}}</nx>''.
-
-          Both subscript and superscript are optional. If a macro allows an
-          argument, but it is not given, it simply expands to an empty string. 
+          Subscript and superscript arguments are written as
+          <pre>\sum^{X}_{i=0} x_i</pre>.
         </section>
         
         <section id="element:defenv">
@@ -242,12 +239,70 @@
           as ``<nx>{{BODY}}</nx>''.
  
           An environment is opened using the special ``<nx>\begin</nx>''
-          command and closed with the ``<nx>\end</nx>'' command. In the body
+          command and closed with the ``<nx>\end</nx>'' command.
+
+          As for macros, an envioronment definition may use macros: These must
+          be defined at the point where thy are instandiated by the containing
+          macro being expanded.
+
+          The \tagref{defenv} element may contain a set of local defines, i.e.
+          a complete \tagref{defines} section with definitions that are local
+          to the environment. Suppose, for example, that we would like to write
+          <pre>
+            \begin{itemize}
+              \item{HELLO}
+            \end{itemize}
+
+            \begin{description}
+              \item{HELLO}{WORLD}
+            \end{description}
+          </pre>
+          and have it expand to
+          <pre>
+            &lt;ilist&gt;
+              &lt;li&gt;HELLO&lt;/li&gt;
+            &lt;/ilist&gt;
+
+            &lt;dlist&gt;
+              &lt;dt&gt;HELLO&lt;dt&gt;&lt;dd&gt;WORLD&lt;/dd&gt;
+            &lt;/dlist&gt;
+          </pre>
+          We would do this by writing \tagref{defenv}s for \tt{itemize} and
+          \tt{description}, and in both elements we include a \tagref{defines}
+          section defining the macro <nx>\item</nx> --- the version in
+          \tt{itemize} taking one argument, and the version in \tt{definition}
+          taking two arguments. The added bonus of this is that <nx>\item</nx>
+          will be undefined outside the context where it makes sense.
+
+          It would look something like this:
+          <pre>
+            &lt;defenv m="itemize"&gt;
+              &lt;defines&gt;
+                &lt;def m="item" n="1"&gt;&lt;e n="li"&gt;&lt;d&gt;{{0}}&lt;/d&gt;&lt;/e&gt;&lt;/def&gt;
+              &lt;/defines&gt;
+              &lt;e n="ilist"&gt;&lt;d&gt;{{BODY}&lt;/d&gt;&lt;/e&gt;
+            &lt;/defenv&gt;
+            &lt;defenv m="description"&gt;
+              &lt;defines&gt;
+                &lt;def m="item" n="2"&gt;
+                  &lt;e n="dt"&gt;&lt;d&gt;{{0}}&lt;/d&gt;&lt;/e&gt;
+                  &lt;e n="dd"&gt;&lt;d&gt;{{1}}&lt;/d&gt;&lt;/e&gt;
+                &lt;/def&gt;
+              &lt;/defines&gt;
+              &lt;e n="ilist"&gt;&lt;d&gt;{{BODY}&lt;/d&gt;&lt;/e&gt;
+            &lt;/defenv&gt;
+          </pre>
         </section>
         
         <section id="element:incdef">
           <head><title>The \tag{incdef} element</title></head>
-          The \tagref{incdef} element can be used to include definitions from external files.
+          The \tagref{incdef} element can be used to include definitions from
+          external files.
+
+          A definition file is an XML file where to document element is a
+          \tagref{defines} element. The content behaves as if inserted directly
+          into the point of the \tagref{incdef} tag (i.e.: The same rules apply
+          --- no duplicate macros or environments).
         </section>
 
         <section id="element:dictentry">
@@ -271,7 +326,9 @@
             {
               When include source code snippets, some external program can
               preprocess the code to be included, extract the relevant line
-              numbers and store them in the dictionary.
+              numbers and store them in the dictionary. This information can
+              then be used in a macro or an environment to insert the desired
+              lines.
             }
             \item
             {
@@ -307,15 +364,15 @@
           <head><title>Simple text elements</title></head>
           The inline text elements available are
           \begin{tagdeflist}
-            \tagitem{bf}{Bold face text.}
-            \tagitem{em}{Emphasize text.}
-            \tagitem{tt}{Typed text.}
-            \tagitem{sc}{Small caps text.}
-            \tagitem{br}{Line break.}
-            \tagitem{font}{Change font face.}
-            \tagitem{img}{Image from external source.}
-            \tagitem{nx}{No-expand region. Macros are not expanded within this tag.}
-            \tagitem{span}{Generic span element. Works mostly like HTML span.}
+            \item{bf}{Bold face text.}
+            \item{em}{Emphasize text.}
+            \item{tt}{Typed text.}
+            \item{sc}{Small caps text.}
+            \item{br}{Line break.}
+            \item{font}{Change font face.}
+            \item{img}{Image from external source.}
+            \item{nx}{No-expand region. Macros are not expanded within this tag.}
+            \item{span}{Generic span element. Works mostly like HTML span.}
           \end{tagdeflist}
 
           Paragraphs are implicit; as in TeX, one or more blank lines signify a paragraph, but since we are in XML, there are a few extra notes:
@@ -331,23 +388,15 @@
           <head><title>Structural text elements</title></head>
           The structural text elements are
           \begin{tagdeflist}
-            \tagitem{ilist}
-            { Unordered list (e.g. bullet list.) }
-            \tagitem{dlist}
-            { Definition list. }
-            \tagitem{table}
-            { Table of values }
-            \tagitem{float}
-            { A floating element; a figure, a table etc. }
-            \tagitem{div}
-            { A logical division (works like a HTML div tag). Creates a new text paragraph. }
-            \tagitem{center}
-            { Centered paragraph. }
-            \tagitem{flushleft}
-            { Left aligned paragraph. }
-            \tagitem{flushright}
-            { Right aligned paragraph. }
-            \tagitem{pre}
+            \item{ilist} { Unordered list (e.g. bullet list.) }
+            \item{dlist} { Definition list. }
+            \item{table} { Table of values }
+            \item{float} { A floating element; a figure, a table etc. }
+            \item{div} { A logical division (works like a HTML div tag). Creates a new text paragraph. }
+            \item{center} { Centered paragraph. }
+            \item{flushleft} { Left aligned paragraph. }
+            \item{flushright} { Right aligned paragraph. }
+            \item{pre}
             { 
               Preformatted paragraph. By default  
               \begin{itemize}
@@ -370,9 +419,9 @@
 
           There are three different top-level math environments:
           \begin{tagdeflist}
-            \tagitem{m}{Inline math element.}
-            \tagitem{math}{A math paragraph. This can define an ID making it possible to refer to the equation. }
-            \tagitem{eqnarray}{A table of equations. Each equation if a three-cell row with cells aligned as right, center and left respectively. Each row can  define an ID.}
+            \item{m}{Inline math element.}
+            \item{math}{A math paragraph. This can define an ID making it possible to refer to the equation. }
+            \item{eqnarray}{A table of equations. Each equation if a three-cell row with cells aligned as right, center and left respectively. Each row can  define an ID.}
           \end{tagdeflist}
         </section>
         <section id="section:macro-expansion">
@@ -479,16 +528,16 @@
               \item
               { Special table syntax using the constructions
                 \begin{description}
-                  \ditem{<tt><nx>\:</nx></tt>}
+                  \item{<tt><nx>\:</nx></tt>}
                   { For the first row in a table this produces two virtual SAX events: a
                     start-row and a start-cell. Otherwise it will produce four virtual SAX
                     events: an end-cell, an end-row, a start-row and a start-cell.
                   }
-                  \ditem{<tt><nx>\!</nx></tt>}
+                  \item{<tt><nx>\!</nx></tt>}
                   {
                     This evaluates to a two virtual SAX events: an end-cell and a start-cell
                   }
-                  \ditem{end-of-table}
+                  \item{end-of-table}
                   {
                     Finally, at the end of table, two virtual events are generated: An end-cell and an end-row. 
                   }
@@ -503,11 +552,11 @@
               \item
               { Superscript and subscript notation in math mode. These are parsed
                 \begin{description}
-                  \ditem{ <tt><nx>_{ ... }</nx></tt> and <tt><nx>^{ ... }</nx></tt> }
+                  \item{ <tt><nx>_{ ... }</nx></tt> and <tt><nx>^{ ... }</nx></tt> }
                   {
                     Subscript and superscript where the right-hand operand is a group.
                   }
-                  \ditem{ <tt><nx>_.</nx></tt> and <tt><nx>^.</nx></tt> }
+                  \item{ <tt><nx>_.</nx></tt> and <tt><nx>^.</nx></tt> }
                   {
                     Subscript and superscript where the right-hand operand is a single char, e.g. <nx><tt>x^i</tt></nx>
                   }
@@ -656,19 +705,10 @@ organization&amp;publisher&amp;address
       There are a set of special tags meant to be used in the documentation
       writing and building process. These are
       \begin{tagdeflist}
-        \tagitem{warning}
-        {
-          Print a warning to the display when a condition is met.
-        }
-        \tagitem{error}
-        {
-          Write a message and halt the translation if a condition is met.
-        }
-        \tagitem{note}
-        {
-          Produces a ``margin-note'' for proof-readers.
-        }
-        \tagitem{sdocml:conditional}
+        \item{warning} { Print a warning to the display when a condition is met.  }
+        \item{error} { Write a message and halt the translation if a condition is met.  }
+        \item{note} { Produces a ``margin-note'' for proof-readers.  }
+        \item{sdocml:conditional}
         {
           A special preprocessor-like tag: If the given condition is met, the
           content of the element will be parsed as if it had appeared directly
@@ -676,19 +716,68 @@ organization&amp;publisher&amp;address
           condition is not met, the content will be completly ignored (i.e.: It
           must still be valid XML, but no validation is performed and all text
           and elements are thrown away.)
+
+          See section \ref{sec:conditions}.
         }
       \end{tagdeflist}
 
-      Furthermore, several elements accept a ``<tt>cond</tt>'' attribute
+      Furthermore, all elements accept a ``<tt>cond</tt>'' attribute
       defining a condition under which the element should be included in the
       document. If a condition element evaluated to <tt>False</tt>, the element
       will be ignored as if it had appeard inside a \tagref{sdocml:conditional}
-      element.
+      element.  See section \ref{sec:conditions}.
     </section>
+
+    <section id="sec:conditions">
+      <head><title>Condition expressions</title></head>
+        All elements may contain a \tt{cond} attribute. This defines a
+        expression that evaluates either to \tt{True} or \tt{False}. The
+        variables used in the expression are constant throughout a whole
+        document --- they are defined as arguments on the command line or in a
+        configuration file. There are no way to set or modify the values of
+        conditional variables from within a document.
+        
+        The special variabless ``true'' and ``false'' always evaluates to \tt{True}
+        and \tt{False} respectively. All others are defined globally either on
+        the command line or in an options file.
+        
+        The syntax for conditional expressions is:
+        <pre>
+        exp    -> subexp | "!" subexp
+        subexp -> TERM | "(" explst ")" | isdef
+        explst -> andlst | orlst | xorlst
+        orlst  -> exp | exp "|" orlst
+        andlst -> exp | exp "+" andlst
+        xorlst -> exp | exp "/" xorlst
+        isdef  -> ? TERM
+        </pre>
+        For example:
+        <pre>
+        (c1 | c2 | !c3)
+        ( (c1 / c2) + c3 )
+        ((?c1 + c1) | (?c2 + c2))
+        </pre>
+        Note: The exact meanings of
+        \begin{description}
+          \item{\tt{a|c|v}} { At least one of \tt{a}, \tt{b} and \tt{a} must be true }
+          \item{\tt{a+b+c}} { All of one of \tt{a}, \tt{b} and \tt{a} must be true }
+          \item{\tt{a/b/c}} { Exactly one of \tt{a}, \tt{b} and \tt{a} must be true }
+          \item{\tt{?a}}    
+          { 
+            True of \tt{a} is defined, otherwise false. 
+          }
+        \end{description}
+        Evaluaten is the normal lazy logic evaluation. This means that while referring to
+        a variable <tt>a</tt> which is not defined causes an error, but an expression 
+        <tt>?a+a</tt> (meaning: If <tt>a</tt> is defined and <tt>a</tt> is true) is valid.
+    </section>
+
     <section>
       <head><title>Unicode text</title></head>
 
-      SDoc generally supports most unicode characters in text mode: When parsing the document following constructions are treated as single characters:
+      SDoc generally supports most unicode characters in text mode: When
+      parsing the document following constructions are treated as single
+      characters:
       <ilist>
         <li>Characters in the ASCII range.</li>
         <li>Ordinary unicode multi-byte characters outside the ASCII range.</li>
@@ -698,9 +787,11 @@ organization&amp;publisher&amp;address
 
       Since the backends may need to treat non-ASCII characters in some special
       way (e.g. accents in TeX), only a subset of unicode character
-      constructions are actually supported.
+      constructions are actually supported by the backends.
 
-      Several unicode characters can be written in (at least) two different ways; either using a combining character or using the dedicated code-point.
+      Several unicode characters can be written in (at least) two different
+      ways; either using a combining character or using the dedicated
+      code-point.
       For example an <em>a-grave</em>, can be written as
       <ilist>
         <li> The dedicated code point (unicode 0xe0) rendered as "à",or </li>
@@ -711,7 +802,6 @@ organization&amp;publisher&amp;address
         <li> referring the dedicated code point by name as <em>&amp;agrave;</em>, or </li>
         <li> referring to the combining unicode char by index (since it has no name by default) as <em>a&amp;#x0300;</em>.</li>
       </ilist>
-
     </section>
   </section>
   <section url="../build/output/tagsref.xml" cond="true"/>

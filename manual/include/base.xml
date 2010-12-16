@@ -6,6 +6,7 @@
     
     <incdef url="accent.xml"/>
     <incdef url="syms.xml"/>
+    <incdef url="math.xml"/>
     <!-- Accent tables: Hat, bar and not --> 
 
     <!-- NOTE: Accents can be produced using combining characters, but the HTML backend does not support this yet. 
@@ -13,11 +14,6 @@
          the character was listed in then "accentable" list (accent.xml).
          Combining characters are defined in Unicode 0x0300-0x036f.
       -->
-    <def m="hat" n="1">
-      <desc>This operator accepts exactly one char of the ones listed in accents.xml</desc>
-      <e n="mo"><d><lookup>accentable-{{0}}</lookup>{{0}}&#x0302;</d></e>
-    </def>
-    <def m="bar" n="1"><e n="mo"><d><lookup>accentable-{{0}}</lookup>{{0}}&#x0304;</d></e></def>
 
     <!-- An anchor generated with \index or \dindex contains no ID, and thus cannot be referred. -->
 
@@ -74,8 +70,22 @@
     </def>
 
     <def m="cite"  n="1">
-      <desc>Define a bibliography link to an unresolved source. The external resource identifier is fixed to "bibdb", and the class is "cite". </desc>
+      <desc>
+        Define a bibliography link to an unresolved source. The external
+        resource identifier is fixed to "bibdb", and the class is "cite".
+      </desc>
       <e n="ref"><attr n="class">cite</attr><attr n="type">cite</attr><attr n="ref">{{0}}</attr></e>
+    </def>
+    
+    <def m="pcite"  n="2">
+      <desc>
+        The same as \cite above, except a two arguments are accepted. First
+        argument is the .
+
+        Please note that at the moment we don't do anything with the pages and
+        they are not displayed.
+      </desc>
+      <e n="ref"><attr n="class">cite</attr><attr n="type">cite</attr><attr n="ref">{{1}}</attr></e>
     </def>
 
     <def m="tt"   n="1"><e n="tt"><d>{{0}}</d></e></def> <!-- Typed text-->
@@ -88,71 +98,39 @@
     <def m="texttt" n="1"><e n="tt"><d>{{0}}</d></e></def>
     <def m="br"><e n="br"/></def>
 
-
-    <!-- Math fonts -->
-    <def m="mathcal"  n="1"><e n="mfont"><attr n="family">mathcal</attr><d>{{0}}</d></e></def>
-    <def m="mathfrac" n="1"><e n="mfont"><attr n="family">mathfrac</attr><d>{{0}}</d></e></def>
-    <def m="mathbb"   n="1"><e n="mfont"><attr n="family">mathbb</attr><d>{{0}}</d></e></def>
-    <def m="mathtt"   n="1"><e n="mfont"><attr n="family">mathtt</attr><d>{{0}}</d></e></def>
-    <def m="mbox"     n="1"><e n="mtext"><d>{{0}}</d></e></def>
-
-    <!-- Math macros-->
-    <def m="frac" n="2"> <e n="mfrac"> <e n="mrow"> <d>{{0}}</d> </e> <e n="mrow"> <d>{{1}}</d> </e></e> </def>
-    <def m="sqrt" n="1"> <e n="msqrt"> <e n="mrow"> <d>{{0}}</d> </e> </e></def>
-
-    <def m="sum" superscript-arg="yes" subscript-arg="yes">
-      <e n="msubsup">
-        <e n="mrow"><e n="mo"><attr n="op">sum</attr></e></e>
-        <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
-        <e n="mrow"><d>{{SUPERSCRIPT}}</d></e>
-      </e>
-    </def>
-    
-    <def m="int" superscript-arg="yes" subscript-arg="yes">
-      <e n="msubsup">
-        <e n="mrow"><e n="mo"><attr n="op">int</attr></e></e>
-        <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
-        <e n="mrow"><d>{{SUPERSCRIPT}}</d></e>
-      </e>
-    </def>
-
-    <def m="limits"> <e n="mo"><attr n="op">limits</attr></e></def>
-    <!-- <def m="notin">  <e n="mo"><d>&notin;</d></e></def> --> <!-- REPLACED BY \not{\in} -->
-    <def m="norm" n="1"><e n="mfenced"><attr n="open">&Vert;</attr><attr n="close">&Vert;</attr><d>{{0}}</d></e></def>
-          
-    <defenv m="braces"><e n="mfenced"><attr n="open">{</attr><attr n="close">}</attr><d>{{BODY}}</d></e></defenv>
-    <defenv m="backets"><e n="mfenced"><attr n="open">[</attr><attr n="close">]</attr><d>{{BODY}}</d></e></defenv>
-    <defenv m="parens"><e n="mfenced"><attr n="open">(</attr><attr n="close">)</attr><d>{{BODY}}</d></e></defenv>
-    <defenv m="leftbrace"><e n="mfenced"><attr n="open">{</attr><attr n="close"></attr><d>{{BODY}}</d></e></defenv>
-  
-   
-
     <!-- Some simple environments -->
     <defenv m="itemize">
       <desc>Itemize list. Use the \item{text} macro to add list items. </desc>
+      <defines>
+        <def m="item" n="1"><e n="li"><d>{{0}}</d></e></def>
+      </defines>
       <e n="ilist">
         <attr n="class">itemize</attr>
         <d>{{BODY}}</d>
       </e>
     </defenv>
-    <def m="item" n="1"><e n="li"><d>{{0}}</d></e></def>
     
     <defenv m="enumerate">
       <desc>Enumerated list. Use the \item{text} macro to add list items. </desc>
+      <defines>
+        <def m="item" n="1"><e n="li"><d>{{0}}</d></e></def>
+      </defines>
       <e n="ilist"><attr n="class">enumerate</attr><d>{{BODY}}</d></e>
     </defenv>
     
     <defenv m="description">
       <desc>Definition list. Use the \ditem{label}{text} macro to add list items. </desc>
+      <defines>
+        <def m="item" n="2">
+          <e n="dt"><d>{{0}}</d></e>
+          <e n="dd"><d>{{1}}</d></e>
+        </def>
+      </defines>
       <e n="dlist"><d>{{BODY}}</d></e>
     </defenv>
-    <def m="ditem" n="2">
-      <e n="dt"><d>{{0}}</d></e>
-      <e n="dd"><d>{{1}}</d></e>
-    </def>
 
     <defenv m="figure">
-      <e n="float">
+      <e n="float"> 
         <attr n="class">figure</attr>
         <d>{{BODY}}</d>
       </e>

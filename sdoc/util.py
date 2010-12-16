@@ -1,0 +1,234 @@
+from UserDict import UserDict
+import collections
+import os
+
+
+
+class Position:
+    def __init__(self,filename,line):
+        self.filename = filename
+        self.line = line        
+    def __repr__(self):
+        return '%s:%d' % (self.filename,self.line)
+    def brief(self):
+        return '%s:%d' % (os.path.basename(self.filename), self.line)
+
+
+class MotexException(Exception):
+    def __init__(self,msg,trace=None):
+        self.msg = msg
+        self.trace = trace or []
+    def __str__(self):
+        return '%s%s' % (self.msg,''.join(['\n\tfrom %s' % t for t in self.trace]))
+
+class BibItemError(Exception):
+    pass
+class MathError(MotexException):
+    pass
+
+class MacroError(MotexException): pass
+
+class MacroArgErrorX(MotexException):
+    def __init__(self,msg):
+        MotexException.__init__(self,msg)
+
+class MacroArgError(MotexException):
+    pass
+class NodeError(MotexException):
+    pass
+
+class XMLIdError(MotexException):
+    pass
+class XMLIdRefError(MotexException):
+    pass
+
+class XMLError(MotexException):
+    pass
+
+class DocumentAssert(MotexException):
+    pass
+
+class CondError(MotexException):
+    pass
+
+class NodeIncludeError(MotexException):
+    pass
+    
+
+
+
+
+class CondOpr(str):
+    pass
+
+class Cond:
+    And = CondOpr('+')
+    Or  = CondOpr('|')
+    Xor = CondOpr('/')
+    Not = CondOpr('!')
+
+class CondTerm(unicode):
+    pass
+
+class CondIsDef(unicode):
+    pass
+
+
+class CondExp(list):
+    pass
+
+class DfltDict(UserDict):
+    def __init__(self,cons=lambda: None):
+        UserDict.__init__(self)
+        self.__cons = cons
+    def __ensurekey(self,k):
+        if not self.data.has_key(k):
+            self.data[k] = self.__cons()
+    def __getitem__(self,k):
+        self.__ensurekey(k)
+        return self.data[k]
+
+
+class CommandDict(UserDict):
+    def __init__(self,parent=None):
+        UserDict.__init__(self)
+
+        assert parent is None or isinstance(parent,CommandDict)
+        self.__parent = parent
+
+        self.__lookuptable = {}
+
+    def __getitem__(self,key):
+        try:
+            return self.data[key]
+        except KeyError:
+            if self.__parent is not None:
+                return self.__parent[key]
+            else:
+                raise
+
+    def has_key(self,key):
+        return self.data.has_key(key) or self.__parent.has_key(key)
+
+    def __setitem__(self,key,value):
+        if not self.data.has_key(key):
+            self.data[key] = value
+        else:
+            raise KeyError('Macro "%s" already defined' % key)
+
+    def dictLookup(self,key):
+        if self.__lookuptable.has_key(key):
+            return self.__lookuptable[key]
+        elif self.__parent is not None:
+            return self.__parent.dictLookup(key)
+        else:
+            raise KeyError('No Dictionary entry for %s' % key)
+    def _dictKeys(self):
+        if self.__parent is not None:
+            s = self.__parent._dictKeys()
+        else:
+            s = set()
+        return s | set(self.__lookuptable.keys())
+    def dictSet(self,key,value):
+        if not self.__lookuptable.has_key(key):
+            self.__lookuptable[key] = value
+        else:
+            raise KeyError('Dictionary entry for %s already defined' % key)
+
+    def dump(self,depth=0):
+        for k,v in self.data.items():
+            print '%*s = %s' % (depth*2,k,v)
+        if isinstance(self.__parent,CommandDict):
+            self.__parent.dump(depth+1)
+        else:
+            print '%*s' % (depth*2,str(self.__parent))
+
+    def __collect(self,d):
+        if self.__parent is not None:
+            self.__parent.__collect(d)
+        d.update(self.data)
+        return d
+        
+    def items(self):
+        return self.__collect({}).items()
+
+
+class PushIterator:
+    def __init__(self,buffer):
+        self.__it = iter(buffer)
+        self.__buffer = []
+    def __iter__(self):
+        return self
+    def next(self):
+        if self.__buffer:
+            return self.__buffer.pop()
+        else:
+            return self.__it.next()
+    def peek(self):
+        if not self.__buffer:
+            self.__buffer.append(self.__it.next())
+        return self.__buffer[-1]
+    def empty(self):
+        if self.__buffer: return False
+        else:
+            try: 
+                self.peek()
+                return False
+            except StopIteration: 
+                return True
+    def __nonzero__(self): return not self.empty()
+    def pushback(self,item):
+        self.__buffer.append(item)
+
+
+
+def partListIter(l,start,stop,step=1):
+    i = start
+    if stop < 0: 
+        stop = (- stop) % len(l)
+        if stop > 0: stop = len(l) - stop
+    if step < 1: step = 1
+    while i < stop and i < len(l):
+        yield l[i]
+        i += step
+
+class XList:
+    def __init__(self,l=None):
+        self.data = l or []
+        self.__offset = 0
+        self.__last = len(self.data)
+    def __len__(self): return self.__last - self.__offset
+    def __nonzero__(self): return len(self) > 0
+    def __getitem__(self,idx):
+        if idx + self.__offset < self.__last:
+            return self.data[idx + self.__offset]
+        else:
+            raise IndexError("Index out of bound")
+
+    def __iter__(self):
+        return partListIter(self.data, self.__offset, self.__last)
+
+    def pop(self,idx=-1):
+        if self.__offset < self.__last:
+            if idx == -1: 
+                self.__last -= 1
+                return self.data[self.__last]
+            elif idx == 0: 
+                self.__offset += 1
+                return self.data[self.__offset-1]
+            else:
+                raise IndexError("Invalid index to pop")
+        else:
+            raise IndexError('Empty list')
+    def append(self,item):
+        if self.__last < len(self.data):
+            self.data[self.__last] = item
+        else:
+            self.data.append(item)
+        self.__last += 1
+            
+            
+
+
+
+

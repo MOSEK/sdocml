@@ -17,380 +17,20 @@ import time
 import os
 import logging
 import e2html
-from e2html import counter, Node, \
-        SectionNode, \
-        BibliographyNode, \
-        BibItemNode, \
-        HeadNode, \
-        BodyNode, \
-        TitleNode, \
-        AbstractNode, \
-        AuthorsNode, \
-        TitleNode, \
-        AuthorsNode, \
-        AuthorNode, \
-        AuthorFirstNameNode, \
-        AuthorLastNameNode, \
-        AuthorEmailNode, \
-        AuthorInstitutionNode, \
-        AuthorInstitutionNameNode, \
-        AuthorInstitutionAddressNode, \
-        ParagraphNode, \
-        DivNode, \
-        SpanNode, \
-        EmphasizeNode, \
-        TypedTextNode, \
-        BoldFaceNode, \
-        SmallCapsNode, \
-        FontNode, \
-        BreakNode, \
-        ReferenceNode, \
-        HyperRefNode, \
-        AnchorNode, \
-        ItemListNode, \
-        ListItemNode, \
-        DefinitionListNode, \
-        DefinitionTitleNode, \
-        DefinitionDataNode, \
-        CenterNode, \
-        FlushLeftNode, \
-        FlushRightNode, \
-        TableNode, \
-        TableColumnNode, \
-        TableRowNode, \
-        TableCellNode, \
-        FloatNode, \
-        FloatBodyNode, \
-        FloatCaptionNode, \
-        PreformattedNode, \
-        InlineMathNode, \
-        MathEnvNode, \
-        MathEqnArrayNode, \
-        MathRootNode, \
-        MathSquareRootNode, \
-        MathFencedNode, \
-        MathFontNode, \
-        MathFracNode, \
-        MathIdentifierNode, \
-        MathNumberNode, \
-        MathOperatorNode, \
-        MathRowNode, \
-        MathSubscriptNode, \
-        MathSubSuperscriptNode, \
-        MathSuperscriptNode, \
-        MathTableNode, \
-        MathTableCellNode, \
-        MathTextNode, \
-        MathTableRowNode, \
-        MathVectorNode, \
-        ImageNode, \
-        ImageItemNode, \
-        NoteNode
-      
-class NodeError(Exception): pass
+from e2html import counter
+## WARNING: Most of the code in this file is NOT USED!! Only the "__main__"
+# part at the bottom  is acrually active; all remainaing functionality is
+# implemented in e2html.py.
 
-def mk_MathModeContentNode(man,node,res):
-    nc = node.__class__
-    
-    if   nc is MathRootNode: pass
-    elif nc is MathSquareRootNode: pass
-    elif nc is MathFencedNode: pass
-    elif nc is MathFontNode: pass
-    elif nc is MathFracNode: pass
-    elif nc is MathIdentifierNode: pass
-    elif nc is MathNumberNode: pass
-    elif nc is MathOperatorNode: pass
-    elif nc is MathRowNode: pass
-    elif nc is MathSubscriptNode: pass
-    elif nc is MathSubSuperscriptNode: pass
-    elif nc is MathSuperscriptNode: pass
-    elif nc is MathTableNode: pass
-    elif nc is MathTableCellNode: pass
-    elif nc is MathTextNode: pass
-    elif nc is MathTableRowNode: pass
-    elif nc is MathVectorNode: pass
-    
-    elif nc is EmphasizeNode:
-        res.groupStart().macro('em')
-        mk_MathModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is TypedTextNode: 
-        res.groupStart().macro('tt')
-        mk_MathModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is BoldFaceNode:  
-        res.groupStart().macro('bf')
-        mk_MathModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is SmallCapsNode: 
-        res.groupStart().macro('sc')
-        mk_MathModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is FontNode: pass  
-    elif nc is AnchorNode:
-        label(node,res)
-    else:
-        raise NodeError('Invalid node "%s" encountered in math mode at %s' % (node.nodeName,node.pos))
-
-def mk_MathModeContent(man,node,res):
-    for n in node:
-        if isinstance(n,basestring):
-            res.append(n)
-        else:
-            mk_MathModeContentNode(man,n,res)
-    return res
-
-def mk_MathEnv(man,node,res):
-    res.append('\n')
-    if not node.hasAttr('id'):
-        res.macro('[')
-    else:
-        res.begin('equation')
-        res.macro('label').groupStart()._raw(node.getAttr('id')).groupEnd()
-    res.startMathMode()
-    mk_MathModeContent(man,node,res)
-    res.endMathMode()
-    if not node.hasAttr('id'):
-        res.macro(']')
-    else:
-        res.end('equation')
-    return res
-
-def mk_MathEqnArrayNode(man,node,res):
-    pass    
-
-def mk_InlineTextModeContentNode(man,node,res):
-    nc = node.__class__
-    if   nc is SpanNode: pass
-    elif nc is EmphasizeNode: pass
-    elif nc is TypedTextNode: pass
-    elif nc is BoldFaceNode: pass
-    elif nc is SmallCapsNode: pass
-    elif nc is FontNode: pass
-    elif nc is BreakNode: pass
-    elif nc is ReferenceNode: pass
-    elif nc is HyperRefNode: pass
-    elif nc is AnchorNode: pass
-    elif nc is InlineMathNode: pass
-    else:
-        raise NodeError('Invalid node "%s" encountered in inline-mode at %s' % (node.nodeName,node.pos))
-    return res
-
-
-def label(node,res):
-    if node.hasAttr('id'): res.macro('label').groupStart()._raw(node.getAttr('id')).groupEnd()
-    return res
-
-
-def mk_InlineTextModeContent(man,node,res):
-    for n in node:
-        if isinstance(n,basestring):
-            r.append(n)
-        else:
-            mk_InlineTextModeContentNode(man,n,res)
-    return res
-
-
-
-def mk_VerbatimModeContentNode(man,node,res):
-    if   nc is SpanNode: 
-        mk_VerbatimModeContent(man,node,res)
-    elif nc is EmphasizeNode:
-        res.groupStart().macro('em')
-        mk_VerbatimModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is TypedTextNode:
-        res.groupStart().macro('tt')
-        mk_VerbatimModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is BoldFaceNode:
-        res.groupStart().macro('bf')
-        mk_VerbatimModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is SmallCapsNode: 
-        res.groupStart().macro('sc')
-        mk_VerbatimModeContent(man,node,res)
-        res.groupEnd()
-    elif nc is FontNode:
-        mk_VerbatimModeContent(man,node,res)
-    elif nc is BreakNode: 
-        res.verbatim('\n')
-    elif nc is ReferenceNode: pass
-    elif nc is HyperRefNode: pass
-    elif nc is AnchorNode: pass
-    else:
-        raise NodeError('Invalid node "%s" encountered in verbatim-mode at %s' % (node.nodeName,node.pos))
-    return res
-
-def mk_VerbatimModeContent(man,node,res):
-    for n in node:
-        if isinstance(n,basestring):
-            r.verbatim(n)
-        else:
-            mk_VerbatimModeContent(man,n,res)
-
-def mk_BlockTextModeContentNode(man,node,res,prev=None):
-    nc = node.__class__
-
-    if prev is not None and prev.forceTexPar and node.forceTexPar:
-        res.macro('par').comment()
-    
-    label(node,res)
-
-    if   nc is ItemListNode:
-        ns = [ i for i in n if isinstance(n,Node) ]
-        if ns:
-            res.comment()
-            res.begin('itemize')
-            for n in ns:
-                res.macro('item')
-                label(n,res)
-                mk_BlockTextModeContent(man,n,res)
-            res.end('itemize')
-    elif nc is DefinitionListNode:
-        ns = [ i for i in n if isinstance(n,Node) ]
-        if ns:
-            res.comment()
-            res.begin('description')
-            for n in ns:
-                if isinstance(n,DefinitionTitleNode):
-                    res.macro('item').groupStart()
-                    label(n,res)
-                    mk_InlineTextModeContent(man,n,res)
-                else:
-                    bk_BlockTextModeContent(man,n,res)
-
-                mk_BlockTextModeContent(man,cn,res)
-            res.end('description')
-    elif nc is TableNode:
-        cellhalign = [ s[0] for s in re.split(r'\s+',node.getAttr('cellhalign')) ]
-        res.begin('tabular').group(''.join(cellhalign)).append('\n')
-        
-        for ntr in node:
-            if ntr.__class__ is TableRowNode:
-                for ntd in ntr.data[:-1]:
-                    mk_InlineTextModeContent(man,ntd,res)
-                    res.tab()
-                mk_InlineTextModeContent(man,ntr.data[-1],res)
-                res.rowend().lf()
-        res.end('tabular')
-        return res
-
-    elif nc is CenterNode:
-        res.comment()
-        res.begin('center')
-        mk_BlockTextMode(man,node,res)
-        res.end('center')
-    elif nc is FlushLeftNode:   
-        res.comment()
-        res.begin('flushleft')
-        mk_BlockTextMode(man,node,res)
-        res.end('flushleft')
-    elif nc is FlushRightNode:
-        res.comment()
-        res.begin('flushright')
-        mk_BlockTextMode(man,node,res)
-        res.end('flushright')
-    elif nc is FloatNode:
-        res.begin('figure')# need some options too...
-        if node.getBody() is not None:
-            mk_BlockTextModeContent(man,node.getBody(),res)
-        res.macro('caption').groupStart()
-        label(node,res)
-        if node.getCaption():
-            mk_InlineTextModeContent(man,node.getCaption(),res)
-        res.groupEnd()
-        res.end('figure')
-    elif nc is PreformattedNode:
-        if node.hasAttr('class'):
-            clsd = dict([ (v,v) for v in re.split(r'[ ]+', node.getAttr('class').strip()) ])
-        else:
-            clsd = {}
-        lineno = node.getFirstLine()
-        nodes = list(node)
-
-        if lineno is not None and node.getURLBase() is not None and not clsd.has_key('link:no'):
-            res.macro('beginpre').group(node.getURLBase()).group(str(lineno)).comment()
-        else:
-            res.macro('beginpreplain').comment()
-        
-        mk_VerbatimModeContent(man,node,res)
-
-        res.comment().macro('endpre').lf()
-        
-    elif nc is MathEnvNode:
-        mk_MathEnv(man,node,res)
-    elif nc is MathEqnArrayNode:
-        mk_MathEqnArrayNode(man,node,res)
-    elif nc is ParagraphNode:
-        mk_InlineTextModeContent(n)
-    elif nc is DivNode: # should probably look at 
-        mk_InlineTextModeContent(n)
-    else:
-        raise NodeError('Invalid node "%s" encountered in block-mode at %s' % (node.nodeName,node.pos))
-    return res
-
-def mk_BlockTextModeContent(man,node,res):
-    prev = None
-    for n in node:
-        if isinstance(n,basestring):
-            raise NodeError('Got text in block-mode at %s' % (node.pos))
-        else:
-            mk_BlockTextModeContentNode(man,n,res,prev)
-        prev = n
-    return res
-
-def mk_TextBody(man,node,res):
-    return mk_BlockTextModeContent(man,node,res)
- 
-sectcmds = [ 'chapter', 'section', 'subsection','subsubsection', 'subsubsection*' ]
-def mk_SectionNode(man,level,node,res):
-    macro = sectcmds[level-1]
-
-    res.append('\n')
-    res.macro(macro)
-    res.groupStart()
-
-    mk_InlineTextModeContent(man,node.getTitle(),res)
-    res.groupEnd().comment()
-    if node.hasAttr('id'):
-        res.macro('label').groupStart()._raw(node.getAttr('id')).groupEnd().comment()
-    
-    mk_TextBody(man,node.getBody(),res)
-    
-    for sect in node.getSections():
-        mk_SectionNode(man,level+1,sect,res)
-    
-    return res
-
-def mk_Doc(man,node,res):
-    node.getTitle().contentToTeX(res['TITLE'])
-    res['DATE']
-    auths = node.getAuthors()
-    if auths:
-        node.getAuthors().contentToTeX(res['AUTHOR'])
-    else:
-        res['AUTHOR']
-    
-    body    = res['BODY']
-    preface = res['PREFACE']
-
-    mk_BlockTextModeContent(man,node.getBody(),preface)
-
-    sects = list(node.__sections)
-
-    for sect in sects:
-        mk_SectionNode(man,1,node,body)
-    return res
-       
-       
-        
 class Manager:
     def __init__(self,
+                 #conf,
                  timestampstr,
                  tempdir,
                  config,
                  searchpaths = []):
+
+        #self.__conf = conf
         self.__iddict = {}
 
         self.__config = config
@@ -425,6 +65,7 @@ class Manager:
 
         self.__log = logging.getLogger("SdocTeX")
 
+    def singlePage(self): True
     def failed(self): return self.__error
 
     def writeInTemplate(self,filename,repl):
@@ -544,20 +185,6 @@ class Manager:
             r.tag('link', { 'href' : self.__appicon, 'rel' : 'shortcut icon' })
         for ss in self.__stylesheet:
             r.tag('link', { 'rel' : "StyleSheet", 'href' : ss, 'type' : "text/css" })
-
-#    def getIcon(self,key):
-#        if self.__icons.has_key(key):
-#            return self.__icons[key]
-#        else:
-#            return self.getDefaultIcon()
-#
-#    def getDefaultIcon(self):
-#        if self.__icons.has_key('error'):
-#            return self.__icons['error']
-#        else:
-#            return 'imgs/error.png'
-#
-
     def readFromURL(self,url):
         proto,server,address,_,_ = urlparse.urlsplit(url)
         
@@ -590,20 +217,15 @@ class Manager:
         s = s.strip()
         if self.__eqndict.has_key(s):
             self.__eqnsrcdict[s].append((filename,line))
-            return self.__eqndict[s]
+            return self.__eqndict[s], None
         else:
             idx = len(self.__eqnlist)
             self.__eqndict[s] = idx
             self.__eqnlist.append(s)
             self.__eqnsrcdict[s] = [(filename,line)]
-            return idx
+            return idx, None
     def resolveIDTarget(self,name):
         return self.__iddict[name]
-    #def getIDTarget(self,name,referrer):
-    #    if not self.__refdIDs.has_key(name):
-    #        self.__refdIDs[name] = []
-    #    self.__refdIDs[name].append(referrer)
-    #    return SymIDRef(self,name)
     def addIDTarget(self,name,target):
         if self.__iddict.has_key(name):
             raise KeyError('Id "%s" already defined')
@@ -642,7 +264,7 @@ class Manager:
                     outf.write('\\usepackage{%s}\n' % (pkg))
 
             outf.write('\\begin{document}\n')
-            outf.write('\\openout9=dims.out\n'
+            outf.write('\\immediate\\openout9={dims.out}\n'
                        '\\newdimen\\mathwidth\n'
                        '\\newdimen\\mathheight\n'
                        '\\newdimen\\mathwidthx\n'
@@ -660,7 +282,7 @@ class Manager:
 
                 if 1:
                     # This works "good enough". The extra space of 1pt around the
-                    # math must be there because parts of the black may poke outside the box.
+                    # math must be there because parts of the black may poke outside the box.                    
                     outf.write('\\setbox0=\\vbox{'
                                '\\hbox{\\rule{0pt}{1pt}}\\nointerlineskip'
                                '\\hbox{\\rule{1pt}{0pt}%s\\rule{1pt}{0pt}}\\nointerlineskip'
@@ -669,8 +291,8 @@ class Manager:
                                % _mathUnicodeToTex.unicodeToTeXMath(eq))
                 else:
                     outf.write('\\setbox0=\\hbox{%s}\n' % _mathUnicodeToTex.unicodeToTeXMath(eq))
-                outf.write('\\mathwidth=\\wd0 \\mathheight=\\ht0\n')
-                outf.write('\\write9{page%d(\\the\\mathwidth,\\the\\mathheight)}\n' % idx)
+                outf.write('\\mathwidth=\\wd0 \\mathheight=\\ht0 \\mathdepth=\\dp0\n')
+                outf.write('\\immediate\\write9{page%d(\\the\\mathwidth,\\the\\mathheight,\\the\\mathdepth)}\n' % idx)
                 outf.write('\\setlength\\pdfpagewidth{\\mathwidth}\n')
                 outf.write('\\setlength\\pdfpageheight{\\mathheight}\n')
                 outf.write('\\shipout\\vbox{\\vspace{-1in}\\nointerlineskip\\hbox{\\hspace{-1in}\\box0}}\n')
