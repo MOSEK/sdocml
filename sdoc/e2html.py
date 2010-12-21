@@ -225,7 +225,6 @@ class texCollector(UserList.UserList):
                     self.man.Error('Multiple combining characters are not supported: 0x%x + 0x%x 0x%x' % (ord(ch),ord(cm[0]),ord(cm[1])))
                 else:
                     cm = ord(cm)
-
                 try:
                     if self.__mode is self.TextMode:
                         r.append('\\%s%s' % (_unicodeToTex.combchar_text[cm],ch))
@@ -3751,8 +3750,8 @@ class Manager:
                     stdout=subprocess.PIPE,
                     args=[   
                         self.__gsbin,
-                        '-dGraphicsAlphaBits=4',
-                        '-dTextAlphaBits=4',
+                        #'-dGraphicsAlphaBits=4',
+                        #'-dTextAlphaBits=4',
                         '-dNOPAUSE',
                         '-dBATCH',
                         '-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),

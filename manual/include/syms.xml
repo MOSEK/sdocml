@@ -7,6 +7,7 @@
     <def m="peace"><d>&#x262e;</d></def> 
 
     <def m="\"><d>\</d></def> <!-- escaped backslash -->
+    <def m=" "><d>&nbsp;</d></def> <!-- escaped backslash -->
     <def m="_"><d>_</d></def> <!-- escaped underscore -->
     <def m="^"><d>^</d></def> <!-- escaped circumflex -->
     <def m="{"><d>{</d></def> 

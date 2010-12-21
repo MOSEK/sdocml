@@ -229,7 +229,7 @@ class CheckedAppend:
 
 macro_re = re.compile('|'.join([
     r'\\(?P<env>begin|end)\s*\{(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\}',
-    r'\\(?P<macro>[a-zA-Z@][a-zA-Z0-9@]*|[:!\\_\^\{\}]|[~\'"`,.\-%#][a-zA-Z]?)',
+    r'\\(?P<macro>[a-zA-Z@][a-zA-Z0-9@]*|[:!\\_\^\{\}| ]|[~\'"`,.\-%#][a-zA-Z]?)',
     r'(?P<group>[{}])',
     r'(?P<subsuperscr>[_^])',
     r'(?P<longdash>---*)', 
