@@ -3,19 +3,35 @@ a img           { border : none;
                 }
 
 
+div.par + div.par
+    {
+        padding-top : .5em;
+    }
+
 /* MATH */
-.math       {       width                   : 100%;
-                    font-style              : italic;
-                    color                   : blue;
-                    text-align : center;
-            }
-.m          {       margin-left             : .2em;
-                    margin-right            : .2em;
-                    display                 : inline;
-            }
-.m img      {
-                    vertical-align          : middle;
-            }
+.inline-math
+    {
+        display         : inline-block;
+        vertical-align  : baseline;
+    }
+.inline-math > div
+    {
+        display         : inline-block;
+        position        : relative;
+        vertical-align  : top;
+    }
+
+.math
+    {
+        width           : 100%;
+        font-style      : italic;
+        color           : blue;
+        text-align      : center;
+    }
+
+
+
+
 dt          {       font-weight             : bolder; }
 pre {       border                  : solid thin gray;
             background-color        : rgb(232,232,232);

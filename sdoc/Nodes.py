@@ -3170,9 +3170,18 @@ class ExternalSectionRoot(_RootNode):
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
         self.__attrs = attrs
     def startChildElement(self,name,attrs,pos):
-        # Note this is a hack; we wish to use attributes from the element that included the section, not from the root element in the included file.
-        #print "NOTE: ExternalSectionRoot.startChildElement <%s>" % name
-        return _RootNode.startChildElement(self,name,self.__attrs,pos)
+        # Note this is a hack; we wish attributes from the element that
+        # included the section to override attributes from the element in the
+        # included file. We merge the attributes:
+
+        #print "----- %s" % pos.filename
+        #print "----------- Primary   attrs : %s" % self.__attrs.keys()
+        #print "----------- Secondary attrs : %s" % attrs.keys()
+        attrd = {}
+        attrd.update(attrs)
+        attrd.update(self.__attrs)
+        
+        return _RootNode.startChildElement(self,name,attrd,pos)
 
 class ExternalDefineRoot(_RootNode):
     rootElementClass = DefinesNode

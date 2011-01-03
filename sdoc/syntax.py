@@ -15,10 +15,10 @@ import re
 python_keywords = ['and','del','from','not','while', 'as','elif','global','or','with', 'assert','else','if','pass','yield', 'break','except','import','print', 'class','exec','in','raise', 'continue','finally','is','return', 'def','for','lambda','try',]
 python_language = ['None','True','False','dict','list','classmethod','staticmethod','super','str','unicode','object','id']
 python_syntax = re.compile('|'.join([r'(?P<cmnt>#.*)',
+                                     r'(?P<mlstr>"""|\'\'\')',# Note: This will fail in the freak case where e.g. '\"""' appeared inside a multi-line string.
                                      r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
                                      r'(?P<word>\w+)',
                                      r'(?P<newline>\n)',
-                                     r'(?P<mlstr>"""|\'\'\')',# Note: This will fail in the freak case where e.g. '\"""' appeared inside a multi-line string.
                                      ]),re.MULTILINE)
 
 matlab_keywords = [ 'break', 'case', 'catch', 'classdef', 'continue', 'else',

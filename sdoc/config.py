@@ -116,10 +116,10 @@ class Configuration:
         self.__accepts = {}
         self.__accepts.update(accepts)
     def update(self,key,value):
-        print "UPDATE: %s <- %s" % (key,value)
+        #print "UPDATE: %s <- %s" % (key,value)
         self.__accepts[key].update('%s' % value)
     def updateFile(self,filename):
-        print "UPDATE FILE: %s" % (filename)
+        #print "UPDATE FILE: %s" % (filename)
         configbase = os.path.dirname(filename)
         for l in open(filename,'rt'):
             if l.strip() and l[0] != '#':
@@ -127,7 +127,7 @@ class Configuration:
                 if o is not None:
                     arg = o.group(1)
                     val = o.group(2)
-                    print "UPDATE: %s <- %s" % (arg,val)
+                    #print "UPDATE: %s <- %s" % (arg,val)
                     self.__accepts[arg].update(val,configbase)
 
     def keys(self):

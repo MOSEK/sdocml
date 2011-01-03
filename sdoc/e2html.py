@@ -875,12 +875,15 @@ class _StructuralNode(Node):
         while nodes:
             n = nodes.pop(0)
             if isinstance(n,ParagraphNode):
+                res.div('par')
                 n.contentToHTML(res)
-                if nodes and isinstance(nodes[0],ParagraphNode):
-                    res.tag('p')
+                res.tagend('div')
+                #if nodes and isinstance(nodes[0],ParagraphNode):
+                #    res.tag('p')
                 res.append('\n')
             elif isinstance(n,basestring):
                 print "!!!!Node", self.nodeName,self.pos
+                assert 0
             else:
 
                 n.toHTML(res)
@@ -2641,9 +2644,17 @@ class InlineMathNode(Node):
         eqnwidth,eqnheight,eqndepth = self.__manager.getEquationDims(self.__eqnidx)
          
         #r.tag('div',{ 'style' : 'display : inline-block; max-height : %dpx; width : %dpx;'  % (int(eqnheight),int(eqnwidth))})
-        r.tag('span',{ 'style' : 'display : inline-block; max-height : %dpx; width : %dpx;'  % (int(eqnheight),int(eqnwidth))})
-        r.tag('img', { 'src' : self.getEqnFile() } )
-        r.tagend('span')
+        
+        #r.tag('div',{ 'class' : 'inline-math', 'style' : 'max-height : %dpx; width : %dpx;' % (int(eqnheight),int(eqnwidth))})
+        #r.tag('div',{ 'class' : 'inline-math', 'style' : 'max-height : %dpx;' % (int(eqnheight))})
+
+        r.tag('div',{ 'class' : 'inline-math'}).tag('div',{ 'style' : 'max-height : %dpx; top : -%dpx;' % (int(eqnheight),int(eqnheight))})
+        r.tag('img', { 'src' : self.getEqnFile() })
+        r.tagend('div')
+
+
+
+        r.tagend('div')
 
 
 class MathEnvNode(Node):
@@ -2936,6 +2947,7 @@ class MathTableRowNode(_MathNode):
 
 class MathTableCellNode(_MathNode):
     def toTeX(self,r):
+        r.macro('displaystyle').group()
         return self.contentToTeX(r)
 
 
