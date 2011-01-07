@@ -628,8 +628,8 @@ class htmlCollector(UserList.UserList):
         return self
     def emptytag(self,name,attrs=None):
         self.tag(name,attrs,True)
-        if name in self.partags:
-            self.append('\n')
+        #if name in self.partags:
+        #    self.append('\n')
         return self
     def tagend(self,name):
         if name not in self.unendedtags:
@@ -642,8 +642,8 @@ class htmlCollector(UserList.UserList):
             else:
                 self.__stack.pop()
                 self.data.append('</%s>' % name)
-            if name in self.partags:
-                self.append('\n')
+            #if name in self.partags:
+            #    self.append('\n')
         return self
 
 
@@ -3758,6 +3758,7 @@ class Manager:
                 finally:
                     inf.close()
 
+                print "RUN: ",self.__gsbin
                 p = subprocess.Popen(
                     stdout=subprocess.PIPE,
                     args=[   
@@ -4075,7 +4076,7 @@ if __name__ == "__main__":
         else:
             conf.update('infile',arg)
 
-    tempimgdir = os.path.join(conf['tempdir'] or '.','imgs')
+    tempimgdir = os.path.normpath(os.path.join(conf['tempdir'] or '.','imgs'))
 
     try:
         timestamp = '%s @ host %s' % (time.strftime("%a, %d %b %Y %H:%M:%S"),os.environ['HOSTNAME'])
@@ -4141,7 +4142,7 @@ if __name__ == "__main__":
 
             mathfile = os.path.join(tempimgdir,'math.tex')
             manager.Message('Writing Math TeX file as %s' % mathfile) 
-            try: os.makedirs(tempimgdir)
+            try: os.makedirs(os.path.normpath(tempimgdir))
             except OSError: pass
             manager.writeTexMath(mathfile)
 
