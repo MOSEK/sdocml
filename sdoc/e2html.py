@@ -617,7 +617,7 @@ class htmlCollector(UserList.UserList):
         if attrs is None or not attrs:
             attrstr = ''
         else:
-            attrstr = ' ' + ' '.join([ '%s="%s"' % item for item in attrs.items()])
+            attrstr = ' ' + ' '.join([ '%s="%s"' % (k,v.replace('"','\\"')) for k,v in attrs.items()])
         if empty:
             self.data.append('<%s%s/>' % (name,attrstr))
         else:
@@ -683,7 +683,6 @@ class FakeTextNode(UserList.UserList):
     def toPlainText(self,res):
         res.extend(self.data)
         return res
-        
     toPlainHTML = toHTML
 
 class Node(UserList.UserList):
@@ -1243,7 +1242,10 @@ class SectionNode(Node):
                 link = s.getSectionURI()
 
                 if len(s.__sections) > 0:
-                    res.tag('div',{ 'style' : 'display : inline-block;'}).tag('img',{'src' : self.__manager.getIcon('content-expand-button'),'style' : 'margin-right : 5px;', 'onclick' : 'toggleSidebarItemState(this.parentNode);'})
+                    res.tag('div',{ 'style' : 'display : inline-block;'})
+                    res.tag('img',{ 'src' : self.__manager.getIcon('content-expand-button'),
+                                    'style' : 'margin-right : 5px;', 
+                                    'onclick' : 'toggleSidebarItemState(this.parentNode);' })
                 else:
                     res.tag('div',{ 'style' : 'display : inline-block; margin-left : 14px;' })
                 
@@ -1253,7 +1255,7 @@ class SectionNode(Node):
                 s.getTitle().toPlainHTML(res)
                 res.tagend('a').tagend('div')
                
-                res.tag('div',{ 'id' : 'sidebar-content-item-%d' % s.getSectionId(),'style' : 'display : block;' })
+                res.tag('div',{ 'id' : 'sidebar-content-item-%d' % s.getSectionId(),'style' : 'display : none;' })
                 s.makeSidebarContents(res,cnt)
                 res.tagend('div')
                 res.tagend('li')
