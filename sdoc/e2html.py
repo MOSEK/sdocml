@@ -957,6 +957,8 @@ class SectionNode(Node):
 
         self.__eqncounter = counter()
         self.__figcounter = counter()
+    def getSectionId(self):
+        return self.__nodeIndex
 
     def buildTraversalOrder(self,ns):
         ns.append(self)
@@ -1195,7 +1197,7 @@ class SectionNode(Node):
                 s.makeContents(res,curlvl+1,maxlvl,fullLinks or self.__separatefile)
                 res.tagend('li')
             res.tagend('ul')
-    def makeSidebarContents(self,res,cnt):
+    def makeSidebarContents_(self,res,cnt):
         if len(self.__sections) > 0:
             res.tag('ul', { 'class' : 'sidebar-contents-list' } )
             for s in self.__sections:
@@ -1227,6 +1229,32 @@ class SectionNode(Node):
                 ## Hm.... Hardcoded max depth?!? Not nice...
                 if self.__sectlvl < 3:
                     s.makeSidebarContents(res,cnt)
+                res.tagend('div')
+                res.tagend('li')
+            res.tagend('ul')
+    def makeSidebarContents(self,res,cnt):
+        if len(self.__sections) > 0:
+            res.tag('ul', { 'class' : 'sidebar-contents-list' } )
+            for s in self.__sections:
+                res.tag('li')
+                
+                subsecidx = cnt.next()
+                sidx = s.getSectionIndex()
+                link = s.getSectionURI()
+
+                if len(s.__sections) > 0:
+                    res.tag('div',{ 'style' : 'display : inline-block;'}).tag('img',{'src' : self.__manager.getIcon('content-expand-button'),'style' : 'margin-right : 5px;', 'onclick' : 'toggleSidebarItemState(this.parentNode);'})
+                else:
+                    res.tag('div',{ 'style' : 'display : inline-block; margin-left : 14px;' })
+                
+                if sidx:
+                    res.append('.'.join([ str(v+1) for v in sidx ]) + '. ')
+                res.tag('a',{ 'href' : link, 'target' : '_top' })
+                s.getTitle().toPlainHTML(res)
+                res.tagend('a').tagend('div')
+               
+                res.tag('div',{ 'id' : 'sidebar-content-item-%d' % s.getSectionId(),'style' : 'display : block;' })
+                s.makeSidebarContents(res,cnt)
                 res.tagend('div')
                 res.tagend('li')
             res.tagend('ul')
@@ -1346,11 +1374,15 @@ class SectionNode(Node):
                 'sidebar:index'           : htmlCollector(),
                 
                 'footer'                  : htmlCollector(),
+
+                'section:id'              : htmlCollector(),
             }
         self.getTitle().toPlainText(d['title:plain'])
         self.getTitle().toHTML(d['title:html'])
         self.makeSidebarIndex(d['sidebar:index'])
         topNode.makeSidebarContents(d['sidebar:contents'])
+
+        d['section:id'].tag('script').append('var sectionID = %s;' % self.getSectionId()).tagend('script')
 
         d['navbutton:icon:dummy'].extend([tag('img',{ 'src' : self.__manager.getIcon('passive') })])
        
