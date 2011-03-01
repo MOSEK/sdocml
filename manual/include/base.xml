@@ -26,19 +26,19 @@
         "XYZ@QWE" where "XYZ" is the sort-key and "QWE" is the index entry. The
         sort-key should never contain XML elements.
       </desc>
-      <e n="a"><attr n="class">index</attr><d>{{0}}</d></e>
+      <e n="a"><attr n="type">index</attr><d>{{0}}</d></e>
     </def>
     <def m="label"  n="1">
       <desc>Create a link target without a default link text as a point in the text.</desc>
       <e n="a">
-        <attr n="class">label</attr>
+        <attr n="type">label</attr>
         <attr n="id">{{0}}</attr>
       </e>
     </def>
     <def m="xlabel" n="2">
       <desc>Create a link target and use the second argument as default link text.</desc>
       <e n="a">
-        <attr n="class">label</attr>
+        <attr n="type">label</attr>
         <attr n="id">{{0}}</attr>
         <d>{{1}}</d>
       </e>

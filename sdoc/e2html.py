@@ -88,6 +88,7 @@ class _mathUnicodeToTex:
         
         8230 : '\\ldots{}',
         8285 : '\\vdots{}',
+        8594 : '\\rightarrow',
         8658 : '\\Rightarrow',
         8660 : '\\Leftrightarrow',
         8704 : '\\forall{}',
@@ -1271,7 +1272,7 @@ class SectionNode(Node):
         entries = []
         for n in self.__manager.getAnchors():
             print "Anchor : %s" % ''.join(n.toPlainText([]))
-            if n.hasAttr('class') and 'index' in re.split('\s+',n.getAttr('class')):
+            if n.hasAttr('type') and 'index' in re.split('\s+',n.getAttr('type')):
                 keys = [[]]
                 # Split the string over "!", then each entry over '@'
                 for cn in n:
@@ -2203,7 +2204,7 @@ class AnchorNode(Node):
         if attrs.has_key('id'):
             self.__anchor_name = attrs['id']
         else:
-            self.__anchor_name = '@generated-ID:%x' % id(self)
+            self.__anchor_name = '@geneated-ID:%x' % id(self)
 
     def getAnchorID(self):
         return self.__anchor_name
@@ -2214,7 +2215,10 @@ class AnchorNode(Node):
     def anchorTextToPlainHTML(self,res):
         return self.toPlainHTML(res)
     def toHTML(self,res):
-        return res.emptytag('a', { 'name' : self.__anchor_name }) 
+        if self.hasAttr('target') and self.getAttr('target') == 'index':
+            return res
+        else:
+            return res.emptytag('a', { 'name' : self.__anchor_name }) 
     def toTeX(self,res):
         res.macro('label').groupStart()._raw(self.__anchor_name).groupEnd().comment()
         #res.macro('hypertarget').groupStart()._raw(self.__anchor_name).groupEnd().group(self.linkText()).comment()
@@ -2682,7 +2686,8 @@ class InlineMathNode(Node):
         #r.tag('div',{ 'class' : 'inline-math', 'style' : 'max-height : %dpx; width : %dpx;' % (int(eqnheight),int(eqnwidth))})
         #r.tag('div',{ 'class' : 'inline-math', 'style' : 'max-height : %dpx;' % (int(eqnheight))})
 
-        r.tag('div',{ 'class' : 'inline-math'}).tag('div',{ 'style' : 'max-height : %dpx; top : -%dpx;' % (int(eqnheight),int(eqnheight))})
+        #r.tag('div',{ 'class' : 'inline-math'}).tag('div',{ 'style' : 'max-height : %dpx; top : -%dpx;' % (int(eqnheight),int(eqnheight))})
+        r.tag('div',{ 'class' : 'inline-math'}).tag('div',{ 'style' : 'max-height : %dpx;' % (int(eqnheight))})
         r.tag('img', { 'src' : self.getEqnFile() })
         r.tagend('div')
 

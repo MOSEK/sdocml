@@ -82,7 +82,7 @@ class handler(xml.sax.handler.ContentHandler):
             lines = ''.join(self.__storedtext).split('\n')
             lineno = self.__textline
             for l in lines[:-1]:
-                topnode.handleText(l+'\n',Pos(self.__filename,lineno))
+                topnode.handleText(l+' \n',Pos(self.__filename,lineno))
                 lineno += 1
             topnode.handleText(lines[-1],Pos(self.__filename,lineno))
                 

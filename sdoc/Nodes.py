@@ -615,7 +615,7 @@ class Node:
                 elif o.group('nbspace'):
                     self.__emitItem(DelayedText(u'\xa0',pos)) # &nbsp;
                 elif o.group('newline'):
-                    self.__emitItem(DelayedText(u'\n',pos))
+                    self.__emitItem(DelayedText(u' \n',pos))
                     pos = Pos(pos.filename,pos.line + 1)
                 else:
                     #print 'GOT: "%s"' % o.group(0)
@@ -2615,7 +2615,9 @@ class AnchorNode(Node):
                   """
     nodeName    = 'a'
     macroMode   = MacroMode.Text
-    acceptAttrs = Attrs([ Attr('id'), Attr('class') ])
+    acceptAttrs = Attrs([ Attr('id'), 
+                          Attr('target',descr="The id of another element that anchor ``binds'' to."),
+                          Attr('type', descr="Indicates what kind of anchor is generated. Default is a normal anchor referrable with a \\tagref{ref}. Alternative value is ``index'' indicating that a corresponding element should be placed in the generated index.") ])
     contIter    = ' [ T %s <m> ]* ' % (_simpleTextNodes)
     paragraphElement = False
 
