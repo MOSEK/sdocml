@@ -3466,42 +3466,43 @@ class Manager:
                 self.__zipfile.write(img,zname)
 
         for tmpl in [template,sidebartemplate]:
-            for lnk,rel in scanHTMLTemplate(tmpl):
-                # External links are mapped to themselves.
-                # Local links are resolved, the target is copied and the link is
-                # mapped to to copied resource.
-                proto,server,address,_,_ = urlparse.urlsplit(lnk)
-                if server:#absolute link
-                    self.__linkmap[lnk] = lnk
-                elif not self.__linkmap.has_key(lnk):
-                    if address[0] == '/': # absolute path
-                        p = os.path.normpath(address[0])
-                    else:                    
-                        p = os.path.normpath(os.path.abspath(os.path.join(templatebase,address)))
+            if tmpl is not None:
+                for lnk,rel in scanHTMLTemplate(tmpl):
+                    # External links are mapped to themselves.
+                    # Local links are resolved, the target is copied and the link is
+                    # mapped to to copied resource.
+                    proto,server,address,_,_ = urlparse.urlsplit(lnk)
+                    if server:#absolute link
+                        self.__linkmap[lnk] = lnk
+                    elif not self.__linkmap.has_key(lnk):
+                        if address[0] == '/': # absolute path
+                            p = os.path.normpath(address[0])
+                        else:                    
+                            p = os.path.normpath(os.path.abspath(os.path.join(templatebase,address)))
 
-                    if not mappedlinks.has_key(p):# this file has not been included yet
-                        bn = os.path.basename(p)
-                        b,e = os.path.splitext(bn)
-                        if rel == 'shortcut icon':
-                            tgtdir = 'img'
-                        elif rel == 'javascript':
-                            tgtdir = 'script'
-                        elif rel == 'stylesheet':
-                            tgtdir = 'style'
-                        else:
-                            tgtdir = 'misc'
+                        if not mappedlinks.has_key(p):# this file has not been included yet
+                            bn = os.path.basename(p)
+                            b,e = os.path.splitext(bn)
+                            if rel == 'shortcut icon':
+                                tgtdir = 'img'
+                            elif rel == 'javascript':
+                                tgtdir = 'script'
+                            elif rel == 'stylesheet':
+                                tgtdir = 'style'
+                            else:
+                                tgtdir = 'misc'
 
-                        nameiter = nameIterator('%s/%s' % (tgtdir,b),e)
-                        tgt = nameiter.next()
-                        while mappedtgts.has_key(tgt):
+                            nameiter = nameIterator('%s/%s' % (tgtdir,b),e)
                             tgt = nameiter.next()
-                        mappedtgts[tgt] = tgt
-                        mappedlinks[p] = tgt
-                        self.__linkmap[lnk] = tgt
+                            while mappedtgts.has_key(tgt):
+                                tgt = nameiter.next()
+                            mappedtgts[tgt] = tgt
+                            mappedlinks[p] = tgt
+                            self.__linkmap[lnk] = tgt
 
-                        self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
-                    else:
-                        self.__linkmap[lnk] = mappedlinks[p]
+                            self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
+                        else:
+                            self.__linkmap[lnk] = mappedlinks[p]
         self.__searchpaths = searchpaths
 
         iconsadded = {}
