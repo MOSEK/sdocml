@@ -3761,7 +3761,7 @@ class Manager:
             outf.close()
            
             #basepath = os.path.abspath(os.path.dirname(filename))
-            basepath = os.path.dirname(filename)
+            basepath = os.path.abspath(os.path.dirname(filename))
             filename = os.path.basename(filename)
             #filename = os.path.basename(filename)
             basename = os.path.splitext(filename)[0]
