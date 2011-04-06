@@ -391,7 +391,9 @@ if __name__ == "__main__":
     Warnig = logging.warning
 
     args = sys.argv[1:]
-    
+   
+   
+    defaulttemplate = os.path.normpath(os.path.join(os.path.dirname(sys.argv[0]),'..','tex','template.tex'))
     conf = config.Configuration(
         {   'infile'      : config.UniqueDirEntry('infile'),
             'outfile'     : config.UniqueDirEntry('outfile'),
@@ -401,7 +403,7 @@ if __name__ == "__main__":
             'debug'       : config.UniqueBoolEntry('debug'),
             'titlepagebg' : config.UniqueDirEntry('titlepagebg'),
             'pagebg'      : config.UniqueDirEntry('pagebg'),
-            'template'    : config.UniqueDirEntry('template'),
+            'template'    : config.UniqueDirEntry('template',defaulttemplate),
             }
         )
     
