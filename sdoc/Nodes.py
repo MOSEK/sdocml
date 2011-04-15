@@ -3255,7 +3255,7 @@ class Manager:
         proto,server,path,r0,r1,r2 = urlparse.urlparse(url)
         if proto:
             if proto != 'file':
-                raise NodeError('Only local includes allowed, got "%s"' % attrs['url'])
+                raise NodeError('Only local includes allowed, got "%s"' % url)
             else:
                 return path
         else:
