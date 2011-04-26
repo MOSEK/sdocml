@@ -170,6 +170,7 @@ if __name__ == "__main__":
                                     'macroref'     : config.UniqueEntry('macroref',default=None),
                                     'macroreftitle' : config.UniqueEntry('macroreftitle',default="Macro reference"),
                                     'define'       : config.BoolDefListEntry('define'),
+                                    'error:refs'   : config.UniqueBoolEntry('error:refs',default=True),
                                     #'nodefaultinc' : config.UniqueEntry('nodefaultinc'),
                                     'maxsectiondepth' : config.UniqueIntEntry('macsectiondepth','4'),
                                 })
@@ -197,6 +198,8 @@ if __name__ == "__main__":
             conf.update('trace','on')
         elif arg == '-macroref':
             conf.update('macroref',args.pop(0))
+        elif arg == '-error:refs':
+            conf.update('error:refs',args.pop(0))
         elif arg == '-macroreftitle':
             conf.update('macroreftitle','"%s"' % args.pop(0))
         #elif arg == '-nodefaultinc':
@@ -429,8 +432,13 @@ if __name__ == "__main__":
                 msg('Checking cross-references')
                 errs = []
                 errs.extend(manager.checkIdRefs())
+                if conf['error:refs'] and errs:
+                    msg('FAILED: Missing references.')
+                    sys.exit(1)
             else:
                 msg('Errors were encountered.')
+                sys.exit(1)
+
         msg('Fini!')
     except MotexException,e:
         if showtrace:

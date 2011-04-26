@@ -106,7 +106,7 @@
         The text part of a section can contain formatted text, lists, tables,
         math etc. See the reference for \tagref{section} for details. Text
         paragraphs are implicit: One or more blank lines start a new paragraph,
-        and certain elements like \tagref{pre}, \tagref{ul}, \tagref{table} etc. define
+        and certain elements like \tagref{pre}, \tagref{ilist}, \tagref{table} etc. define
         a single paragraph. 
 
         Please note that under certain circumstances blank lines may be
