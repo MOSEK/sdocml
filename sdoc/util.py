@@ -1,6 +1,10 @@
 from UserDict import UserDict
 import collections
-import os
+import zipfile
+import tarfile
+import tempfile
+import os, os.path, stat
+import time
 
 
 
@@ -231,4 +235,115 @@ class XList:
 
 
 
+class CompressWrap:
+    def __init__(self,filename,timestamp):
+        self.filename = filename
+        self.timestamp = timestamp
+    def write(self,filename,archname):
+        pass
+    def writestr(self,archname,data):
+        pass
+    def close(self):
+        pass
 
+class ZipWrap(CompressWrap):
+    def __init__(self,filename,timestamp):
+        CompressWrap.__init__(self,filename,timestamp)
+        self.__zipfile = zipfile.ZipFile(filename,"w")
+        self.__timestamp = timestamp
+    def write(self,filename,archname):
+        f = open(filename,'rb')
+        try:
+            data = f.read()
+            self.writestr(data,archname)
+        finally:
+            f.close()
+    def writestr(self,data,archname):
+        zi = zipfile.ZipInfo(archname)
+        zi.internal_attr |= 1 # text file
+        zi.external_attr = 0x81a40001 #0x80000001 + (0644 << 16). Permissions
+        zi.date_time =  time.localtime(self.__timestamp)[:6]
+        self.__zipfile.writestr(zi,data)
+    def close(self):
+        self.__zipfile.close()
+        
+class TarWrap(CompressWrap):
+    def __init__(self,filename,timestamp,compress=""):
+        CompressWrap.__init__(self,filename,timestamp)
+        mode = 'w|%s' % compress
+        self.__timestamp = timestamp
+        self.__file = open(filename,'wb')
+        #self.__tarfile = tarfile.open(filename,mode)
+        self.__tarfile = tarfile.open(fileobj=self.__file,mode=mode)
+            
+    def write(self,filename,arcname):
+
+        f = open(filename,'rb')
+        try:
+            ti = tarfile.TarInfo(arcname)
+            ti.mode = 0644
+            ti.size = os.fstat(f.fileno()).st_size
+            ti.mtime = self.__timestamp
+            self.__tarfile.addfile(ti, f)
+        finally:
+            f.close() 
+    
+    def writestr(self,data,arcname):
+        f = tempfile.TemporaryFile('w+b')
+        try:
+            f.write(data)
+            f.flush()
+            f.seek(0)
+            
+            ti = tarfile.TarInfo(arcname)
+            ti.mode = 0644
+            ti.size = os.fstat(f.fileno()).st_size
+            ti.mtime = int(self.__timestamp)
+            ti.size = len(data)
+            self.__tarfile.addfile(ti,f)
+        finally: 
+            f.close()
+    def close(self):
+        self.__tarfile.close()
+        self.__file.close()
+
+
+
+class DirWrap(CompressWrap):
+    def __init__(self,dirname,timestamp):
+        CompressWrap.__init__(self,dirname,timestamp)
+        self.__basedir = dirname 
+        self.__filename = dirname + '.tar'
+        self.__timestamp = timestamp
+
+    def write(self,filename,arcname):
+        fname = os.path.join(self.__basedir,arcname)
+        dname = os.path.dirname(fname)
+        try: os.makedirs(dname)
+        except: pass
+        outf = open(fname,'wb')
+        try:
+            inf = open(filename,'rb')
+            try:
+                outf.write(inf.read())
+                outf.flush()
+            finally: 
+                inf.close()
+        finally:
+            outf.close()
+
+    def writestr(self,data,arcname):
+        fname = os.path.join(self.__basedir,arcname)
+        dname = os.path.dirname(fname)
+        try: os.makedirs(dname)
+        except: pass
+        
+        outf = open(fname,'wb')
+        try:
+            outf.write(data)
+        finally:
+            outf.close()
+            st = os.stat(fname)
+            atime = st[stat.ST_ATIME] #access time
+            os.utime(fname,(atime,int(self.__timestamp)))
+    

@@ -28,10 +28,10 @@ else
             -dtdpath       dtd/external \
             -d final=true && \
         echo '** Building HTML *****************************' && \
-        python sdoc/e2html.py build/output/sdocml-expanded.xml \
+        python2.5 sdoc/e2html.py build/output/sdocml-expanded.xml \
           -config conf/sdoc-html.conf \
           -i . \
-          -o build/sdoc.zip \
+          -o build/sdoc.tar.bz2 \
           -tempdir build/htmltemp
     then
         echo > /dev/null

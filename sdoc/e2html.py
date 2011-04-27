@@ -9,7 +9,6 @@
 
 from UserDict import UserDict
 import config
-import zipfile
 import UserList
 import xml.sax
 import urlparse
@@ -24,6 +23,11 @@ import collections
 import string
 import logging
 import threading
+
+
+        
+                      
+
 
 ################################################################################
 ################################################################################
@@ -3578,12 +3582,7 @@ class Manager:
                     self.Message("Adding to archive: %s" % bn)
                     
                     f = open(fn,'rt')
-
-                    zi = zipfile.ZipInfo(self.__topdir + '/data/%s' % bn, self.__timestamp)
-                    zi.internal_attr |= 1 # text file
-                    zi.external_attr = 0x81a40001 #0x80000001 + (0688 << 16). Permissions
-                    self.__zipfile.writestr(zi, f.read())
-
+                    self.__zipfile.write(fn,self.__topdir + '/data/%s' % bn)
                     f.close()
                     
                     self.__includedfiles[bn] = 'data/%s' % bn
@@ -3667,10 +3666,7 @@ class Manager:
     def writelinesfile(self,filename,lines):
         text = ''.join([ asUTF8(l) for l in lines])
         print "Adding to archive: %s" % filename
-        zi = zipfile.ZipInfo(self.__topdir + '/' + filename, self.__timestamp)
-        zi.internal_attr |= 1 # text file
-        zi.external_attr = 0x81a40001 #0x80000001 + (0688 << 16). Permissions
-        self.__zipfile.writestr(zi, text)
+        self.__zipfile.writestr(text, self.__topdir + '/' + filename)
     def writeHTMLfile(self,filename,items,links=[],type='node'):
         """
         Write an HTML file using the HTML template as base.
@@ -4051,10 +4047,20 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     conf = config.Configuration({   'infile'     : config.UniqueEntry('infile'),
                                     'outfile'    : config.UniqueEntry('outfile'),
+                                    'outformat'  : config.UniqueEntry('outformat',
+                                                                      doc=("Set the format of the output file. Recognized values are\n"
+                                                                           " auto - Determine from file extension.\n"
+                                                                           " tar - uncompressed tar file.\n"
+                                                                           " tar.gz - gzip'ed tar file.\n"
+                                                                           " tar.bz2 - bzip2'ed tar file.\n"
+                                                                           " zip - compressed zip archive.\n"
+                                                                           " dir - directory structure in the file system.")),
                                     'stylesheet' : config.DirListEntry('stylesheet'),
                                     'javascript' : config.DirListEntry('javascript'),
                                     'incpath'    : config.DirListEntry('incpath'),
-                                    'docdir'     : config.UniqueEntry('docdir',default="doc"),
+                                    'docdir'     : config.UniqueEntry('docdir',
+                                                                      default="doc",
+                                                                      doc="The root directory of the output file structure."),
                                     'appicon'    : config.UniqueDirEntry('appicon'),
                                     'icon'       : config.DefinitionListDirEntry('icon'),
                                     'template'   : config.UniqueDirEntry('template'),
@@ -4063,7 +4069,6 @@ if __name__ == "__main__":
 
                                     'onepage'    : config.UniqueBoolEntry('onepage'),
                                     'tocdepth'   : config.UniqueIntEntry('tocdepth', default=2),
-
 
                                     # TODO: Use platform dependant default values for binaries:
                                     'gsbin'      : config.UniqueDirEntry('gsbin', default='gs'),
@@ -4111,6 +4116,8 @@ if __name__ == "__main__":
             conf.update('pdftexbin', args.pop(0))
         elif arg == '-pdf2svgbin':
             conf.update('pdf2svgbin', args.pop(0))
+        elif arg == '-outformat':
+            conf.update('outformat', args.pop(0))
         elif arg and arg[-1] == '-':
             raise Exception('Invalid argument "%s"' % arg)
         else:
@@ -4138,7 +4145,35 @@ if __name__ == "__main__":
             except OSError:
                 pass
 
-            outf = zipfile.ZipFile(outfile,"w")
+            if conf['outformat'] == 'tar':
+                outf = util.TarWrap(outfile, time.time(),'')
+            elif conf['outformat'] == 'tar.gz':
+                outf = util.TarWrap(outfile, time.time(),'gz')
+            elif conf['outformat'] == 'tar.bz2':
+                outf = util.TarWrap(outfile, time.time(),'bz2')
+            elif conf['outformat'] == 'zip':
+                outf = util.ZipWrap(outfile,time.time())
+            elif conf['outformat'] == 'dir':
+                outf = util.DirWrap(outfile, time.time())
+            else:
+                base,ext = os.path.splitext(outfile)
+                if ext == '.zip':
+                    outf = util.ZipWrap(outfile,time.time())
+                elif ext == '.tar':
+                    outf = util.TarWrap(outfile, time.time())
+                elif ext == '.tgz':
+                    outf = util.TarWrap(outfile, time.time(),'gz')
+                elif ext == '.tbz2':
+                    outf = util.TarWrap(outfile, time.time(),'bz2')
+                elif ext in ['.gz','.bz2']:
+                    base2,ext2 = os.path.splitext(base)
+                    if ext2 == '.tar': 
+                        outf = util.TarWrap(outfile, time.time(),ext[1:])
+                    else:
+                        outf = util.DirWrap(outfile, time.time())
+                else:
+                    outf = util.DirWrap(outfile, time.time())
+
             manager = Manager(conf,
                               outf,
                               conf['docdir'],
