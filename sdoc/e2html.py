@@ -3075,7 +3075,7 @@ class ImageNode(Node):
         else:
             raise NodeError('No suitable image source found at %s:%d' % (filename,line))
         
-        r.macro('includegraphics').groupStart()._raw(self.manager.resolveExternalURL(url)).groupEnd()
+        r.macro('includegraphics').groupStart()._raw(self.manager.resolveExternalURL(url).replace('\\','/')).groupEnd()
         # Add options later, maybe.
         return r
         
