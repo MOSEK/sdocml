@@ -85,7 +85,7 @@ class Manager:
         for o in scan_re.finditer(data):
             if o.group('file') is not None:
                 val = o.group('file')
-                repldict['FILE:%s' % val] = os.path.join(templatebase,val)
+                repldict['FILE:%s' % val] = os.path.join(templatebase,val).replace('\\','/')
         
         try:
             os.makedirs(os.path.dirname(filename))
