@@ -3797,6 +3797,7 @@ class Manager:
                 print "RUN: ",self.__gsbin
                 p = subprocess.Popen(
                     stdout=subprocess.PIPE,
+                    bufsize=1,
                     args=[   
                         self.__gsbin,
                         #'-dGraphicsAlphaBits=4',

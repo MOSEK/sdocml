@@ -9,6 +9,7 @@ def Warning(*msgs):
     logbib.warning(' '.join([str(v) for v in msgs])) 
 
 class BibEntryError(Exception): pass
+class BibXMLError(Exception): pass
 class BibKeyError(Exception): pass
 
 class UniqueItem:
@@ -290,7 +291,10 @@ class BibDB:
 
         self.__db = {}
         
-        doc = xml.dom.minidom.parse(filename)
+        try:
+            doc = xml.dom.minidom.parse(filename)
+        except:
+            raise BibXMLError("Error in bibliography file '%s'" % filename)
         root = doc.documentElement
 
         for node in root.childNodes:
