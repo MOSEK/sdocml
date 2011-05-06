@@ -3767,65 +3767,34 @@ class Manager:
 
             
 
-
             def fun_make_mathpng():
-                oldcwd = os.getcwd() # NOT really nice, but nothing else depends on cwd, so it should cause no problems...
-                os.chdir(basepath)
-
-                texlog = open(os.path.join(basepath,'stdout.log'),'wt')
-                t0 = time.time()
                 p = subprocess.Popen(
-                    stdout = texlog,
-                    args = [ self.__pdflatexbin,
-                             filename ],
-                              env = os.environ)
-                texlog.close()
-                r = p.wait()
+                    stdout=subprocess.PIPE,
+                    bufsize=1,
+                    args=[   
+                        self.__gsbin,
+                        #'-dGraphicsAlphaBits=4',
+                        #'-dTextAlphaBits=4',
+                        '-dNOPAUSE',
+                        '-dBATCH',
+                        '-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),
+                        '-sDEVICE=pngalpha',
+                        '-r%dx%d' % (self.__mathPNGresolution,self.__mathPNGresolution), 
+                        pdffile ])
+                
 
-                os.chdir(oldcwd)
-
-                pdffile = os.path.join(basepath,'%s.pdf' % basename)
-                dimfile = os.path.join(basepath,'dims.out')
-
-                if r == 0:
-                    # We got a PDF and a dimensions file.
-                    dims = []
-                    inf = open(dimfile,'rt')
-                    try:
-                        scale = self.__mathPNGresolution/72.27 
-                        for o in re.finditer(r'page([0-9]+)\(([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt\)',inf.read()):
-                            dims.append((float(o.group(2))*scale,float(o.group(3))*scale,float(o.group(4))*scale))
-                        self.__eqndims = dims
-                    finally:
-                        inf.close()
-
-                    p = subprocess.Popen(
-                        stdout=subprocess.PIPE,
-                        bufsize=1,
-                        args=[   
-                            self.__gsbin,
-                            #'-dGraphicsAlphaBits=4',
-                            #'-dTextAlphaBits=4',
-                            '-dNOPAUSE',
-                            '-dBATCH',
-                            '-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),
-                            '-sDEVICE=pngalpha',
-                            '-r%dx%d' % (self.__mathPNGresolution,self.__mathPNGresolution), 
-                            pdffile ])
+                numeqn = len(self.__eqnlist)
+                lineno = 0
+                markerinc = numeqn / 10
+                marker = 1
+                for line in p.stdout:                    
+                    lineno += 1
+                    if lineno > marker*markerinc:
+                        marker += 1
+                        
                     
 
-                    numeqn = len(self.__eqnlist)
-                    lineno = 0
-                    markerinc = numeqn / 10
-                    marker = 1
-                    for line in p.stdout:                    
-                        lineno += 1
-                        if lineno > marker*markerinc:
-                            marker += 1
-                            
-                        
-
-                    r = p.wait()
+                r = p.wait()
 
                 if r == 0 and self.__pdf2svgbin is not None:
                     r = subprocess.call([ self.__pdf2svgbin, pdffile, os.path.join(basepath,'mathimg%d.svg'),'all' ])
@@ -3846,11 +3815,41 @@ class Manager:
                     mpngs_err = MathImgError('Error generating math images')
 
             self.__log.info('Generating math PNGs...')
-            if not self.__conf['parallel']:
-                fun_make_mathpng()
-            else:
-                self.__mathpngthread = threading.Thread(target=fun_make_mathpng)
-                self.__mathpngthread.start()
+
+            oldcwd = os.getcwd() # NOT really nice, but nothing else depends on cwd, so it should cause no problems...
+            os.chdir(basepath)
+
+            texlog = open(os.path.join(basepath,'stdout.log'),'wt')
+            t0 = time.time()
+            p = subprocess.Popen(
+                stdout = texlog,
+                args = [ self.__pdflatexbin,
+                         filename ],
+                          env = os.environ)
+            texlog.close()
+            r = p.wait()
+
+            os.chdir(oldcwd)
+
+            pdffile = os.path.join(basepath,'%s.pdf' % basename)
+            dimfile = os.path.join(basepath,'dims.out')
+
+            if r == 0:
+                # We got a PDF and a dimensions file.
+                dims = []
+                inf = open(dimfile,'rt')
+                try:
+                    scale = self.__mathPNGresolution/72.27 
+                    for o in re.finditer(r'page([0-9]+)\(([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt\)',inf.read()):
+                        dims.append((float(o.group(2))*scale,float(o.group(3))*scale,float(o.group(4))*scale))
+                    self.__eqndims = dims
+                finally:
+                    inf.close()
+                if not self.__conf['parallel']:
+                    fun_make_mathpng()
+                else:
+                    self.__mathpngthread = threading.Thread(target=fun_make_mathpng)
+                    self.__mathpngthread.start()
             
     def writeSubIndex(self,r,lst,lvl=0):
             """
