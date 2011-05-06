@@ -308,6 +308,21 @@ class TarWrap(CompressWrap):
         self.__tarfile.close()
         self.__file.close()
 
+class TextStringList:
+    def __init__(self,lines):
+        assert lines
+        assert isinstance(lines,list)
+        self.data = lines
+        
+    def __str__(self):
+        r = []
+        for s in self.data:
+            if isinstance(s,unicode):
+                r.append(s.encode('utf-8'))
+            else:
+                r.append(s)
+        return ''.join(r)
+        
 
 class ThreadedTarWrap(CompressWrap):
     def __init__(self,filename,timestamp,compress=""):
@@ -347,7 +362,7 @@ class ThreadedTarWrap(CompressWrap):
                 data, filename, arcname = item
                 #print " ---> %s" % arcname
                 if data is not None:
-                    self.__writestr(data,arcname)
+                    self.__writestr(str(data),arcname)
                 else:
                     self.__write(filename,arcname)
     def write(self,filename,arcname):

@@ -271,7 +271,7 @@ class texCollector(UserList.UserList):
                     try:
                         r.append(_mathUnicodeToTex.unicodetotex[uidx])
                     except KeyError:
-                        Warning('Unknown unicode: %d' % uidx)
+                        self.Warning('Unknown unicode: %d' % uidx)
                         r.append('.')
                 else:
                     try:
@@ -305,7 +305,7 @@ class texCollector(UserList.UserList):
                 elif _mathUnicodeToTex.unicodetotex.has_key(uidx):
                     r.append('$%s$' % _mathUnicodeToTex.unicodetotex[uidx])
                 else: 
-                    Warning('Unicode in verbatim field: %d' % uidx)
+                    self.Warning('Unicode in verbatim field: %d' % uidx)
                     r.append('\\#4%d' % uidx)
             elif o.group('lf'):
                 #r.append('\\par%\n')
@@ -830,7 +830,7 @@ class Node(UserList.UserList):
         return r
 
     def toTeX(self,res):
-        Warning('Unhandled %s %s' % (self.__class__.__name__,self.pos))
+        self.__manager.Warning('Unhandled %s %s' % (self.__class__.__name__,self.pos))
         try:
             self.contentToTeX(res)
             return res
@@ -1131,15 +1131,11 @@ class SectionNode(Node):
                         ])
         
         res = d['navbutton:icon:contents']
-        if root is None:
-            icon = self.__manager.getIcon('passive')
-            res.extend([tag('img',{ 'src' : icon })])
-        else:
-            icon = self.__manager.getIcon('content')
-            res.extend([ tag('a',{ 'href':top.getSectionFilename()}),
-                        tag('img',{ 'src' : icon }),
-                        tagend('a'),
-                        ])
+        icon = self.__manager.getIcon('content')
+        res.extend([ tag('a',{ 'href':top.getSectionFilename()}),
+                    tag('img',{ 'src' : icon }),
+                    tagend('a'),
+                    ])
 
         res = d['navbutton:icon:index']            
         if index is None:
@@ -1169,11 +1165,10 @@ class SectionNode(Node):
         
         
         res = d['navbutton:contents'] 
-        if root is not None:
-            res.extend([tag('a',{ 'href' : top.getSectionFilename()}),
-                        'Contents',
-                        tagend('a'),
-                        ])
+        res.extend([tag('a',{ 'href' : top.getSectionFilename()}),
+                    'Contents',
+                    tagend('a'),
+                    ])
         
         res = d['navbutton:index'] 
         if index is not None:
@@ -3671,9 +3666,9 @@ class Manager:
             r.append((k, v.getFilename(), v.getAttr('id')))        
         return r
     def writelinesfile(self,filename,lines):
-        text = ''.join([ asUTF8(l) for l in lines])
-        print "Adding to archive: %s" % filename
-        self.__zipfile.writestr(text, self.__topdir + '/' + filename)
+        #text = ''.join([ asUTF8(l) for l in lines])
+        self.Message("Adding to archive: %s" % filename)
+        self.__zipfile.writestr(util.TextStringList(lines), self.__topdir + '/' + filename)
     def writeHTMLfile(self,filename,items,links=[],type='node'):
         """
         Write an HTML file using the HTML template as base.
@@ -3690,7 +3685,7 @@ class Manager:
         if type == 'sidebar':
             P = TemplateParser(items,lm)
             P.feedfile(self.__htmlsidebartemplate) 
-            self.writelinesfile(filename,''.join(P.res))
+            self.writelinesfile(filename,P.res)
         else:
             P = TemplateParser(items,lm)
             P.feedfile(self.__htmltemplate) 
@@ -3699,8 +3694,8 @@ class Manager:
                     i.encode('utf-8')
                 except:
                     print "Failed: %s" % i
-            text = (u''.join(P.res)).encode('utf-8')
-            self.writelinesfile(filename,text)
+            #text = (u''.join(P.res)).encode('utf-8')
+            self.writelinesfile(filename,P.res)
     def writeBinaryFile(self,filename,targetdir):
         """
         filename  - Full path and name of the file to add.
@@ -4058,9 +4053,8 @@ class XMLHandler(xml.sax.handler.ContentHandler):
     
  
 
-if __name__ == "__main__":
+def main():
     args = sys.argv[1:]
-
     logging.basicConfig(level=logging.INFO)
     conf = config.Configuration({   'infile'     : config.UniqueEntry('infile'),
                                     'outfile'    : config.UniqueEntry('outfile'),
@@ -4283,4 +4277,15 @@ if __name__ == "__main__":
         finally:
             if manager: manager.close()
             if outf: outf.close() 
+
+
+if __name__ == "__main__":
+    if False:
+        import cProfile,pstats
+        cProfile.run('main()','e2html')
+        p = pstats.Stats('e2html') 
+        p.sort_stats('cumulative')
+        p.print_stats()
+    else:
+        main()
 
