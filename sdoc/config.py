@@ -42,7 +42,7 @@ class UniqueDirEntry(UniqueEntry):
     def update(self,value,base='.'):
         val = self.convertValue(value)
         if not os.path.isabs(value):
-            val = os.path.normpath(os.path.join(base,val))
+            val = os.path.abspath(os.path.normpath(os.path.join(base,val)))
         self._updatevalue(val)
     
 class UniqueBoolEntry(UniqueEntry):
@@ -72,7 +72,7 @@ class DirListEntry(_anyEntry):
     def update(self,value,base='.'):       
         val = self.convertValue(value)
         if not os.path.isabs(val):
-            val = os.path.normpath(os.path.join(base,val))
+            val = os.path.abspath(os.path.normpath(os.path.join(base,val)))
         self.value.append(val)
 
 class DefinitionListEntry(_anyEntry):

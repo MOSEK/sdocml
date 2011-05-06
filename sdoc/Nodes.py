@@ -701,6 +701,8 @@ class Node:
         return self.__attrs.has_key(key) and self.__attrs[key] is not None
     def getAttr(self,key):
         return self.__attrs[key]
+    def attrs(self):
+        return iter(self.__attrs.items())
 
     def setXMLattrs(self,node):
         for k,v in self.__attrs.items():
@@ -2287,6 +2289,9 @@ class TableRowNode(Node):
     
     def toXML(self,doc,rowlen):
         node = doc.createElement('tr')
+        for k,v in self.attrs():
+            if v is not None and k not in [ 'macroexpand' ]:
+                node.setAttribute(k,v)
 
         cells = list(self)
         cells.extend([ None ] * (rowlen - len(cells)))

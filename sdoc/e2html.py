@@ -2328,9 +2328,8 @@ class TableNode(Node):
         pass
 
     def toHTML(self,res):
-        if self.hasAttr('class'):
-            cls = self.getAttr('class')
-        else:
+        cls = self.getAttr('class')
+        if cls is None:
             cls = 'generic-table'
         res.tag('div',{'style' : 'display : inline-block;' }).tag('table', { 'class' : cls })
         rownum = 0
@@ -2339,7 +2338,7 @@ class TableNode(Node):
                 row.toHTML(res,rownum)
                 rownum += 1
         res.tagend('table').tagend('div')
-        return res
+        return res              
     def toTeX(self,r):
         #if self.hasAttr('class') and self.getAttr('class') == 'class-item-list':
         #    print "Table node in: %s @ %s" % (self.getParent().__class__.__name__,self.pos)
@@ -2364,7 +2363,7 @@ class TableRowNode(Node):
     def toHTML(self,res,rowidx):
         tag = 'tr'
         attr_class = 'table-row-%d' % rowidx
-        if self.hasAttr('class'):
+        if self.getAttr('class') is not None:
             attr_class += ' ' + self.getAttr('class')
         if len(self) > 0:
             res.tag(tag,{'class' : attr_class})
@@ -2386,7 +2385,7 @@ class TableCellNode(_StructuralNode):
     def toHTML(self,res,rowidx):
         tag = 'td'
         attr_class = 'table-column-%d' % rowidx
-        if self.hasAttr('class'):
+        if self.getAttr('class') is not None:
             attr_class += ' ' + self.getAttr('class')
         if len(self) > 0:
             res.tag(tag,{'class' : attr_class})
@@ -3457,6 +3456,8 @@ class Manager:
         self.__linkmap = {}
 
         self.__nodeNames = { 'index' : 0, 'xref' : 0 }
+
+        self.__mathpngthread = None
         
         
         mappedlinks = {}
@@ -3520,6 +3521,12 @@ class Manager:
                     self.Message('Adding Icon : %s' % iconfile)
                     self.__zipfile.write(icon,'%s/%s' % (topdir,iconfile))
         del iconsadded
+
+    def close(self):
+        if self.__mathpngthread != None:
+            self.__mathpngthread.join()
+            self.__mathpngthread = None
+
 
     def failed(self): return self.__error
 
@@ -3762,85 +3769,94 @@ class Manager:
             #filename = os.path.basename(filename)
             basename = os.path.splitext(filename)[0]
             ## Run pdflatex on the file to generate a PDF file with one formula on each page
-            oldcwd = os.getcwd()
-            os.chdir(basepath)
 
             
 
-            texlog = open(os.path.join(basepath,'stdout.log'),'wt')
-            t0 = time.time()
-            p = subprocess.Popen(
-                stdout = texlog,
-                args = [ self.__pdflatexbin,
-                         filename ],
-                          env = os.environ)
-            texlog.close()
-            r = p.wait()
 
-            os.chdir(oldcwd)
+            def fun_make_mathpng():
+                oldcwd = os.getcwd() # NOT really nice, but nothing else depends on cwd, so it should cause no problems...
+                os.chdir(basepath)
 
-            pdffile = os.path.join(basepath,'%s.pdf' % basename)
-            dimfile = os.path.join(basepath,'dims.out')
-
-            if r == 0:
-                # We got a PDF and a dimensions file.
-                dims = []
-                inf = open(dimfile,'rt')
-                try:
-                    scale = self.__mathPNGresolution/72.27 
-                    for o in re.finditer(r'page([0-9]+)\(([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt\)',inf.read()):
-                        dims.append((float(o.group(2))*scale,float(o.group(3))*scale,float(o.group(4))*scale))
-                    self.__eqndims = dims
-                finally:
-                    inf.close()
-
-                print "RUN: ",self.__gsbin
+                texlog = open(os.path.join(basepath,'stdout.log'),'wt')
+                t0 = time.time()
                 p = subprocess.Popen(
-                    stdout=subprocess.PIPE,
-                    bufsize=1,
-                    args=[   
-                        self.__gsbin,
-                        #'-dGraphicsAlphaBits=4',
-                        #'-dTextAlphaBits=4',
-                        '-dNOPAUSE',
-                        '-dBATCH',
-                        '-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),
-                        '-sDEVICE=pngalpha',
-                        '-r%dx%d' % (self.__mathPNGresolution,self.__mathPNGresolution), 
-                        pdffile ])
-                
-
-                self.__log.info('Generating math PNGs...')
-                numeqn = len(self.__eqnlist)
-                lineno = 0
-                markerinc = numeqn / 10
-                marker = 1
-                for line in p.stdout:                    
-                    lineno += 1
-                    if lineno > marker*markerinc:
-                        self.__log.info('\t%s%% done' % (marker*10))
-                        marker += 1
-                        
-                    
-
+                    stdout = texlog,
+                    args = [ self.__pdflatexbin,
+                             filename ],
+                              env = os.environ)
+                texlog.close()
                 r = p.wait()
 
-            if r == 0 and self.__pdf2svgbin is not None:
-                r = subprocess.call([ self.__pdf2svgbin, pdffile, os.path.join(basepath,'mathimg%d.svg'),'all' ])
+                os.chdir(oldcwd)
+
+                pdffile = os.path.join(basepath,'%s.pdf' % basename)
+                dimfile = os.path.join(basepath,'dims.out')
+
                 if r == 0:
-                    for i in xrange(len(self.__eqnlist)):
-                        self.__zipfile.write(os.path.join(basepath,'mathimg%d.svg' % (i+1)),'/'.join([self.__topdir,'math','math%d.svg' % (i+1),])) 
-            if r == 0:
-                # convert and crop all images. Not necessary since images are produces in the right size.
-                for i in range(len(self.__eqnlist)):
-                    mimg = 'mathimg%d.png' % (i+1)
+                    # We got a PDF and a dimensions file.
+                    dims = []
+                    inf = open(dimfile,'rt')
+                    try:
+                        scale = self.__mathPNGresolution/72.27 
+                        for o in re.finditer(r'page([0-9]+)\(([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt,([0-9]+\.[0-9]*)pt\)',inf.read()):
+                            dims.append((float(o.group(2))*scale,float(o.group(3))*scale,float(o.group(4))*scale))
+                        self.__eqndims = dims
+                    finally:
+                        inf.close()
+
+                    p = subprocess.Popen(
+                        stdout=subprocess.PIPE,
+                        bufsize=1,
+                        args=[   
+                            self.__gsbin,
+                            #'-dGraphicsAlphaBits=4',
+                            #'-dTextAlphaBits=4',
+                            '-dNOPAUSE',
+                            '-dBATCH',
+                            '-sOutputFile=%s' % os.path.join(basepath,'mathimg%d.png'),
+                            '-sDEVICE=pngalpha',
+                            '-r%dx%d' % (self.__mathPNGresolution,self.__mathPNGresolution), 
+                            pdffile ])
+                    
+
+                    numeqn = len(self.__eqnlist)
+                    lineno = 0
+                    markerinc = numeqn / 10
+                    marker = 1
+                    for line in p.stdout:                    
+                        lineno += 1
+                        if lineno > marker*markerinc:
+                            marker += 1
+                            
+                        
+
+                    r = p.wait()
+
+                if r == 0 and self.__pdf2svgbin is not None:
+                    r = subprocess.call([ self.__pdf2svgbin, pdffile, os.path.join(basepath,'mathimg%d.svg'),'all' ])
                     if r == 0:
-                        self.__zipfile.write(os.path.join(basepath,mimg),'/'.join([self.__topdir,'math','math%d.png' % (i+1)])) 
-            t1 = time.time()
-            if r != 0:
-                raise MathImgError('Error generating math images')
+                        for i in xrange(len(self.__eqnlist)):
+                            self.__zipfile.write(os.path.join(basepath,'mathimg%d.svg' % (i+1)),'/'.join([self.__topdir,'math','math%d.svg' % (i+1),])) 
+                if r == 0:
+                    # convert and crop all images. Not necessary since images are produces in the right size.
+                    for i in range(len(self.__eqnlist)):
+                        mimg = 'mathimg%d.png' % (i+1)
+                        if r == 0:
+                            self.__zipfile.write(os.path.join(basepath,mimg),'/'.join([self.__topdir,'math','math%d.png' % (i+1)])) 
+                t1 = time.time()
+                
+                self.__log.info('Math PNG images generated: %.2f seconds' % (t1-t0)) 
+
+                if r != 0:
+                    mpngs_err = MathImgError('Error generating math images')
+
+            self.__log.info('Generating math PNGs...')
+            if not self.__conf['parallel']:
+                fun_make_mathpng()
             else:
-                self.__log.info('Math PNG generation: %.1f sec.' % (t1-t0))
+                self.__mathpngthread = threading.Thread(target=fun_make_mathpng)
+                self.__mathpngthread.start()
+            
     def writeSubIndex(self,r,lst,lvl=0):
             """
             lst - a list of entries as described above.
@@ -4077,6 +4093,7 @@ if __name__ == "__main__":
                                     'pdf2svgbin' : config.UniqueDirEntry('pdf2svgbin'),
 
                                     'image'      : config.DirListEntry('image'),
+                                    'parallel'   : config.UniqueBoolEntry('parallel', default=True),
      })
    
     debug = False
@@ -4103,6 +4120,8 @@ if __name__ == "__main__":
             conf.update('appicon', args.pop(0))
         elif arg == '-debug':
             debu= True
+        elif arg == '-parallel':
+            conf.update('parallel', args.pop(0))
         elif arg == '-icon':
             conf.update('icon', args.pop(0))
         elif arg == '-tempdir':
@@ -4135,6 +4154,8 @@ if __name__ == "__main__":
     infile = conf['infile']
     outfile = conf['outfile']
 
+    outf = None
+    manager = None
     if infile is not None and outfile is not None:
         try:
             sourcebase = os.path.dirname(infile)
@@ -4169,7 +4190,10 @@ if __name__ == "__main__":
                 elif ext in ['.gz','.bz2']:
                     base2,ext2 = os.path.splitext(base)
                     if ext2 == '.tar': 
-                        outf = util.TarWrap(outfile, time.time(),ext[1:])
+                        if conf['parallel']:
+                            outf = util.ThreadedTarWrap(outfile, time.time(),ext[1:])
+                        else:
+                            outf = util.TarWrap(outfile, time.time(),ext[1:])
                     else:
                         outf = util.DirWrap(outfile, time.time())
                 else:
@@ -4240,7 +4264,6 @@ if __name__ == "__main__":
             #manager.writelinesfile('xref.html',makeIndex(manager))
 
 
-            outf.close() 
             
             time1 = time.time()
             time_write = time1 -time0
@@ -4257,5 +4280,7 @@ if __name__ == "__main__":
             traceback.print_exc()
             print e
             sys.exit(1)
-
+        finally:
+            if manager: manager.close()
+            if outf: outf.close() 
 

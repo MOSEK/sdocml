@@ -5,6 +5,7 @@ import tarfile
 import tempfile
 import os, os.path, stat
 import time
+import threading
 
 
 
@@ -307,6 +308,85 @@ class TarWrap(CompressWrap):
         self.__tarfile.close()
         self.__file.close()
 
+
+class ThreadedTarWrap(CompressWrap):
+    def __init__(self,filename,timestamp,compress=""):
+        CompressWrap.__init__(self,filename,timestamp)
+        mode = 'w|%s' % compress
+        self.__timestamp = timestamp
+        self.__file = open(filename,'wb')
+        #self.__tarfile = tarfile.open(filename,mode)
+        self.__tarfile = tarfile.open(fileobj=self.__file,mode=mode)
+
+        self.__thread = threading.Thread(target=self.__run)
+        self.__qwaitcond = threading.Condition()
+        self.__queue = collections.deque()
+        self.__thread.start()
+
+    def __push(self,item):
+        self.__qwaitcond.acquire()
+        self.__queue.append(item)
+        self.__qwaitcond.notify()
+        self.__qwaitcond.release()
+    def __pop(self):
+        self.__qwaitcond.acquire()
+        if len(self.__queue) == 0:
+            self.__qwaitcond.wait()
+        res = self.__queue.popleft()
+        self.__qwaitcond.release()
+        return res
+            
+    def __run(self):
+        pop = self.__pop
+
+        while True:
+            item = pop()
+            if item == None:
+                break
+            else:
+                data, filename, arcname = item
+                #print " ---> %s" % arcname
+                if data is not None:
+                    self.__writestr(data,arcname)
+                else:
+                    self.__write(filename,arcname)
+    def write(self,filename,arcname):
+        self.__push((None,filename,arcname))
+    def writestr(self,data,arcname):
+        self.__push((data,None,arcname))
+    def __write(self,filename,arcname):
+
+        f = open(filename,'rb')
+        try:
+            ti = tarfile.TarInfo(arcname)
+            ti.mode = 0644
+            ti.size = os.fstat(f.fileno()).st_size
+            ti.mtime = self.__timestamp
+            self.__tarfile.addfile(ti, f)
+        finally:
+            f.close() 
+    
+    def __writestr(self,data,arcname):
+        f = tempfile.TemporaryFile('w+b')
+        try:
+            f.write(data)
+            f.flush()
+            f.seek(0)
+            
+            ti = tarfile.TarInfo(arcname)
+            ti.mode = 0644
+            ti.size = os.fstat(f.fileno()).st_size
+            ti.mtime = int(self.__timestamp)
+            ti.size = len(data)
+            self.__tarfile.addfile(ti,f)
+        finally: 
+            f.close()
+    def close(self):
+        self.__push(None)
+        self.__thread.join()
+        
+        self.__tarfile.close()
+        self.__file.close()
 
 
 class DirWrap(CompressWrap):
