@@ -4054,23 +4054,23 @@ class ConfigError(Exception):
 
 def check_config(conf):
     # check ghostscript version
-    gsbin = check['gsbin']
-    p = subprocess.POpen(stdout=subprocess.PIPE,args=[gsbin,'--version'])
+    gsbin = conf['gsbin']
+    p = subprocess.Popen(stdout=subprocess.PIPE,args=[gsbin,'--version'])
     s = p.stdout.read().strip()
     r = p.wait()
     if r != 0:
       raise ConfigError("Error executing Ghostscript binary (%s)" % gsbin)
     try:
-      v = [ int(i) for i in s.strip().split('.')) ]
+      v = [ int(i) for i in s.strip().split('.') ]
       
       if v[0] < 8 or (v[0] == 8 and v[1] < 61):
-        raise ConfigError("Ghostscript version 8.61 is required, found %s" % '.'.join(v))
+        raise ConfigError("Ghostscript version 8.61 is required, found %s" % s.strip())
 
     except ValueError:
       raise ConfigError("Invalid Ghostscript version (%s)" % s)
 
     # check that we can find pdflatex
-    pdftexbin = check['pdftexbin']
+    pdftexbin = conf['pdftexbin']
     p = subprocess.POpen(stdout=subprocess.PIPE,args=[pdftexbin,'--version'])
     s = p.stdout.read().strip()
     r = p.wait()
