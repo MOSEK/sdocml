@@ -4049,9 +4049,34 @@ class XMLHandler(xml.sax.handler.ContentHandler):
         self.__rootnode.dump(out,0)
 
 
+class ConfigError(Exception):
+  pass
 
-    
- 
+def check_config(conf):
+    # check ghostscript version
+    gsbin = check['gsbin']
+    p = subprocess.POpen(stdout=subprocess.PIPE,args=[gsbin,'--version'])
+    s = p.stdout.read().strip()
+    r = p.wait()
+    if r != 0:
+      raise ConfigError("Error executing Ghostscript binary (%s)" % gsbin)
+    try:
+      v = [ int(i) for i in s.strip().split('.')) ]
+      
+      if v[0] < 8 or (v[0] == 8 and v[1] < 61):
+        raise ConfigError("Ghostscript version 8.61 is required, found %s" % '.'.join(v))
+
+    except ValueError:
+      raise ConfigError("Invalid Ghostscript version (%s)" % s)
+
+    # check that we can find pdflatex
+    pdftexbin = check['pdftexbin']
+    p = subprocess.POpen(stdout=subprocess.PIPE,args=[pdftexbin,'--version'])
+    s = p.stdout.read().strip()
+    r = p.wait()
+    if r != 0:
+      raise ConfigError("Error executing PDFlatex binary (%s)" % pdftexbin)
+
 
 def main():
     args = sys.argv[1:]
@@ -4136,6 +4161,8 @@ def main():
             raise Exception('Invalid argument "%s"' % arg)
         else:
             conf.update('infile',arg)
+
+    check_config(conf)
 
     tempimgdir = os.path.normpath(os.path.join(conf['tempdir'] or '.','imgs'))
 
