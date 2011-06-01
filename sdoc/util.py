@@ -264,7 +264,7 @@ class ZipWrap(CompressWrap):
         zi.internal_attr |= 1 # text file
         zi.external_attr = 0x81a40001 #0x80000001 + (0644 << 16). Permissions
         zi.date_time =  time.localtime(self.__timestamp)[:6]
-        self.__zipfile.writestr(zi,data)
+        self.__zipfile.writestr(zi,str(data))
     def close(self):
         self.__zipfile.close()
         
@@ -292,7 +292,7 @@ class TarWrap(CompressWrap):
     def writestr(self,data,arcname):
         f = tempfile.TemporaryFile('w+b')
         try:
-            f.write(data)
+            f.write(str(data))
             f.flush()
             f.seek(0)
             
@@ -384,7 +384,7 @@ class ThreadedTarWrap(CompressWrap):
     def __writestr(self,data,arcname):
         f = tempfile.TemporaryFile('w+b')
         try:
-            f.write(data)
+            f.write(str(data))
             f.flush()
             f.seek(0)
             
@@ -435,7 +435,7 @@ class DirWrap(CompressWrap):
         
         outf = open(fname,'wb')
         try:
-            outf.write(data)
+            outf.write(str(data))
         finally:
             outf.close()
             st = os.stat(fname)
