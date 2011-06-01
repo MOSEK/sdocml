@@ -3848,6 +3848,7 @@ class Manager:
                 if not self.__conf['parallel']:
                     fun_make_mathpng()
                 else:
+                    
                     self.__mathpngthread = threading.Thread(target=fun_make_mathpng)
                     self.__mathpngthread.start()
             
