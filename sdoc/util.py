@@ -323,7 +323,7 @@ class TextStringList:
                 r.append(s)
         return ''.join(r)
     def __len__(self):
-      return sum([ len(s) for s in sel.data])
+      return sum([ len(s) for s in self.data])
         
 
 class ThreadedTarWrap(CompressWrap):
