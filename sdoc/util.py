@@ -322,6 +322,8 @@ class TextStringList:
             else:
                 r.append(s)
         return ''.join(r)
+    def __len__(self):
+      return sum([ len(s) for s in sel.data])
         
 
 class ThreadedTarWrap(CompressWrap):
