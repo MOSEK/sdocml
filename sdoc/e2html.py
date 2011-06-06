@@ -4071,7 +4071,7 @@ def check_config(conf):
 
     # check that we can find pdflatex
     pdftexbin = conf['pdftexbin']
-    p = subprocess.POpen(stdout=subprocess.PIPE,args=[pdftexbin,'--version'])
+    p = subprocess.Popen(stdout=subprocess.PIPE,args=[pdftexbin,'--version'])
     s = p.stdout.read().strip()
     r = p.wait()
     if r != 0:
