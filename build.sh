@@ -21,7 +21,7 @@ if  echo '** building reference sections ***************' && \
         -dtdpath       dtd/external \
         -d final=true && \
     echo '** Building HTML *****************************' && \
-    python2.5 sdoc/e2html.py build/output/sdocml-expanded.xml \
+    python sdoc/e2html.py build/output/sdocml-expanded.xml \
       -config conf/sdoc-html.conf \
       -i . \
       -o $RES \

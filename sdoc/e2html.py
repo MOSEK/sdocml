@@ -109,6 +109,10 @@ class _mathUnicodeToTex:
         8800 : '\\not=',
         8804 : '\\leq{}',
         8805 : '\\geq{}',
+        8826 : '\\prec{}',
+        8827 : '\\succ{}',
+        8828 : '\\preceq{}',
+        8829 : '\\succeq{}',
         8834 : '\\subset{}',
         8838 : '\\subseteq{}',
         8840 : '\\not\\subseteq{}',
@@ -123,7 +127,7 @@ class _unicodeToTex:
     ## Text mode 
     unicoderegex = re.compile(u'[\u0080-\u8000]')
     unicodetotex = {  
-        160  : '~',
+        159  : '~',
         
         169  : '\\copyright{}',
         173  : '-',

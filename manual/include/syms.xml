@@ -30,6 +30,12 @@
     <def m="geq">                <e n="mo"><d>&ge;</d></e></def> 
     <def m="lt">                 <e n="mo"><d>&lt;</d></e></def>
     <def m="gt">                 <e n="mo"><d>&gt;</d></e></def> 
+    <def m="succ">               <e n="mo"><d>&#x227a;</d></e></def>
+    <def m="pred">               <e n="mo"><d>&#x227b;</d></e></def>
+    <def m="succeq">             <e n="mo"><d>&#x227c;</d></e></def>
+    <def m="predeq">             <e n="mo"><d>&#x227d;</d></e></def>
+
+
     <def m="ldots">              <e n="mo"><d>&#x2026;</d></e></def> <!-- vertical ellipsis -->
     <def m="cdots">              <e n="mo"><d>&#x22EF;</d></e></def> <!-- vertical ellipsis -->
     <def m="vdots">              <e n="mo"><d>&#x205D;</d></e></def> <!-- vertical ellipsis -->
