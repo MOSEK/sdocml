@@ -4059,7 +4059,10 @@ class ConfigError(Exception):
 def check_config(conf):
     # check ghostscript version
     gsbin = conf['gsbin']
-    p = subprocess.Popen(stdout=subprocess.PIPE,args=[gsbin,'--version'])
+    try:
+      p = subprocess.Popen(stdout=subprocess.PIPE,args=[gsbin,'--version'])
+    except: # Windows appears to throw error if binary is not found (? other platforms ?)
+      raise ConfigError("Ghostscript binary not found")
     s = p.stdout.read().strip()
     r = p.wait()
     if r != 0:
