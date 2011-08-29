@@ -1451,7 +1451,8 @@ class BibliographyNode(_SectionBaseElement):
         self.__manager  = manager
 
         if self.hasAttr('url'):
-            biburl = manager.findFile(self.getAttr('url'),pos.filename)
+            print "url... ", self.getAttr('url')
+            biburl = 'file://' + manager.findFile(self.getAttr('url'),pos.filename).replace('\\','/')
             self.__bibdb = BibDB(biburl)
         else:
             self.__bibdb = None
@@ -3264,12 +3265,9 @@ class Manager:
             else:
                 return path
         else:
-            #assert baseurl
-            #print "look for: %s" % path
             if baseurl is not None:
                 base = urlparse.urlparse(baseurl)
-                fullname = os.path.join(os.path.dirname(base[2]),path)
-                #print "check: %s" % fullname
+                fullname = os.path.abspath(os.path.join(os.path.dirname(base[2]),path))
                 if os.path.exists(fullname):
                     return fullname
 

@@ -284,6 +284,8 @@ class BibDB:
 
     def __init__(self,url):
         urlbits = urlparse.urlparse(url)
+        print "URL =",url
+        print "filename = ",urlbits[2]
         if   urlbits[0] in ['file','']:
             filename = urlbits[2]
         else:
