@@ -623,12 +623,17 @@ class htmlCollector(UserList.UserList):
     def tag(self,name,attrs=None,empty=False):
         if not self.unendedtags.has_key(name) and not empty:
             self.__stack.append(name)
+
         if attrs is None or not attrs:
             attrstr = ''
         else:
             attrstr = ' ' + ' '.join([ '%s="%s"' % (k,v.replace('"','\\"')) for k,v in attrs.items()])
+
         if empty:
-            self.data.append('<%s%s/>' % (name,attrstr))
+            if self.unendedtags.has_key(name):
+                self.data.append('<%s%s>' % (name,attrstr))
+            else:
+                self.data.append('<%s%s></%s>' % (name,attrstr,name))
         else:
             self.data.append('<%s%s>' % (name,attrstr))
         if empty and name in self.partags:
@@ -636,7 +641,7 @@ class htmlCollector(UserList.UserList):
             #self.append('\n')
         return self
     def emptytag(self,name,attrs=None):
-        self.tag(name,attrs,True)
+        self.tag(name,attrs,empty=True)
         #if name in self.partags:
         #    self.append('\n')
         return self
@@ -806,12 +811,14 @@ class Node(UserList.UserList):
                 attrs = { 'class' : self.getAttr('class') }
             else:
                 attrs = None
-            if len(self) > 0:
+
+            if len(self) > 0 or self.hasAttr('id'):
                 res.tag(tag,attrs)
                 
                 if self.hasAttr('id'):
                     res.emptytag('a', { 'name' : self.getAttr('id') } )
-                self.contentToHTML(res)
+                if len(self) > 0:
+                    self.contentToHTML(res)
                 res.tagend(tag)
             else:
                 res.emptytag(tag,attrs)
@@ -1236,6 +1243,40 @@ class SectionNode(Node):
                 res.tagend('li')
             res.tagend('ul')
     def makeSidebarContents(self,res,cnt):
+        subsecidx = cnt.next()
+        sidx = self.getSectionIndex()
+        link = self.getSectionURI()
+
+        res.tag('div', { 'class' : 'sidebar-content-tree', 'id' : 'sidebar-content-tree-item-%d' % self.getSectionId() } )
+        ###########################
+        # BGN HEAD
+        res.tag('div', { 'class' : 'sidebar-content-tree-head' })
+        
+        if len(self.__sections) > 0:
+            res.emptytag('div', { 'class' : 'sidebar-content-tree-toggle', 'onclick' : 'toggleSidebarItemState(this);' })
+        else:
+            res.emptytag('div', { 'class' : 'sidebar-content-tree-toggle-dummy'})
+            
+        if sidx:            
+            res.tag('div',{ 'class' : 'sidebar-content-tree-number' }).append('.'.join([ str(v+1) for v in sidx ]) + '.').entity('nbsp').tagend('div')
+        res.tag('div',{ 'class' : 'sidebar-content-tree-link'}).tag('a',{ 'href' : link, 'target' : '_top' })
+        self.getTitle().toPlainHTML(res)
+        res.tagend('a').tagend('div').tagend('div')
+        # END HEAD
+        ###########################
+        
+        ###########################
+        # BGN BODY
+        res.tag('div', { 'class' : 'sidebar-content-tree-body' })
+        for s in self.__sections:
+            s.makeSidebarContents(res,cnt)
+        
+        res.tagend('div')
+        # END BODY
+        ###########################
+
+        res.tagend('div')
+    def makeSidebarContents_deprecated(self,res,cnt):
         if len(self.__sections) > 0:
             res.tag('ul', { 'class' : 'sidebar-contents-list' } )
             for s in self.__sections:
