@@ -4,7 +4,7 @@
     The project is distributed under GPLv3:
         http://www.gnu.org/licenses/gpl-3.0.html
     
-    Copyright (c) 2009 Mosek ApS 
+    Copyright (c) 2009-2011 Mosek ApS 
 """
 
 from UserDict import UserDict
@@ -218,7 +218,8 @@ class texCollector(UserList.UserList):
                     if self.__mode == self.MathMode:
                         r.append('\\%s' % str(t))
                     else:
-                        r.append('\\char%d{}' % ord(t))
+                        if t == '_': r.append('\\_')
+                        else:        r.append('\\^')
                 elif t in [ '<', '>' ]:
                     if self.__mode == self.MathMode:
                         r.append(str(t))
@@ -301,7 +302,13 @@ class texCollector(UserList.UserList):
             elif o.group('escape'):
                 r.append('\\%s' % o.group('escape'))
             elif o.group('special'):
-                r.append('\\char%d{}' % ord(o.group('special')))
+                ch = o.group('special')
+                if   ch == '_':
+                    r.append('\\_')
+                elif ch == '^':
+                    r.append('\\^')
+                else:
+                    r.append('\\char%d{}' % ord(o.group('special')))
             elif o.group('unicode'):
                 uidx = ord(o.group('unicode'))
                 if   _unicodeToTex.unicodetotex.has_key(uidx):
@@ -1242,20 +1249,22 @@ class SectionNode(Node):
                 res.tagend('div')
                 res.tagend('li')
             res.tagend('ul')
-    def makeSidebarContents(self,res,cnt):
+    def makeSidebarContents(self,res,cnt,lvl=0):
         subsecidx = cnt.next()
         sidx = self.getSectionIndex()
         link = self.getSectionURI()
 
-        res.tag('div', { 'class' : 'sidebar-content-tree', 'id' : 'sidebar-content-tree-item-%d' % self.getSectionId() } )
+        res.tag('div', { 'class' : 'sidebar-content-tree sidebar-content-tree-lvl-%d' % lvl, 'id' : 'sidebar-content-tree-item-%d' % self.getSectionId() } )
         ###########################
         # BGN HEAD
         res.tag('div', { 'class' : 'sidebar-content-tree-head' })
         
+        res.tag('div',{ 'class' : 'sidebar-content-tree-toggle-container'})
         if len(self.__sections) > 0:
             res.emptytag('div', { 'class' : 'sidebar-content-tree-toggle', 'onclick' : 'toggleSidebarItemState(this);' })
         else:
             res.emptytag('div', { 'class' : 'sidebar-content-tree-toggle-dummy'})
+        res.tagend('div')
             
         if sidx:            
             res.tag('div',{ 'class' : 'sidebar-content-tree-number' }).append('.'.join([ str(v+1) for v in sidx ]) + '.').entity('nbsp').tagend('div')
@@ -1269,7 +1278,7 @@ class SectionNode(Node):
         # BGN BODY
         res.tag('div', { 'class' : 'sidebar-content-tree-body' })
         for s in self.__sections:
-            s.makeSidebarContents(res,cnt)
+            s.makeSidebarContents(res,cnt,lvl+1)
         
         res.tagend('div')
         # END BODY
@@ -2684,7 +2693,7 @@ class PreformattedNode(Node):
             r.macro('beginpre').group(self.__urlbase).group(str(lineno)).comment()
         else:
             #r.macro('beginpreplain').macro('nullbox').group()
-            r.macro('beginpreplain').comment()
+            r.macro('noindent').macro('beginpreplain').comment()
         
         for n in nodes:
             if isinstance(n,Node):
@@ -3163,7 +3172,6 @@ globalNodeDict = {  'sdocmlx'      : DocumentNode,
                     'href'         : HyperRefNode,
                     'a'            : AnchorNode,
 
-
                     # Structural text elements
                     'ilist'        : ItemListNode,
                     'li'           : ListItemNode,
@@ -3330,6 +3338,12 @@ class TemplateParser(HTMLParser.HTMLParser):
                 self.__state = self.__state and self.linkmap.has_key(d['haslink'])
             elif d.has_key('hasnotlink'):
                 self.__state = self.__state and not self.linkmap.has_key(d['hasnotlink'])
+        elif tag == 'sdoc:else':
+            self.__stack.append(self.__state)
+            try:
+                self.__state = self.__stack[-2]
+            except IndexError:
+                self.__state = True
         elif self.__state:            
             if   tag == 'sdoc:item':
                 if attrs and attrs[0][0] == 'key':
@@ -3341,6 +3355,12 @@ class TemplateParser(HTMLParser.HTMLParser):
                             Warning('In HTML template %s an undefined key "%s" was referenced' % (self.__currentfilename,key))
                 else:
                     Warning('In HTML template %s an <sdoc:item> element with no key was specified' % (self.__currentfilename))
+            elif tag == 'sdoc:meta-link':
+                d = dict(attrs)
+                if d.has_key('href-lookup'):
+                    d['href'] = self.linkmap[d['href-lookup']]
+                    del d['href-lookup']
+                self.res.append('<link %s>' % ' '.join(['%s="%s"' % itm for itm in d.items()]))
             elif tag == 'sdoc:link':
                 # Replace this with an <a href="something"> element, where something is the relevant link
                 copyattrs = []
@@ -3380,12 +3400,14 @@ class TemplateParser(HTMLParser.HTMLParser):
         if self.__state:
             self.res.append('&%s;' % name)
     def handle_endtag(self,tag):
-        if tag in 'sdoc:if':
+        if tag in ['sdoc:if', 'sdoc:else']:
             self.__state = self.__stack.pop()
         elif tag == 'sdoc:item':
             pass
         elif tag == 'sdoc:link':
             self.res.append('</a>')
+        elif tag == 'sdoc:meta-link':
+            pass
         elif self.__state:
             self.res.append('</%s>' % tag)
     def handle_comment(self,data):
