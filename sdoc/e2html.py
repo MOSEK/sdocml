@@ -3341,9 +3341,9 @@ class TemplateParser(HTMLParser.HTMLParser):
         elif tag == 'sdoc:else':
             self.__stack.append(self.__state)
             try:
-                self.__state = self.__stack[-2]
+                self.__state = self.__stack[-2] and not self.__stack[-1]
             except IndexError:
-                self.__state = True
+                self.__state = False
         elif self.__state:            
             if   tag == 'sdoc:item':
                 if attrs and attrs[0][0] == 'key':
