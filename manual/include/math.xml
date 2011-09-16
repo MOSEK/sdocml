@@ -6,6 +6,7 @@
   <def m="mathcal"  n="1"><e n="mfont"><attr n="family">mathcal</attr><d>{{0}}</d></e></def>
   <def m="mathfrac" n="1"><e n="mfont"><attr n="family">mathfrac</attr><d>{{0}}</d></e></def>
   <def m="mathbb"   n="1"><e n="mfont"><attr n="family">mathbb</attr><d>{{0}}</d></e></def>
+  <def m="mathbf"   n="1"><e n="mfont"><attr n="style">mathbf</attr><d>{{0}}</d></e></def>
   <def m="mathtt"   n="1"><e n="mfont"><attr n="family">mathtt</attr><d>{{0}}</d></e></def>
   <def m="mathit"   n="1"><e n="mfont"><attr n="family">mathit</attr><d>{{0}}</d></e></def>
   <def m="mbox"     n="1"><e n="mtext"><d>{{0}}</d></e></def>
@@ -106,5 +107,27 @@
     <e n="m"><d>{{0}}</d></e>
   </def>
 
+
+  <!-- Some standard function names -->
+
+  <def m="diag">
+    <desc>Diagonal of a square matrix.</desc>
+    <e n="mtext"><d>diag</d></e>
+  </def>
+  
+  <def m="Diag">
+    <desc>Diagonal matrix from a vector.</desc>
+    <e n="mtext"><d>Diag</d></e>
+  </def>
+  
+  <def m="sin">
+    <desc>Sinus.</desc>
+    <e n="mtext"><d>sin</d></e>
+  </def>
+
+  <def m="cos">
+    <desc>Sinus.</desc>
+    <e n="mtext"><d>cos</d></e>
+  </def>
   
 </defines>

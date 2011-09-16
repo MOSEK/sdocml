@@ -998,7 +998,7 @@ class SectionNode(Node):
             if len(s) > 1: return '%20'
             else:          return '%%%x' % ord(s)
 
-        s = re.sub(r'\s+|[^a-zA-Z0-9\-\+\=\.\;\:]',repl,''.join(self.getTitle().toPlainText([])))
+        s = re.sub(r'\s+[^a-zA-Z0-9\-\+\=\.\;\:]',repl,''.join(self.getTitle().toPlainText([])))
         if self.__parent is None:
             return s
         else: 
@@ -2733,18 +2733,8 @@ class InlineMathNode(Node):
     def toHTML(self,r):
         eqnwidth,eqnheight,eqndepth = self.__manager.getEquationDims(self.__eqnidx)
          
-        #r.tag('div',{ 'style' : 'display : inline-block; max-height : %dpx; width : %dpx;'  % (int(eqnheight),int(eqnwidth))})
-        
-        #r.tag('div',{ 'class' : 'inline-math', 'style' : 'max-height : %dpx; width : %dpx;' % (int(eqnheight),int(eqnwidth))})
-        #r.tag('div',{ 'class' : 'inline-math', 'style' : 'max-height : %dpx;' % (int(eqnheight))})
-
-        #r.tag('div',{ 'class' : 'inline-math'}).tag('div',{ 'style' : 'max-height : %dpx; top : -%dpx;' % (int(eqnheight),int(eqnheight))})
-        r.tag('div',{ 'class' : 'inline-math'}).tag('div',{ 'style' : 'max-height : %dpx;' % (int(eqnheight))})
+        r.tag('div',{ 'class' : 'inline-math', 'style' : 'position : relative; bottom : -%dpx;' % int(eqndepth)})
         r.tag('img', { 'src' : self.getEqnFile() })
-        r.tagend('div')
-
-
-
         r.tagend('div')
 
 
@@ -3313,7 +3303,7 @@ class TemplateParser(HTMLParser.HTMLParser):
         self.sub = substs
         self.linkmap = linkmap
         self.errors = []
-        self.res = []
+        self.res = ['<!doctype html>\n']
 
         self.__stack = []
         self.__state = True
@@ -3606,9 +3596,12 @@ class Manager:
     def getTOCdepth(self):
         return self.__conf['tocdepth']
     def makeNodeName(self,depth,title):
-        titlestr = str(re.sub(r'[^a-zA-Z0-9\-]+','_',''.join(title.toPlainText([])).strip(),re.MULTILINE))
-        if len(titlestr) > 40:
-            titlestr = titlestr[:40]
+        titlestr_ = str(re.sub(r'[^a-zA-Z0-9\-]+','_',''.join(title.toPlainText([])).strip()))
+        if len(titlestr_) > 40:
+            titlestr = titlestr_[:40]
+        else:
+
+            titlestr = titlestr_
         if not self.__nodeNames.has_key(titlestr):
             self.__nodeNames[titlestr] = 0
             titlestr = titlestr + '.html'
