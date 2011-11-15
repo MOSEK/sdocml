@@ -6,7 +6,7 @@
   <def m="mathcal"  n="1"><e n="mfont"><attr n="family">mathcal</attr><d>{{0}}</d></e></def>
   <def m="mathfrac" n="1"><e n="mfont"><attr n="family">mathfrac</attr><d>{{0}}</d></e></def>
   <def m="mathbb"   n="1"><e n="mfont"><attr n="family">mathbb</attr><d>{{0}}</d></e></def>
-  <def m="mathbf"   n="1"><e n="mfont"><attr n="style">mathbf</attr><d>{{0}}</d></e></def>
+  <def m="mathbf"   n="1"><e n="mfont"><attr n="family">mathbf</attr><d>{{0}}</d></e></def> <!-- Not correct - should be style="mathbf" -->
   <def m="mathtt"   n="1"><e n="mfont"><attr n="family">mathtt</attr><d>{{0}}</d></e></def>
   <def m="mathit"   n="1"><e n="mfont"><attr n="family">mathit</attr><d>{{0}}</d></e></def>
   <def m="mbox"     n="1"><e n="mtext"><d>{{0}}</d></e></def>
@@ -70,7 +70,7 @@
   <def m="paren" n="1"><e n="mfenced"><attr n="open">(</attr><attr n="close">)</attr><d>{{0}}</d></e></def>
   <def m="limits"> <e n="mo"><attr n="op">limits</attr></e></def>
   <!-- <def m="notin">  <e n="mo"><d>&notin;</d></e></def> --> <!-- REPLACED BY \not{\in} -->
-  <def m="norm" n="1"><e n="mfenced"><attr n="open">&Vert;</attr><attr n="close">&Vert;</attr><d>{{0}}</d></e></def>
+  <def m="norm" n="1"><e n="mfenced"><attr n="open">||</attr><attr n="close">||</attr><d>{{0}}</d></e></def>
   <def m="abs" n="1"><e n="mfenced"><attr n="open">|</attr><attr n="close">|</attr><d>{{0}}</d></e></def>
         
   <defenv m="braces"><e n="mfenced"><attr n="open">{</attr><attr n="close">}</attr><d>{{BODY}}</d></e></defenv>
@@ -78,6 +78,30 @@
   <defenv m="parens"><e n="mfenced"><attr n="open">(</attr><attr n="close">)</attr><d>{{BODY}}</d></e></defenv>
   <defenv m="leftbrace"><e n="mfenced"><attr n="open">{</attr><attr n="close"></attr><d>{{BODY}}</d></e></defenv>
 
+  <def m="min" subscript-arg="yes">
+    <e n="msub">
+      <e n="mrow"><e n="mtext"><d>min</d></e></e>
+      <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
+    </e>     
+  </def>
+  <def m="max" subscript-arg="yes">
+    <e n="msub">
+      <e n="mrow"><e n="mtext"><d>max</d></e></e>
+      <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
+    </e>     
+  </def>
+  <def m="sup" subscript-arg="yes">
+    <e n="msub">
+      <e n="mrow"><e n="mtext"><d>sup</d></e></e>
+      <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
+    </e>     
+  </def>
+  <def m="inf" subscript-arg="yes">
+    <e n="msub">
+      <e n="mrow"><e n="mtext"><d>inf</d></e></e>
+      <e n="mrow"><d>{{SUBSCRIPT}}</d></e>
+    </e>     
+  </def>
 
 
 

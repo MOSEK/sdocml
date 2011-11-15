@@ -183,7 +183,7 @@
           <head><title>The \tag{def} element</title></head>
           The \tagref{def} element is used to define or redefine a macro. A
           macro name is defined as follows
-          <pre>[a-zA-Z@][a-zA-Z0-9@]*|[\\_\^\{\}]|[~\'"`,.\-%#][a-zA-Z]</pre>
+          <pre>[a-zA-Z@][a-zA-Z0-9@]*|[\\_\^\{\}]|[~\&quot;&apos;`,.\-%#][a-zA-Z]</pre>
           and furthermore, the special macros ``<tt>begin</tt>'' and
           ``<tt>end</tt>'' are reserved and cannot be redefined.
             
@@ -700,6 +700,7 @@ organization&amp;publisher&amp;address
         </section>
       </section>
     </section>
+    
     <section>
       <head><title>Special elements</title></head>
       There are a set of special tags meant to be used in the documentation
@@ -804,6 +805,15 @@ organization&amp;publisher&amp;address
       </ilist>
     </section>
   </section>
+
+
+  <section>
+    <head><title>HTML backend</title></head>
+    
+    The HTML backend produces (nearly) HTML5-compliant code. 
+
+  </section>
+
   <section url="../build/output/tagsref.xml" cond="true"/>
   <section url="../build/output/macroref.xml" cond="final"/>
 

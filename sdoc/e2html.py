@@ -957,6 +957,9 @@ class SectionNode(Node):
         self.__separatefile = separatefile
         self.__parent = parent
 
+        self.__toc = True
+        self.__sectnum = True
+
         if   not separatefile:
             self.__childrenInSepFiles = False
         elif self.isClass('split:yes'):
@@ -976,6 +979,44 @@ class SectionNode(Node):
             self.__sectionLinkName = attrs['id']
         else:
             self.__sectionLinkName = None 
+       
+        if attrs.has_key('config'):
+            # each entry has the form:
+            # KEY or KEY=... KEY="..." or KEY='...' separated by spaces
+            s = attrs['config'].strip()
+            p = 0            
+            print 
+            for o in re.finditer(r'(?P<key>[a-zA-Z:][a-zA-Z0-9_:\-@]*)(=("(?P<val1>[^"]*)"|\'(?P<val2>[^\']*)\'|(?P<val3>[a-zA-Z0-9_]+)))?|(?P<space>\s+)|.',s):
+                #print "####### GOT CONFIG: %s" % o.group(0)
+                if o.group('key'):
+                  k = o.group('key').lower()
+                  v = o.group('val1') or o.group('val2') or o.group('val3')
+                  if   k == 'split':
+                    if separatefile: # ignored if current node is not in a separate file.
+                      if   v.lower() in ['yes','on','true']: self.__childrenInSepFiles = True
+                      elif v.lower() in ['no','off','false']: self.__childrenInSepFiles = False
+                      else: assert 0
+                  elif k == 'toc':
+                    v = v.lower()
+                    if   v in ['yes','on','true']:  self.__toc = True
+                    elif v in ['no','off','false']: self.__toc = False
+                    else:assert 0
+                  elif k == 'sectionnumber':
+                    v = v.lower()
+                    if   v in ['yes','on','true']:  self.__sectnum = True
+                    elif v in ['no','off','false']: self.__sectnum = False
+                    else: assert 0
+                  else:
+                    assert 0
+                elif o.group('space'):
+                  pass
+                else:
+                  assert 0
+                  
+                  
+            
+            
+            
 
         self.__eqncounter = counter()
         self.__figcounter = counter()
@@ -1093,7 +1134,9 @@ class SectionNode(Node):
         if cls is not None:
             res.tag('div',{ 'class' : cls })
         res.extend([tag(tagn),tag('a',{ 'name' : self.__sectionLinkName })])
-        res.append('%s. ' % '.'.join([str(i+1) for i in self.__sectidx]))
+        if self.__sectnum:
+          res.append('%s. ' % '.'.join([str(i+1) for i in self.__sectidx]))
+                  
         self.getTitle().toHTML(res)
         if self.__manager.doDebug():
             filename = self.getAttr('filename')
@@ -1352,7 +1395,6 @@ class SectionNode(Node):
                                 #print "**3 key = '%s', fragment = '%s'" % (cn,cn[p:])
                                 keys.append([cn[p:]])
                                 #print "**3", keys[-1]
-                print 'KEYS = %s' % keys
                 entry = []
                 for k in keys:
                     # find first '@'
@@ -1385,7 +1427,6 @@ class SectionNode(Node):
                         entry.append(( pk, sk, ee))
                     #print '\t--ENDEND'
                
-                print "  Anchor -> %s" % ' ; '.join( [ ''.join( [asstr(i) for i in e[2]] ) for e in entry ] )
                 entries.append((entry,n))
 
         # entries 
@@ -1453,9 +1494,8 @@ class SectionNode(Node):
         
         self.makeNavigation(d,up=parentNode,prev=prevNode,next=nextNode,top=topNode,index='xref.html')
 
-        if self.__sections:
+        if self.__sections and self.__toc:
             d['toc:local'] = htmlCollector()
-
             self.makeContents(d['toc:local'],1,self.__manager.getTOCdepth())
        
         authors = self.__head.getAuthors()
@@ -2380,7 +2420,7 @@ class TableNode(Node):
         cls = self.getAttr('class')
         if cls is None:
             cls = 'generic-table'
-        res.tag('div',{'style' : 'display : inline-block;' }).tag('table', { 'class' : cls })
+        res.tag('div',{'style' : 'display : inline-block;', 'class' : 'table-container' }).tag('table', { 'class' : cls })
         rownum = 0
         for row in self:
             if isinstance(row,TableRowNode):
@@ -2711,6 +2751,7 @@ class InlineMathNode(Node):
         self.__eqnidx = None
         self.__eqnfile = None
         self.__manager = manager
+        self.__alttext = '[math]'
         if attrs.has_key('filename') and attrs.has_key('line'):
             self.__filename = attrs['filename']
             self.__line     = attrs['line']
@@ -2719,7 +2760,9 @@ class InlineMathNode(Node):
             self.__line     = None
 
     def endOfElement(self,filename,line):
-        self.__eqnidx,self.__eqnfile = self.__manager.addEquation('$%s$' % ''.join(self.contentToTeX(texCollector(self.__manager,texCollector.MathMode))),self.__filename, self.__line)
+        mathtext = ''.join(self.contentToTeX(texCollector(self.__manager,texCollector.MathMode)))
+        self.__alttext = re.sub(r'[\r\n ]+',' ',mathtext)
+        self.__eqnidx,self.__eqnfile = self.__manager.addEquation('$%s$' % mathtext,self.__filename, self.__line)
     
     def getEqnFile(self):
         assert self.__eqnfile is not None
@@ -2729,12 +2772,13 @@ class InlineMathNode(Node):
         self.contentToTeX(r)
         r.inlineMathEnd()
         return r
-        
+    def getAltText(self):
+        return self.__alttext
     def toHTML(self,r):
         eqnwidth,eqnheight,eqndepth = self.__manager.getEquationDims(self.__eqnidx)
          
         r.tag('div',{ 'class' : 'inline-math', 'style' : 'position : relative; bottom : -%dpx;' % int(eqndepth)})
-        r.tag('img', { 'src' : self.getEqnFile() })
+        r.tag('img', { 'src' : self.getEqnFile(), 'alt' : self.getAltText() })
         r.tagend('div')
 
 
@@ -2743,6 +2787,7 @@ class MathEnvNode(Node):
     def __init__(self,manager,parent,attrs,filename,line):
         Node.__init__(self,manager,parent,attrs,filename,line)
         self.__eqnidx = None
+        self.__alttext = '[math]'
 
         if attrs.has_key('id'):
             self.__index = self.parentSection().nextEquationIndex()
@@ -2758,8 +2803,12 @@ class MathEnvNode(Node):
     
     def getEqnIdx(self):
         return self.__eqnfile
+    def getAltText(self):
+        return self.__alttext
     def endOfElement(self,filename,line):
-        self.__eqnidx,self.__eqnfile  = self.manager.addEquation('$\\displaystyle{}%s$' % ''.join(self.contentToTeX(texCollector(self.manager,texCollector.MathMode))),self.__filename, self.__line)
+        mathtext = ''.join(self.contentToTeX(texCollector(self.manager,texCollector.MathMode)))
+        self.__alttext = re.sub(r'[\r\n ]+',' ',mathtext)
+        self.__eqnidx,self.__eqnfile  = self.manager.addEquation('$\\displaystyle{}%s$' % mathtext,self.__filename, self.__line)
 
     def toTeX(self,r):
         r.append('\n')
@@ -2787,7 +2836,7 @@ class MathEnvNode(Node):
         r.tag('table', {'width' : '100%' })
         r.tag('tr')
         r.tag('td',{ 'width' : "100%%", 'class' : "math" })
-        r.tag('img', {'src' : self.getEqnIdx() })
+        r.tag('img', {'src' : self.getEqnIdx(), 'alt' : self.getAltText() })
         r.tagend('td')
         if self.__index is not None:
             r.extend([tag('td',{ 'width' :"0px" }),
@@ -2914,7 +2963,7 @@ class MathFontNode(_MathNode):
     def toTeX(self,r):
         if self.hasAttr('family'):
             fam = self.getAttr('family')
-            if fam in [ 'mathtt', 'mathrm','mathbb','mathfrac','mathcal','mathit']:
+            if fam in [ 'mathtt', 'mathrm','mathbb','mathbf','mathfrac','mathcal','mathit']:
                 cmd = fam
             else:
                 cmd = fam
@@ -3985,7 +4034,7 @@ class Manager:
             entries = []
             for n in self.getAnchors():
                 #print "Anchor : %s" % ''.join(n.toPlainText([]))
-                if n.hasAttr('class') and 'index' in re.split('\s+',n.getAttr('class')):
+                if n.hasAttr('type') and 'index' in re.split('\s+',n.getAttr('type')):
                     keys = [[]]
                     # Split the string over "!", then each entry over '@'
                     for cn in n:
@@ -3996,10 +4045,8 @@ class Manager:
                             if pn < 0:
                                 keys[-1].append(cn)
                             else:
-                                #print "**1 key = '%s', fragment = '%s'" % (cn,cn[:pn])
                                 keys[-1].append(cn[:pn])
                                 p = pn+1
-                                #print "**1", keys[-1]
 
                                 while True:
                                     pn = cn.find('!',p)
@@ -4086,7 +4133,7 @@ class XMLHandler(xml.sax.handler.ContentHandler):
     def startElement(self,name,attr):
         topnode = self.__nodestack[-1]
         self.__nodestack.append(topnode.newChild(name,attr,self.__filename,self.__locator.getLineNumber()))
-        #print '%s<%s pos="%s:%d">' % (' ' * self.__indent*2,name,self.__filename,self.__locator.getLineNumber())
+        #print '%s<%s pos="%s:%d">' % (' ' * self.__indent*1,name,self.__filename,self.__locator.getLineNumber())
         self.__indent += 1
     def endElement(self,name):
         self.__nodestack.pop().endOfElement(self.__filename,self.__locator.getLineNumber())

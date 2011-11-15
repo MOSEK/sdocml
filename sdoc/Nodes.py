@@ -52,7 +52,7 @@ textNodeList       = [ 'ilist','dlist','table','a','ref','href','float', 'img' ]
 
 mathNodeList       = [ 'mrow','msup','msub','msubsup','mfenced', 'mi','mo','mn','mtable', 'mvector', 'mfont', 'mtext', 'mfrac', 'mroot','msqrt' ]
 
-mathFonts          = [ 'mathbb','mathcal','mathtt','mathrm','mathit','mathfrac' ]
+mathFonts          = [ 'mathbb','mathcal','mathtt','mathrm','mathbf','mathit','mathfrac' ]
 textFonts          = [ 'tt','rm','sc','sans','serif' ]
 
 _simpleTextNodes = ' '.join([ '<%s>' % i for i in simpleTextNodeList ])
@@ -1750,6 +1750,7 @@ class _SectionNode(_SectionBaseElement):
     macroMode   = MacroMode.Text
     acceptAttrs = Attrs([Attr('id'),
                          Attr('class'),
+                         Attr('config'),
                          Attr('url',descr='Read the section content from an external source. If this is given, the section element must be empty.'),
                          ])
     contIter    = ' <head> [ T %s %s %s %s ]* <section>* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
@@ -2132,10 +2133,11 @@ class TableNode(Node):
     tablerowelement = 'tr'
     tablecellelement = 'td'
     acceptAttrs = Attrs([ Attr('id'), 
-                    Attr('class'),
-                    Attr('orientation',default='rows'), # DEPRECATED!!
-                    Attr('cellvalign',descr='Vertical alignment of cells. This is a space-separated list of (top|middle|bottom) defining the alignment of cells in the individual columns.'),
-                    Attr('cellhalign',descr='Horizontal alignment of cells. This is a space-separated list of (left|right|center) defining the alignment of cells in the individual columns.'), ])
+                          Attr('class'),
+                          Attr('config'),
+                          Attr('orientation',default='rows'), # DEPRECATED!!
+                          Attr('cellvalign',descr='Vertical alignment of cells. This is a space-separated list of (top|middle|bottom) defining the alignment of cells in the individual columns.'),
+                          Attr('cellhalign',descr='Horizontal alignment of cells. This is a space-separated list of (left|right|center) defining the alignment of cells in the individual columns.'), ])
     structuralElement = True
 
     def __init__(self, manager, parent, cmddict, nodedict, attrs, pos):
@@ -3185,9 +3187,26 @@ class ExternalSectionRoot(_RootNode):
         #print "----- %s" % pos.filename
         #print "----------- Primary   attrs : %s" % self.__attrs.keys()
         #print "----------- Secondary attrs : %s" % attrs.keys()
+
         attrd = {}
-        attrd.update(attrs)
         attrd.update(self.__attrs)
+        
+        for k in attrs:
+            if k == 'id': 
+              if not attrd.has_key(k):
+                attrd[k] = attrs[k]
+            elif k == 'class': 
+              attrd[k] = attrd.get(k,'') + ' ' + attrs[k]
+            elif k == 'config': 
+              attrd[k] = attrs[k] + ' ' + attrd.get(k,'')
+            elif not attrd.has_key(k):
+              attrd[k] = attrs[k]
+
+        #print "############## MERGE ATTRIBUTES:"
+        #print "# Including section: \n\t%s" % '\n\t'.join([ ('%s : %s' % i) for i in self.__attrs.items() ])
+        #print "# Included section: \n\t%s" % '\n\t'.join([ ('%s : %s' % i) for i in attrs.items() ])
+        
+
         
         return _RootNode.startChildElement(self,name,attrd,pos)
 
