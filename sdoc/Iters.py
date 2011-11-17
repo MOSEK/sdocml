@@ -151,7 +151,7 @@ class BaseContentIterator:
     def element(self,item):
         raise ContentIteratorError('Element not accepted')
     def text(self,item):
-        dbg("text >> %s"  % self.__class__.__name__)
+        #dbg("text >> %s"  % self.__class__.__name__)
         if item.strip():
             raise ContentIteratorError('Text not accepted')
 
@@ -194,7 +194,7 @@ def ZeroOrOneOfIterator(names,or_text=False):
                 self.__gotElement = True
                 return True
         def text(self,item):
-            dbg("text >> %s (%s, text:%s)"  % (self.__class__.__name__,','.join(names),or_text))
+            #dbg("text >> %s (%s, text:%s)"  % (self.__class__.__name__,','.join(names),or_text))
             if   self.__ended:      
                 return BaseContentIterator.element(item)
             elif self.__gotElement:
@@ -218,24 +218,24 @@ def ZeroOrMoreOfIterator(names,or_text=False):
             self.__ended      = False
 
         def element(self,item):
-            dbg("<%s> >> %s (%s, text:%s)"  % (item.nodeName,self.__class__.__name__,','.join(names),or_text))
+            #dbg("<%s> >> %s (%s, text:%s)"  % (item.nodeName,self.__class__.__name__,','.join(names),or_text))
             if   self.__ended:
                 return BaseContentIterator.element(item)
             elif item.nodeName not in names:
                 self.__ended = True
-                dbg("--- End %s" % self.__class__.__name__)
+                #dbg("--- End %s" % self.__class__.__name__)
                 return False
             else:
                 return True
         def text(self,item):
-            dbg("text(%s) >> %s (%s, text:%s)"  % (item,self.__class__.__name__,','.join(names),or_text))
+            #dbg("text(%s) >> %s (%s, text:%s)"  % (item,self.__class__.__name__,','.join(names),or_text))
             if   self.__ended:      
                 return BaseContentIterator.element(item)
             elif or_text: 
                 return True
             else:                   
                 self.__ended = True
-                dbg("--- End %s" % self.__class__.__name__)
+                #dbg("--- End %s" % self.__class__.__name__)
                 return False
         @classmethod
         def repr(self):
@@ -264,7 +264,7 @@ def OneOfIterator(names):
             else:
                 return BaseContentIterator.element(self,item)
         def text(self,item):
-            dbg("text >> %s"  % self.__class__.__name__)
+            #dbg("text >> %s"  % self.__class__.__name__)
             if   self.__ended:      
                 return BaseContentIterator.text(selfmitem)
             elif self.__gotElement:
@@ -303,7 +303,7 @@ def OneOfEachIterator(names):
             else:
                 self.end()
         def text(self,item):
-            dbg("text >> %s"  % self.__class__.__name__)
+            #dbg("text >> %s"  % self.__class__.__name__)
             if self.__ended:
                 assert 0
             else:
@@ -332,7 +332,7 @@ def ZeroOrOneOfEachIterator(names):
             self.__ended      = False
 
         def element(self,item):
-            dbg("<%s> >> %s "  % (item.nodeName,self.__class__.__name__))
+            #dbg("<%s> >> %s "  % (item.nodeName,self.__class__.__name__))
             n = item.nodeName
             if   self.__ended:
                 return BaseContentIterator.element(item)
@@ -346,7 +346,7 @@ def ZeroOrOneOfEachIterator(names):
             else:
                 self.end()
         def text(self,item):
-            dbg("text >> %s"  % self.__class__.__name__)
+            #dbg("text >> %s"  % self.__class__.__name__)
             if self.__ended:
                 assert 0
             else:
@@ -440,10 +440,10 @@ def SequenceOfIterator(iters):
                         return False
                 return True
         def element(self,item):
-            dbg("<%s> >> %s "  % (item.nodeName,self.__class__.__name__))
+            #dbg("<%s> >> %s "  % (item.nodeName,self.__class__.__name__))
             return self.any(item)
         def text(self,item):
-            dbg("text >> %s "  % self.__class__.__name__)
+            #dbg("text >> %s "  % self.__class__.__name__)
             return self.any(item)
         def end(self):
             if not self.__it.end():
@@ -481,7 +481,7 @@ def AnyOneOfIterator(names,or_text=False):
                 self.__gotElement = True
                 return True
         def text(self,item):
-            dbg("text >> %s"  % self.__class__.__name__)
+            #dbg("text >> %s"  % self.__class__.__name__)
             if   self.__ended:      
                 return BaseContentIterator.element(item)
             elif self.__gotElement:
@@ -505,7 +505,7 @@ class TextIterator(BaseContentIterator):
     def __init__(self):
         self.__ended = False
     def text(self,item):
-        dbg("%s >> Iter >> text "  % self.__class__.__name__)
+        #dbg("%s >> Iter >> text "  % self.__class__.__name__)
         if self.__ended:
             BaseContentIterator.text(self,item)
         else:

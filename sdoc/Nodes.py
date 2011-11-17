@@ -376,7 +376,7 @@ class Node:
 
     def __flushCStack(self):
         #if len(self.__cstack) > 1:
-        dbg('In <%s>: Flush stack. Cstack = \n\t%s', self.nodeName,'\n\t'.join([ repr(i) for i in self.__cstack]))
+        #dgb('In <%s>: Flush stack. Cstack = \n\t%s', self.nodeName,'\n\t'.join([ repr(i) for i in self.__cstack]))
         
         assert len(self.__cstack) == 1
         l = self.__cstack[0][:]
@@ -395,16 +395,16 @@ class Node:
                     elif   ec is macro.SAXEvUnexpandedText:
                         cstack[-1].handleText(e.data,pos)
                     elif ec is macro.SAXEvStartTag:                                    
-                        dbg('(%s): Create <%s> in <%s>' % (self.nodeName, e.name, cstack[-1].nodeName))
+                        #dgb('(%s): Create <%s> in <%s>' % (self.nodeName, e.name, cstack[-1].nodeName))
                         try:
                             cstack.append( cstack[-1].startChildElement(e.name,e.attrs,pos) )
 
                             if 0: 
                                 if len(cstack) == 1:
-                                    dbg('(%s): Create (direct) <%s> in <%s>' % (self.nodeName, e.name,self.nodeName))
+                                    #dgb('(%s): Create (direct) <%s> in <%s>' % (self.nodeName, e.name,self.nodeName))
                                     cstack.append( cstack[-1].startElement(e.name,e.attrs,pos) )
                                 else:
-                                    dbg('(%s): Create <%s> in <%s>' % (self.nodeName, e.name, cstack[-1].nodeName))
+                                    #dgb('(%s): Create <%s> in <%s>' % (self.nodeName, e.name, cstack[-1].nodeName))
                                     cstack.append( cstack[-1].startChildElement(e.name,e.attrs,pos) )
                         except MotexException,exc:
                             #if e.trace:
@@ -414,7 +414,7 @@ class Node:
                             exc.trace.extend(e.trace)
                             raise
                     elif ec is macro.SAXEvEndTag:
-                        dbg('(%s): End <%s>' % (self.nodeName,e.name))
+                        #dgb('(%s): End <%s>' % (self.nodeName,e.name))
                         assert cstack and cstack[-1].nodeName == e.name
                         cstack.pop().end(e.pos)
                         cstack[-1].endChildElement(e.name,e.pos)
@@ -453,7 +453,8 @@ class Node:
                 print "trace : %s. l = %s" % (self.pos,''.join(['\n\t%s' % i for i in l ]))
                 raise
         else:
-            dbg('Cstack is empty')
+            #dgb('Cstack is empty')
+            pass
         
 
     def closeThisElement(self,name,pos):
@@ -508,17 +509,17 @@ class Node:
         return node 
 
     def startChildElement(self,name,attrs,pos):
-        dbg('startChildElement: %s' % name)
+        #dgb('startChildElement: %s' % name)
         if len(self.__cstack) == 1:
-            dbg("--- BEG FLUSH SCOPE (%s)" % self.nodeName)
+            #dgb("--- BEG FLUSH SCOPE (%s)" % self.nodeName)
             self.__flushCStack()
-            dbg("--- END FLUSH SCOPE (%s)" % self.nodeName)
+            #dgb("--- END FLUSH SCOPE (%s)" % self.nodeName)
         elif name in ['section','sdocml','head']:
             raise NodeError('%s: <%s> may not be used in macros' % (pos,name))
 
         if len(self.__cstack) > 1: # currently inside an \begin{x}...\end{x} environment or a { ... } group.
-            dbg('(%s) Delayed element <%s>' % (self.nodeName,name))
-            dbg('<%s>.__cstack = %s' % (self.nodeName, self.__cstack))
+            #dgb('(%s) Delayed element <%s>' % (self.nodeName,name))
+            #dgb('<%s>.__cstack = %s' % (self.nodeName, self.__cstack))
             dattrs = dict([ (k,[ DelayedText(v,pos) ]) for k,v in attrs.items()])
             node = DelayedElement(name,dattrs,pos)
             self.__emitOpen(node)
@@ -551,10 +552,10 @@ class Node:
     def handleText(self,data,pos):
         assert pos is not  None
         if  self.macroMode in [ MacroMode.Invalid, MacroMode.NoExpand ]:
-            dbg('<%s>.handleRawText: %s' % (self.nodeName,repr(data)))
+            #dgb('<%s>.handleRawText: %s' % (self.nodeName,repr(data)))
             self.handleRawText(data,pos)
         elif self.macroMode in [ MacroMode.Text, MacroMode.Math ]:
-            dbg('<%s>.handleText: %s' % (self.nodeName,repr(data)))
+            #dgb('<%s>.handleText: %s' % (self.nodeName,repr(data)))
             p = 0
             for o in macro_re.finditer(data):
                 if p < o.start(0):
@@ -566,17 +567,17 @@ class Node:
                     assert name not in ['begin','end']
                     if name == ':':
                         try:
-                            dbg("%s: New table row" % pos)
+                            #dgb("%s: New table row" % pos)
                             self.__cstack[-1].data.row(pos)
                         except AttributeError:
-                            dbg("%s: Start Table syntax" % pos)
+                            #dgb("%s: Start Table syntax" % pos)
                             self.__emitOpen(DelayedTableContent(pos))
                     elif name == '!':
                         try:
-                            dbg("%s: New table cell" % pos)
+                            #dgb("%s: New table cell" % pos)
                             self.__cstack[-1].data.cell(pos)
                         except AttributeError:
-                            dbg('%s: cstack = %s' % (pos,self.__cstack))
+                            #dgb('%s: cstack = %s' % (pos,self.__cstack))
                             raise MacroError('%s: Table syntax must start with a row \\:' % pos)
                     else:
                         self.__cstack[-1].append(DelayedMacro(o.group('macro'),pos))
@@ -585,7 +586,7 @@ class Node:
                     if o.group('env') == 'begin':
                         self.__emitOpen(DelayedEnvironment(name,pos))
                     else:
-                        dbg('End environment "%s" @ %s' % (name,pos))
+                        #dgb('End environment "%s" @ %s' % (name,pos))
                         self.__emitClose(name,pos)
                 elif o.group ('group'):
                     tok = o.group('group')
@@ -630,7 +631,8 @@ class Node:
                 
     def append(self,item):
         if len(self.__cstack) > 1:
-            dbg('Append item. Cstack = \n\t%s' % '\n\t'.join([ repr(i) for i in self.__cstack]))
+            #dgb('Append item. Cstack = \n\t%s' % '\n\t'.join([ repr(i) for i in self.__cstack]))
+            pass
         assert len(self.__cstack) == 1
         assert not self.__closed
 
@@ -718,7 +720,7 @@ class Node:
             #assert 0
             raise MacroError("%s: Mismatched end element" % pos)
         self.__flushCStack()
-        dbg('End this <%s> @ %s' % (self.nodeName,pos))
+        #dgb('End this <%s> @ %s' % (self.nodeName,pos))
 
     def endOfElement(self,pos):
         """
@@ -2424,7 +2426,7 @@ class PreformattedNode(Node):
 
         if self.hasAttr('url'):
             url = self.getAttr('url')
-            dbg("In <pre> : url='%s', pos=%s",url,pos)
+            #dgb("In <pre> : url='%s', pos=%s",url,pos)
             self.__realurl = os.path.abspath(manager.findFile(url,filename))
             lines = manager.readFrom(self.__realurl,self.getAttr('encoding')).split('\n')
             firstline = 0
