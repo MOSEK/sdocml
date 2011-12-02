@@ -24,12 +24,14 @@
 %%% >>> Define macros used for numbering lines
 \newcount\prelineno\newbox\preheadbox\newdimen\preheadbarwidth
 \def\preputlineno{\llap{{\tiny\the\prelineno}\hspace{1em}}\advance\prelineno by1}
-\def\prehead#1{\leaders\hbox{\rule[.2em]{1em}{1pt}}\hfill{#1}}
-\def\predelimplain{\leaders\hbox{\rule[.2em]{1em}{1pt}}\hfill\rule{0in}{0in}}
+\def\prehead#1{\leaders\hbox{\rule[1pt]{1em}{1pt}}\hfill{#1}}
+\def\predelimplain{\leaders\hbox{\rule[1pt]{1em}{1pt}}\hfill\rule{0in}{0in}}
 
 \def\beginpre#1#2{\par\noindent\prehead{\tt #1}\par\begingroup\parskip=0in\parindent=0in\prelineno=#2\footnotesize\obeylines\obeyspaces\ttfamily\everypar{\preputlineno{}}}
-\def\beginpreplain{\par\noindent\predelimplain\par\begingroup\parskip=0in\parindent=0in\footnotesize\obeylines\obeyspaces\ttfamily\everypar{\nullbox{}}}
+\def\beginpreplain{\par\noindent\predelimplain\par\begingroup\parskip=-1in\parindent=0in\footnotesize\obeylines\obeyspaces\ttfamily\everypar{\nullbox{}}}
 \def\endpre{\par\endgroup\noindent\predelimplain\par}
+\def\beginpreplainnodelim{\par\begingroup\parskip=0in\parindent=0in\footnotesize\obeylines\obeyspaces\ttfamily\everypar{\nullbox{}}}
+\def\endprenodelim{\endgroup\par}
 
 %%% <<<
 \def\nullbox{\rule{0pt}{0pt}}

@@ -9,6 +9,7 @@
 
 from UserDict import UserDict
 import config
+import tablefmt
 import UserList
 import xml.sax
 import urlparse
@@ -919,7 +920,10 @@ class _StructuralNode(Node):
             
             items = list(self)
             for i in items[1:]:
-                assert isinstance(i,Node)                
+                if not isinstance(i,Node):
+                    print "--- ",repr(i)
+                    assert isinstance(i,Node)
+
                 if  i.forceTexPar and prev.forceTexPar:
                     r.macro('par').comment('i.forceTexPar = %s, prev.forceTexPar = %s' % (i.forceTexPar,prev.forceTexPar))
                     #print "Insert par!"
@@ -1552,6 +1556,8 @@ class SectionNode(Node):
 
     def toTeX(self,res,level):
         macro = self.sectcmds[level-1]
+        if self.hasAttr('class') and 'nonumber' in re.split(r'\s+',self.getAttr('class')):
+            macro = macro+'*'
 
         res.append('\n')
         res.macro(macro)
@@ -2155,6 +2161,7 @@ class SpanNode(_SimpleNode):
             styles = self.manager.styleLookup(self.getAttr('class'))
             for s in styles:
                 res.macro(s).groupStart()
+            res.macro('nullbox').group()
             self.contentToVerbatimTeX(res)
             for s in styles:
                 res.groupEnd()
@@ -2427,14 +2434,34 @@ class TableNode(Node):
                 row.toHTML(res,rownum)
                 rownum += 1
         res.tagend('table').tagend('div')
-        return res              
+        return res
+
     def toTeX(self,r):
-        #if self.hasAttr('class') and self.getAttr('class') == 'class-item-list':
-        #    print "Table node in: %s @ %s" % (self.getParent().__class__.__name__,self.pos)
         cellhalign = [ s[0] for s in re.split(r'\s+',self.getAttr('cellhalign')) ]
-        r.begin('tabular').group(''.join(cellhalign)).append('\n')
-        self.contentToTeX(r)
+                
+        numrow = len(self)
+        if numrow > 0: numcol = len(self[0])
+        else:          numcol = 0
+
+        d = {}
+        if self.hasAttr('style'):            
+            d.update([ tuple(i.split('=')) for i in re.split(r'\s+',self.getAttr('style')) ])
+        if d.has_key('horizontal'): texhfmt = tablefmt.parse(d['horizontal']).mkfmt(numcol).replace('.','l')
+        else:                       texhfmt = ''.join(cellhalign)
+
+        if d.has_key('vertical'): texvfmt = tablefmt.parse(d['vertical']).mkfmt(numrow)
+        else:                     texvfmt = '.' * numrow
+
+        r.begin('tabular').group(texhfmt).append('\n')
+        idx = 0
+        for c in texvfmt: 
+            if c == '|':
+                r.macro('hline')
+            else:
+                self[idx].toTeX(r)
+                idx += 1
         r.end('tabular')
+
         return r
 
 TableColumnNode         = dummy('TableColumnNode') 
@@ -2594,6 +2621,10 @@ class PreformattedNode(Node):
     converted = False
     def __init__(self,manager,parent,attrs,filename,line):
         Node.__init__(self,manager,parent,attrs,filename,line)
+        self.__styled = {}
+        styled = self.__styled
+        if self.hasAttr('style'):
+          styled.update([ tuple(i.split('=',1)) for i in re.split(r'\s+',self.getAttr('style')) ])
         if self.hasAttr('type'):
             self.__type = self.getAttr('type').split('/')
         else:
@@ -2617,13 +2648,15 @@ class PreformattedNode(Node):
     
     def toHTML(self,r):
         clss = []
+        styled = self.__styled
+
         if self.hasAttr('class'):
             attrs = { 'class' : self.getAttr('class') }
             clss = re.split(r'\s+',self.getAttr('class').lower())
         else:
             attrs = {}
         
-        if 'lineno:yes' in clss:
+        if styled.get('lineno','no') == 'yes':
             lineno = self.__firstline
             if lineno is None: lineno = 1
         elif 'lineno:no' in clss:
@@ -2632,8 +2665,7 @@ class PreformattedNode(Node):
             lineno = self.__firstline
         attrs['id'] = '@preformatted-node-%d' % self.__unique_index
 
-        
-        if self.__url is not None and not 'link:no' in clss:
+        if self.__url is not None and styled.get('link','no') == 'yes':
             r.div('pre-container-w-header')
             linkattrs = { 'href' : self.__internalurl}
             if self.hasAttr('type'):
@@ -2650,16 +2682,6 @@ class PreformattedNode(Node):
 
             r.tagend('div').tagend('div')
 
-            #r.span("source-link")
-            #r.anchor(self.__internalurl)
-            #r.append('Download %s' % self.__urlbase)
-            #r.tagend('a')
-            #if lineno is not None:
-            #    r.append(' | ')
-            #    r.anchor()
-            #    r.append('Toggle line no.')
-            #    r.tagend('a')
-            #r.tagend('div'
             lineno = self.__firstline
         r.tag('pre',attrs)
             
@@ -2717,31 +2739,40 @@ class PreformattedNode(Node):
                             lineno = lineno + 1
 
         r.tagend('pre')
-        if self.__url is not None and not 'link:no' in clss:
+        if self.__url is not None and styled.get('link','no') == 'yes':
             r.tagend('div')
         
     def toTeX(self,r):
+        styled = self.__styled
         if self.hasAttr('class'):
             clsd = dict([ (v,v) for v in re.split(r'[ ]+', self.getAttr('class').strip()) ])
         else:
             clsd = {}
+        
         lineno = self.__firstline
         nodes = list(self)
-
-        if lineno is not None and self.__urlbase is not None and not clsd.has_key('link:no'):
-            #r.macro('beginpre').group(self.__urlbase).group(str(lineno)).macro('nullbox').group()
-            r.macro('beginpre').group(self.__urlbase).group(str(lineno)).comment()
-        else:
-            #r.macro('beginpreplain').macro('nullbox').group()
-            r.macro('noindent').macro('beginpreplain').comment()
+              
         
+        if styled.get('header','no') == 'yes':
+          if ( styled.get('lineno','no') == 'yes' and 
+               self.__urlbase is not None and
+               styled.get('link','no') == 'yes'):
+            r.macro('beginpre').group(self.__urlbase).group(str(lineno)).comment()
+          else:
+            r.macro('noindent').macro('beginpreplain').comment()
+        else:      
+            r.macro('noindent').macro('beginpreplainnodelim').comment()
+          
         for n in nodes:
             if isinstance(n,Node):
                 n.toVerbatimTeX(r)
             else:
                 r.verbatim(n)
         
-        r.comment().macro('endpre').lf()
+        if styled.get('footer','no') == 'yes':
+          r.comment().macro('endpre').lf()
+        else:
+          r.comment().macro('endprenodelim').lf()
                            
                            
 class InlineMathNode(Node):
@@ -3162,7 +3193,10 @@ class ImageNode(Node):
         else:
             raise NodeError('No suitable image source found at %s:%d' % (filename,line))
         
-        r.macro('includegraphics').groupStart()._raw(self.manager.resolveExternalURL(url).replace('\\','/')).groupEnd()
+        r.macro('includegraphics')
+        if self.hasAttr('scale'):
+          r.options('scale=%s' % self.getAttr('scale'))
+        r.groupStart()._raw(self.manager.resolveExternalURL(url).replace('\\','/')).groupEnd()
         # Add options later, maybe.
         return r
         
@@ -3890,7 +3924,6 @@ class Manager:
                         '-sDEVICE=pngalpha',
                         '-r%dx%d' % (self.__mathPNGresolution,self.__mathPNGresolution), 
                         pdffile ])
-                
 
                 numeqn = len(self.__eqnlist)
                 lineno = 0
@@ -3900,8 +3933,6 @@ class Manager:
                     lineno += 1
                     if lineno > marker*markerinc:
                         marker += 1
-                        
-                    
 
                 r = p.wait()
 
@@ -3911,7 +3942,6 @@ class Manager:
                         for i in xrange(len(self.__eqnlist)):
                             self.__zipfile.write(os.path.join(basepath,'mathimg%d.svg' % (i+1)),'/'.join([self.__topdir,'math','math%d.svg' % (i+1),])) 
                 if r == 0:
-                    # convert and crop all images. Not necessary since images are produces in the right size.
                     for i in range(len(self.__eqnlist)):
                         mimg = 'mathimg%d.png' % (i+1)
                         if r == 0:
@@ -4163,9 +4193,10 @@ def check_config(conf):
     # check ghostscript version
     gsbin = conf['gsbin']
     try:
-      p = subprocess.Popen(stdout=subprocess.PIPE,args=[gsbin,'--version'])
-    except: # Windows appears to throw error if binary is not found (? other platforms ?)
-      raise ConfigError("Ghostscript binary not found")
+      args=[gsbin,'--version']
+      p = subprocess.Popen(stdout=subprocess.PIPE,args=args)
+    except: # Windows appears to throw error if binary is not found (? other platforms ?)      
+      raise ConfigError("Ghostscript binary '%s' not found" % gsbin)
     s = p.stdout.read().strip()
     r = p.wait()
     if r != 0:
@@ -4217,9 +4248,9 @@ def main():
                                     'tocdepth'   : config.UniqueIntEntry('tocdepth', default=2),
 
                                     # TODO: Use platform dependant default values for binaries:
-                                    'gsbin'      : config.UniqueDirEntry('gsbin', default='gs'),
-                                    'pdftexbin'  : config.UniqueDirEntry('pdftexbin', default='pdflatex'),
-                                    'pdf2svgbin' : config.UniqueDirEntry('pdf2svgbin'),
+                                    'gsbin'      : config.UniqueEntry('gsbin', default='gs'),
+                                    'pdftexbin'  : config.UniqueEntry('pdftexbin', default='pdflatex'),
+                                    'pdf2svgbin' : config.UniqueEntry('pdf2svgbin'),
 
                                     'image'      : config.DirListEntry('image'),
                                     'parallel'   : config.UniqueBoolEntry('parallel', default=True),

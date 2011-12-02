@@ -2136,7 +2136,32 @@ class TableNode(Node):
     tablecellelement = 'td'
     acceptAttrs = Attrs([ Attr('id'), 
                           Attr('class'),
-                          Attr('config'),
+                          Attr('style', 
+                               descr='''
+                               The style attribute contains a sequence of space-separated keyword=value items. These are used by the backends to configure the rendering. 
+                               
+                               Currently the recognized items are:
+                               <dlist>
+                                 <dt>horizontal=VALUE</dt>
+                                 <dd>
+                                   This defines the alignment of cells per column as well as the vertical borders between columns. The format is a sequence of sub-expressions 
+                                   <pre>
+                                     exprs := expr . 
+                                           |  exprs expr 
+                                     expr  := ( token | '|' | '(' exprs ')' ) maybe_suffux 
+                                     token := 'c' | 'l' | 'r' | '.'
+                                     maybe_suffix := suffix 
+                                                  |
+                                     suffix := '*' | '+' | '{' INTEGER '}'
+                                   </pre>
+                                   For example, the string ``<tt>|c|(..|)*</tt>'' would require a table of <m>1+2\\times n</m> columns, and would 
+                                   produce a line left of the first columns, right of the first column, and then a line right of every second column after that.
+                                 </dd>
+                                 <dt><tt>vertical=VALUE</tt></dt>
+                                 <dd><tt>VALUE</tt> works as for ``horizontal'', except that <tt>token := '.'</tt>, and denotes the vertical borders between rows. </dd>
+                               </dlist>
+                               ''',
+                               default="horizontal=.* vertical=.*"),
                           Attr('orientation',default='rows'), # DEPRECATED!!
                           Attr('cellvalign',descr='Vertical alignment of cells. This is a space-separated list of (top|middle|bottom) defining the alignment of cells in the individual columns.'),
                           Attr('cellhalign',descr='Horizontal alignment of cells. This is a space-separated list of (left|right|center) defining the alignment of cells in the individual columns.'), ])
@@ -2202,6 +2227,8 @@ class TableNode(Node):
 
         if self.hasAttr('class'):
             node.setAttribute('class',self.getAttr('class'))
+        if self.hasAttr('style'):
+            node.setAttribute('style',self.getAttr('style'))
         node.setAttribute('cellhalign',' '.join(self.__halign))
         node.setAttribute('cellvalign',' '.join(self.__valign))
 
@@ -2404,6 +2431,16 @@ class PreformattedNode(Node):
                     Attr('firstline',descr="Index of the first line to use from the url (1-based)."),
                     Attr('lastline',descr="Index of the last line+1 to use from the url (1-based)."),
                     Attr('xml:space',default='preserve'),
+                    Attr('style',
+                         descr='''
+                         Style is a space-separated list of ``<tt>keyword=VALIE</tt>'' items. Recognized items are
+                         <dlist>
+                           <dt><tt>header=(yes|no)</tt></dt><dd>Add a top delimiter for the preformatted text</dt>
+                           <dt><tt>footer=(yes|no)</tt></dt><dd>Add a bottom delimiter for the preformatted text</dt>
+                           <dt><tt>lineno=(yes|no)</tt></dt><dd>Cause line numbers to be produced.</dt>
+                         </dlist>
+                              ''',
+                         default='header=no footer=no lineno=no'),
                     Attr('type',default='text/plain',descr=
                          "MIME type of the text element content or of the URL target.\n"
                          "SDoc can hilight a few types, currently 'source/LANG', where LANG is one of: python, c, java, csharp or matlab."),
@@ -2426,8 +2463,8 @@ class PreformattedNode(Node):
 
         if self.hasAttr('url'):
             url = self.getAttr('url')
-            #dgb("In <pre> : url='%s', pos=%s",url,pos)
             self.__realurl = os.path.abspath(manager.findFile(url,filename))
+            
             lines = manager.readFrom(self.__realurl,self.getAttr('encoding')).split('\n')
             firstline = 0
             if self.hasAttr('firstline'):
@@ -2453,6 +2490,7 @@ class PreformattedNode(Node):
             self.handleRawText(inclines[-1],pos)
 
             self.__firstline = firstline
+
             self.seal()
     def toXML(self,doc,node=None):
         items = list(self)
@@ -2531,7 +2569,7 @@ class PreformattedNode(Node):
                     if n is not None:
                         node.appendChild(n)
 
-        for k in [ 'id', 'class', 'xml:space','type' ]:
+        for k in [ 'id', 'class', 'xml:space','type','style' ]:
             if self.hasAttr(k):
                 node.setAttribute(k,self.getAttr(k))
     
@@ -2674,9 +2712,9 @@ class ImageItemNode(Node):
                 node = doc.createElement(self.nodeName)
 
             node.setAttribute('type',self.getAttr('type'))
-
-            
             node.setAttribute('url',self.__realurl)
+            if self.hasAttr('scape'):
+              node.setAttribute('scale',self.getAttr('scale'))
 
         assert not isinstance(node,list)
         return node
@@ -2929,6 +2967,7 @@ class MathTableNode(_MathNode):
     contIter = ' <mtr>* '
     acceptAttrs = Attrs([Attr('id'), 
                     Attr('class'),
+                    Attr('style'),
                     Attr('cellvalign'),
                     Attr('cellhalign'), ])
     allowTableSyntax = True
