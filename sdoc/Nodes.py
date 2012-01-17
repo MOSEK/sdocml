@@ -2433,11 +2433,11 @@ class PreformattedNode(Node):
                     Attr('xml:space',default='preserve'),
                     Attr('style',
                          descr='''
-                         Style is a space-separated list of ``<tt>keyword=VALIE</tt>'' items. Recognized items are
+                         Style is a space-separated list of ``<tt>keyword=VALUE</tt>'' items. Recognized items are
                          <dlist>
-                           <dt><tt>header=(yes|no)</tt></dt><dd>Add a top delimiter for the preformatted text</dt>
-                           <dt><tt>footer=(yes|no)</tt></dt><dd>Add a bottom delimiter for the preformatted text</dt>
-                           <dt><tt>lineno=(yes|no)</tt></dt><dd>Cause line numbers to be produced.</dt>
+                           <dt><tt>header=(yes|no)</tt></dt><dd>Add a top delimiter for the preformatted text</dd>
+                           <dt><tt>footer=(yes|no)</tt></dt><dd>Add a bottom delimiter for the preformatted text</dd>
+                           <dt><tt>lineno=(yes|no)</tt></dt><dd>Cause line numbers to be produced.</dd>
                          </dlist>
                               ''',
                          default='header=no footer=no lineno=no'),

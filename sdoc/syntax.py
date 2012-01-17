@@ -158,7 +158,7 @@ class CodeHilighter:
             self.process = self.process_Matlab
         elif mimetype in [ 'text/x-c','source/c' ]:
             self.process = self.process_C
-        elif mimetype in [ 'text/xml', 'text/sgml' ]:
+        elif mimetype in [ 'text/xml', 'text/sgml','text/html' ]:
             self.process = self.process_XML
         else:
             self.process = self.process_plaintext

@@ -24,11 +24,22 @@ import collections
 import string
 import logging
 import threading
-
+import templating
 
         
                       
-
+monthnames = [ 'January',
+               'February',
+               'March',
+               'April',
+               'May',
+               'June',
+               'July',
+               'August',
+               'September',
+               'October',
+               'November',
+               'December' ]
 
 ################################################################################
 ################################################################################
@@ -186,6 +197,8 @@ class _unicodeToTex:
 ################################################################################
 ################################################################################
 class UnicodeToTeXError(Exception):
+    pass
+class ExternalProgramError(Exception):
     pass
 
 class texCollector(UserList.UserList):
@@ -1477,13 +1490,25 @@ class SectionNode(Node):
                 'footer'                  : htmlCollector(),
 
                 'section:id'              : htmlCollector(),
+
+                'year'                    : htmlCollector(),
+                'month'                   : htmlCollector(),
+                'monthname'               : htmlCollector(),
+                'day'                     : htmlCollector(),
             }
+        
+
+        d['year'].append(str(self.__manager.getTimeStampTuple()[0]))
+        d['month'].append(str(self.__manager.getTimeStampTuple()[1]))
+        d['monthname'].append(monthnames[self.__manager.getTimeStampTuple()[1]-1])
+        d['day'].append(str(self.__manager.getTimeStampTuple()[2]))
+
         self.getTitle().toPlainText(d['title:plain'])
         self.getTitle().toHTML(d['title:html'])
         self.makeSidebarIndex(d['sidebar:index'])
         topNode.makeSidebarContents(d['sidebar:contents'])
 
-        d['section:id'].tag('script').append('var sectionID = %s;' % self.getSectionId()).tagend('script')
+        d['section:id'].append(str(self.getSectionId()))
 
         d['navbutton:icon:dummy'].extend([tag('img',{ 'src' : self.__manager.getIcon('passive') })])
        
@@ -1541,7 +1566,10 @@ class SectionNode(Node):
 
         
         self.makeFooter(d['footer'])
+
         
+
+        d.update(links)
         self.__manager.writeHTMLfile(filename,d,links) 
         
         if self.__childrenInSepFiles:
@@ -1633,7 +1661,18 @@ class BibliographyNode(SectionNode):
                 
                 'footer'                  : htmlCollector(),
                 'body'                    : htmlCollector(),
+
+                'year'                    : htmlCollector(),
+                'month'                   : htmlCollector(),
+                'monthname'               : htmlCollector(),
+                'day'                     : htmlCollector(),
             }
+        
+
+        d['year'].append(str(self.__manager.getTimeStampTuple()[0]))
+        d['month'].append(str(self.__manager.getTimeStampTuple()[1]))
+        d['monthname'].append(monthnames[self.__manager.getTimeStampTuple()[1]-1])
+        d['day'].append(str(self.__manager.getTimeStampTuple()[2]))
         
         links = []
         if prevNode is not None: links.append(('@prev', prevNode.getSectionFilename()))
@@ -1744,7 +1783,18 @@ class _IndexNode(SectionNode):
                 
                 'footer'                  : htmlCollector(),
                 'body'                    : htmlCollector(),
+
+                'year'                    : htmlCollector(),
+                'month'                   : htmlCollector(),
+                'monthname'               : htmlCollector(),
+                'day'                     : htmlCollector(),
             }
+        
+
+        d['year'].append(str(self.__manager.getTimeStampTuple()[0]))
+        d['month'].append(str(self.__manager.getTimeStampTuple()[1]))
+        d['monthname'].append(monthnames[self.__manager.getTimeStampTuple()[1]-1])
+        d['day'].append(str(self.__manager.getTimeStampTuple()[2]))
         
         d['title:plain'].append('Index')
         self.getTitle().toHTML(d['title:html'])
@@ -3417,7 +3467,7 @@ class TemplateParser(HTMLParser.HTMLParser):
                 self.__state = self.__stack[-2] and not self.__stack[-1]
             except IndexError:
                 self.__state = False
-        elif self.__state:            
+        elif self.__state:
             if   tag == 'sdoc:item':
                 if attrs and attrs[0][0] == 'key':
                     key = attrs[0][1]
@@ -3587,6 +3637,7 @@ class Manager:
         self.__debug = debug
 
         self.__htmltemplate = template
+        self.__htmlT = templating.Template(template)
         self.__htmlsidebartemplate = sidebartemplate
         self.__linkmap = {}
 
@@ -3605,44 +3656,47 @@ class Manager:
             if not mappedlinks.has_key(zname):
                 self.__zipfile.write(img,zname)
 
-        for tmpl in [template,sidebartemplate]:
-            if tmpl is not None:
-                for lnk,rel in scanHTMLTemplate(tmpl):
-                    # External links are mapped to themselves.
-                    # Local links are resolved, the target is copied and the link is
-                    # mapped to to copied resource.
-                    proto,server,address,_,_ = urlparse.urlsplit(lnk)
-                    if server:#absolute link
-                        self.__linkmap[lnk] = lnk
-                    elif not self.__linkmap.has_key(lnk):
-                        if address[0] == '/': # absolute path
-                            p = os.path.normpath(address[0])
-                        else:                    
-                            p = os.path.normpath(os.path.abspath(os.path.join(templatebase,address)))
+        if False:
+            for tmpl in [template,
+                         sidebartemplate,
+                         ]:
+                if tmpl is not None:
+                    for lnk,rel in scanHTMLTemplate(tmpl):
+                        # External links are mapped to themselves.
+                        # Local links are resolved, the target is copied and the link is
+                        # mapped to to copied resource.
+                        proto,server,address,_,_ = urlparse.urlsplit(lnk)
+                        if server:#absolute link
+                            self.__linkmap[lnk] = lnk
+                        elif not self.__linkmap.has_key(lnk):
+                            if address[0] == '/': # absolute path
+                                p = os.path.normpath(address[0])
+                            else:                    
+                                p = os.path.normpath(os.path.abspath(os.path.join(templatebase,address)))
 
-                        if not mappedlinks.has_key(p):# this file has not been included yet
-                            bn = os.path.basename(p)
-                            b,e = os.path.splitext(bn)
-                            if rel == 'shortcut icon':
-                                tgtdir = 'img'
-                            elif rel == 'javascript':
-                                tgtdir = 'script'
-                            elif rel == 'stylesheet':
-                                tgtdir = 'style'
-                            else:
-                                tgtdir = 'misc'
+                            if not mappedlinks.has_key(p):# this file has not been included yet
+                                bn = os.path.basename(p)
+                                b,e = os.path.splitext(bn)
+                                if rel == 'shortcut icon':
+                                    tgtdir = 'img'
+                                elif rel == 'javascript':
+                                    tgtdir = 'script'
+                                elif rel == 'stylesheet':
+                                    tgtdir = 'style'
+                                else:
+                                    tgtdir = 'misc'
 
-                            nameiter = nameIterator('%s/%s' % (tgtdir,b),e)
-                            tgt = nameiter.next()
-                            while mappedtgts.has_key(tgt):
+                                nameiter = nameIterator('%s/%s' % (tgtdir,b),e)
                                 tgt = nameiter.next()
-                            mappedtgts[tgt] = tgt
-                            mappedlinks[p] = tgt
-                            self.__linkmap[lnk] = tgt
+                                while mappedtgts.has_key(tgt):
+                                    tgt = nameiter.next()
+                                mappedtgts[tgt] = tgt
+                                mappedlinks[p] = tgt
+                                self.__linkmap[lnk] = tgt
 
-                            self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
-                        else:
-                            self.__linkmap[lnk] = mappedlinks[p]
+                                self.__zipfile.write(p,'%s/%s' % (topdir,tgt))
+                            else:
+                                self.__linkmap[lnk] = mappedlinks[p]
         self.__searchpaths = searchpaths
 
         iconsadded = {}
@@ -3760,6 +3814,8 @@ class Manager:
         return self.__globalSplitLevel
     def getTimeStamp(self):
         return self.__timestampstr
+    def getTimeStampTuple(self):
+        return self.__timestamp
     def nextNodeIndex(self):
         return self.__nodeCounter.next()
     def addMathRequirement(self,pkg,opts=None):
@@ -3825,20 +3881,43 @@ class Manager:
         if links:
             lm.update(links)
 
-        if type == 'sidebar':
+        if type == 'sidebar':            
             P = TemplateParser(items,lm)
-            P.feedfile(self.__htmlsidebartemplate) 
+            P.feedfile(self.__htmlsidebartemplate)
             self.writelinesfile(filename,P.res)
         else:
-            P = TemplateParser(items,lm)
-            P.feedfile(self.__htmltemplate) 
-            for i in P.res:
-                try:
-                    i.encode('utf-8')
-                except:
-                    print "Failed: %s" % i
-            #text = (u''.join(P.res)).encode('utf-8')
-            self.writelinesfile(filename,P.res)
+            def ev_resource(r):
+                if not self.__linkmap.has_key(r):
+                    bn = os.path.basename(r)
+                    fb,fe = os.path.splitext(bn)
+                    if fe in ['.png','.jpg','.jpeg']:
+                        tgt = 'images/%s' % bn
+                    elif fe == '.css':
+                        tgt = 'style/%s' % bn
+                    elif fe == '.js':
+                        tgt = 'script/%s' % bn
+                    elif fe in ['.py','.java','.cs','.c','.h','.sh','.bat','.cmd']:
+                        tgt = 'code/%s' % bn
+                    else:
+                        tgt = 'data/%s' % bn          
+                    srcname = os.path.join(self.__htmlT.base(),r)
+                    tgtname = '%s/%s' % (self.__topdir,tgt)
+                    self.__zipfile.write(srcname,tgtname)
+                    self.__linkmap[r] = tgt
+                return self.__linkmap[r]
+            
+            res = self.__htmlT.expand(items, { 'resource' : ev_resource })
+            self.writelinesfile(filename,res)
+            
+            # P = templating.Template(self.__htmltemplate)            
+            # P.feedfile(self.__htmltemplate) 
+            # for i in P.res:
+            #     try:
+            #         i.encode('utf-8')
+            #     except:
+            #         print "Failed: %s" % i
+            # #text = (u''.join(P.res)).encode('utf-8')
+            # self.writelinesfile(filename,P.res)
     def writeBinaryFile(self,filename,targetdir):
         """
         filename  - Full path and name of the file to add.
@@ -3867,6 +3946,7 @@ class Manager:
                        '\\newdimen\\mathwidthx\n'
                        '\\newdimen\\mathheightx\n'
                        )
+
 
             idx = 1
             for eq in self.__eqnlist:
@@ -3990,6 +4070,8 @@ class Manager:
                     
                     self.__mathpngthread = threading.Thread(target=fun_make_mathpng)
                     self.__mathpngthread.start()
+            else:
+                raise ExternalProgramError("Failed to execute pdflatex (%d)" % r)
             
     def writeSubIndex(self,r,lst,lvl=0):
             """
@@ -4410,9 +4492,9 @@ def main():
 
             manager.Message('Writing HTML...') 
 
-            if conf['sidebartemplate'] is not None:
-                root.makeSidebarContentsHTML()
-                root.makeSidebarIndexHTML()
+            #if conf['sidebartemplate'] is not None:
+            #    root.makeSidebarContentsHTML()
+            #    root.makeSidebarIndexHTML()
 
             
             root.makeSidebarJavascriptFile() 
