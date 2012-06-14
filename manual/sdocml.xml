@@ -809,13 +809,129 @@ organization&amp;publisher&amp;address
 
   <section>
     <head><title>HTML backend</title></head>
+
+    The HTML backend produces HTML5 compliant pages by default. It
+    uses a template for the basic layout of each separate page, and
+    generaets content, links, buttons etc.
     
-    The HTML backend produces (nearly) HTML5-compliant code. 
+    <section>
+      <head><title>The template</title></head> The templating engine
+      implementes some primitive logic and functionality: Basically, a
+      template is a text page (in this case a HTML5 page) with escaped
+      bits where the generated content should be inserted.
+      
+      Following functionality is currently supported.
+
+
+      <section>
+        <head><title>Conditional expansion</title></head>                        
+        <pre>
+          $(if COND_EXPR) ... $(else) ... $(endif)
+          $(if COND_EXPR) $(endif)
+          $(if COND_EXPR THEN_EXPR ELSE_EXPR)
+        </pre>
+        
+        The two first forms will insert or throw away text chunks
+        depending on what the \tt{COND\_EXPR} evaluates to.  The last
+        line expands to either \tt{THEN\_EXPR} or \tt{ELSE\_EXPR},
+        depending on the \tt{COND\_EXPR}.
+      </section>
+
+
+      
+      <section>
+        <head><title>Insert chunk by key</title></head>
+        <pre>
+          ${KEY}
+        </pre>
+        This will look up in the dictionary of generated text and
+        insert the item named \tt{KEY}.
+
+        Trying to insert an item that does not exist will cause an
+        error, so unless it \em{always} exists it is a good idea to
+        surround it with a conditional checking on the existance.
+      </section>
+
+
+
+      <section>
+        <head><title>Macros</title></head>
+        <pre>
+          $(FUNC EXPR ...)
+          
+          EXPR := "Quoted String"
+               |  'Single quoted String'
+               |  true | false
+               | INTEGER
+               | (FUNC EXPR ...)
+        </pre>
+        This is a simple macro expansion that supports a simple set of
+        built-in functions. Currently following functions are implemented:
+        <dlist>
+          <dt>\tt{(has KEY)}</dt>
+          <dd>Return true if the \tt{KEY} exists.</dd>
+          
+          <dt>\tt{(lookup KEY)}</dt>
+          <dd>Return the value of \tt{KEY} in the dictionary of generated text.</dd>
+          
+          <dt>\tt{(resource FILENAME)}</dt>
+          <dd>
+            \tt{FILENAME} is a path relative to the template file. The
+            function returns the relative path to the same file in the
+            built document. For example, if \tt{mystyle.css} is
+            located in the same directory asthe template file, then
+            this function will ensure that \tt{mystyle.css} is copied
+            to the generated document tree and return the path
+            <pre>
+              style/mystyle.css
+            </pre>
+          </dd>
+
+          <dt>\tt{(and EXPR EXPR ...)}</dt><dd>Return the logic conjunction of all \tt{EXPR}s.</dd>
+          <dt>\tt{(or EXPR EXPR ...)}</dt><dd>Return the logic disjunction of all \tt{EXPR}s.</dd>
+          <dt>\tt{(not EXPR)}</dt><dd>Return the logic negation of \tt{EXPR}.</dd>
+        </dlist>
+      </section>
+
+      <section>
+        <head><title>Generated keys</title></head>
+        
+        <dlist>
+          <dt>\tt{title:plain}</dt> <dd>Document title as pure text.</dd>
+          <dt>\tt{title:html}</dt>  <dd>Document title, including HTML formatting.</dd>
+          <dt>\tt{authors:html}</dt><dd>Formatted authors list.</dd>
+          <dt>\tt{toc:local}</dt>   <dd>Table of content for the page section.</dd>
+          <dt>\tt{footer}</dt>      <dd> Generated footer text (currently this is the timestamp). </dd>
+          <dt>\tt{section:id}</dt>  <dd> The unique ID that identifies the top-level section in the page. </dd>
+          <dt>\tt{body}</dt>        <dd> The body text of the current page section, excluding subsections. </dd>
+          <dt>\tt{sections}</dt>    <dd> The subsections of the current page section. </dd>
+          <dt>\tt{year}</dt>        <dd> Current year.</dd>
+          <dt>\tt{month}</dt>       <dd> Current month.</dd>
+          <dt>\tt{monthname}</dt>   <dd> Name of current month.</dd>
+          <dt>\tt{day}</dt>         <dd> Current day of month.</dd>
+          <dt>\tt{@up}</dt>         <dd>Link to the relative page \em{up}. </dd>
+          <dt>\tt{@top}</dt>        <dd>Link to the relative root page. </dd>
+          <dt>\tt{@next}</dt>       <dd>Link to the relative \em{next} page. </dd>
+          <dt>\tt{@prev}</dt>       <dd>Link to the relative \em{previous} page. </dd>
+          <dt>\tt{@index}</dt>      <dd>Link to the index page. </dd>
+        </dlist>
+      </section>
+
+      <section>
+        <head><title>Example: HTML Template</title></head>
+        The HTML template used for this document looks as follows:
+     
+        <pre type="text/html" url="../html/template/template.html"></pre>
+
+      </section>
+
+    </section>
+    
 
   </section>
 
-  <section url="../build/output/tagsref.xml" cond="true"/>
-  <section url="../build/output/macroref.xml" cond="final"/>
+  <section url="tagsref.xml" cond="true"/>
+  <section url="macroref.xml" cond="final"/>
 
   <bibliography url="bibdb.xml"/>
 </sdocml>

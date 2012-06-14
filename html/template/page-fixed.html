@@ -1,0 +1,192 @@
+<html>
+    <head>
+        <title>${TITLE}</title>
+        ${STYLESHEETS}
+        <style>
+            body                {       margin : 0px; }
+            ul.enumerate        {
+                                        list-style-type : decimal;
+                                }
+            h2                  {       font-family : sans-serif; }
+            h3                  {       font-family : sans-serif; }
+            h4                  {       font-family : sans-serif; }
+            h5                  {       font-family : sans-serif; }
+
+                
+            #_top-sidebar       {       vertical-align : top; }
+            ._sidebar-head-sep  {       margin-left : 5px;}
+            #_top-page-content  {       vertical-align : top; }
+            #_top-sidebar-sep-cell 
+                                {       background-color : green; 
+                                        margin           : 3px;
+                                }
+            #_html-top-navigation
+                                {       background-color : green; }
+
+            #_html-bottom-navigation
+                                {       background-color : green; }
+            #_html-footer       {       font-size : x-small; 
+                                        color : gray;
+                                        text-align : right;
+                                }
+        </style>
+        
+        <script type="text/javascript">
+            <!--
+            function _showItem(id)
+            {
+                var elm = document.getElementById(id);
+                elm.style.display = "block";
+            }
+            function _hideItem(id)
+            {
+                var elm = document.getElementById(id);
+                elm.style.display = "none";
+            }
+
+            function showSidebarIndex()
+            {
+                _hideItem('_sidebar-contents')
+                _showItem('_sidebar-index')
+            }
+            function showSidebarContents()
+            {
+                _hideItem('_sidebar-index')
+                _showItem('_sidebar-contents')
+            }
+
+            function toggleSidebar()
+            { 
+                var elm = document.getElementById("_sidebar-area");
+                if (elm.style.display != "none")
+                {
+                    elm.style.display = "none";
+                }
+                else
+                {
+                    elm.style.display = "block";
+                }
+            }
+            
+            function toggleDisplayBlock(id)
+            { 
+                var elm = document.getElementById(id);
+                if (elm.style.display != "none")
+                {
+                    elm.style.display = "none";
+                }
+                else
+                {
+                    elm.style.display = "block";
+                }
+            }
+
+            function toggleLineNumbers(id)
+            {
+                var elm = document.getElementById(id);
+                
+                for (n=elm.firstChild; n != null; n = n.nextSibling)
+                {
+                    if (n.nodeName == "SPAN"
+                        && n.attributes.getNamedItem("class").value == "_line-no"
+                        )
+                    {
+                        if (n.style.display == "none")
+                            n.style.display = "inline";
+                        else
+                            n.style.display = "none";
+                    }
+                }
+            }
+            -->
+        </script> 
+        ${JAVASCRIPTS}
+    </head>
+    <body>
+        <div id="_html-top-navigation">
+            <table class="_nav-iconbar">
+                <tr>
+                <td>${LINK-BUTTON:PREV}</td>
+                <td>${LINK-BUTTON:UP}</td>
+                <td>${LINK-BUTTON:NEXT}</td>
+                <td class="_nav-title">${TITLE}</td>
+                <td>${LINK-BUTTON:NULL}</td>
+                <td>${LINK-BUTTON:CONTENTS}</td>
+                <td>${LINK-BUTTON:INDEX}</td>
+                </tr>
+            </table>
+            <table class="_nav-textbar">
+                <tr>
+                <td>Prev: ${LINK-TEXT:PREV</td>
+                <td>Up: ${LINK-TEXT:PREV</td>
+                <td>Next: ${LINK-TEXT:PREV</td>
+                <td>${LINK-TEXT:CONTENTS</td>
+                <td>${LINK-TEXT:INDEX</td>
+                </tr>
+            </table>
+        </div>
+
+        <table id="_html-top-level-content-table"
+               height="100%"
+               width="100%">    
+            <tr>
+                <td id="_top-sidebar">
+                    <div id="_sidebar-area">
+                        <table width="500px"  style="border-spacing:0px;">
+                            <tr>
+                            <td class="_sidebar-head-cell _sidebar-table-cell"><a href="javascript:showSidebarContents()">Contents</a></td>
+                            <td class="_sidebar-head-sep"/>
+                            <td class="_sidebar-head-cell _sidebar-table-cell"><a href="javascript:showSidebarIndex()">Index</a></td>
+                            <td class="_sidebar-head-buffer" width="100%">
+                            </tr>
+                            <tr>
+                            <td colspan="4">
+                                <div id="_sidebar-contents" style="display:block">
+                                    ${SIDEBAR:CONTENTS}
+                                </div>
+                                <div id="_sidebar-index" style="display:none;">
+                                    ${SIDEBAR:INDEX}
+                                </div>
+                            </td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+                <td id="_top-sidebar-sep-cell">
+                  &nbsp;
+                </td>
+                <td id="_top-page-content" width="100%">
+                    <center><h1>${TITLE}</h1></center>
+                    <hr>
+                    ${PAGECONTENT}
+                </td>
+            </tr>
+        </table>
+        
+        <div id="_html-bottom-navigation">
+            <table class="_nav-textbar">
+                <tr>
+                <td>Prev: ${LINK-TEXT:PREV</td>
+                <td>Up: ${LINK-TEXT:PREV</td>
+                <td>Next: ${LINK-TEXT:PREV</td>
+                <td>${LINK-TEXT:CONTENTS</td>
+                <td>${LINK-TEXT:INDEX</td>
+                </tr>
+            </table>
+            <table class="_nav-iconbar">
+                <tr>
+                <td>${LINK-BUTTON:PREV}</td>
+                <td>${LINK-BUTTON:UP}</td>
+                <td>${LINK-BUTTON:NEXT}</td>
+                <td class="_nav-title">${TITLE}</td>
+                <td>${LINK-BUTTON:NULL}</td>
+                <td>${LINK-BUTTON:CONTENTS}</td>
+                <td>${LINK-BUTTON:INDEX}</td>
+                </tr>
+            </table>
+        </div>
+        <div id="_html-footer">
+            ${BUILD:DATE}
+        </div>
+    </body>
+</html>

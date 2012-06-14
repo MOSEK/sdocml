@@ -10,7 +10,11 @@
   <def m="mathtt"   n="1"><e n="mfont"><attr n="family">mathtt</attr><d>{{0}}</d></e></def>
   <def m="mathit"   n="1"><e n="mfont"><attr n="family">mathit</attr><d>{{0}}</d></e></def>
   <def m="mbox"     n="1"><e n="mtext"><d>{{0}}</d></e></def>
+  <def m="munderline" n="1"><e n="mfont"><attr n="style">underline</attr><d>{{0}}</d></e></def>
+  <def m="moverline" n="1" ><e n="mfont"><attr n="style">overline</attr><d>{{0}}</d></e></def>
 
+  <!-- def m="overline" n="1"><e n="mfont"><attr n="style">overline</attr><d>{{0}}</d></e></def-->
+  
   <def m="hat" n="1">
     <desc>This operator accepts exactly one char of the ones listed in accents.xml</desc>
     <e n="mo"><d><lookup>accentable-{{0}}</lookup>{{0}}&#x0302;</d></e>

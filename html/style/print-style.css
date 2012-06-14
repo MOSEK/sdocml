@@ -11,20 +11,17 @@
 {
     text-decoration : none;
 }
-
 .language-syntax-keyword
 {
-    color  : blue;
     font-weight : bolder;
 }
 .language-syntax-comment
 {
-    color : rgb(127,0,0);
     font-style : italic;
 }
 .language-syntax-string
 {
-    color : #804000;
+    font-style : italic;
 }
 .language-syntax-language
 {

@@ -1,0 +1,121 @@
+<html>
+    <head>
+        <title>Index</title>
+        ${STYLESHEETS}
+        <style>
+            ul.enumerate        {
+                                        list-style-type : decimal;
+                                }
+            h2                  {       font-family : sans-serif; }
+            h3                  {       font-family : sans-serif; }
+            h4                  {       font-family : sans-serif; }
+            h5                  {       font-family : sans-serif; }
+        </style>
+        
+        <script type="text/javascript">
+            <!--
+            function _showItem(id)
+            {
+                var elm = document.getElementById(id);
+                elm.style.display = "block";
+            }
+            function _hideItem(id)
+            {
+                var elm = document.getElementById(id);
+                elm.style.display = "none";
+            }
+
+            function toggleDisplayBlock(id)
+            { 
+                var elm = document.getElementById(id);
+                if (elm.style.display != "none")
+                {
+                    elm.style.display = "none";
+                }
+                else
+                {
+                    elm.style.display = "block";
+                }
+            }
+
+            function toggleLineNumbers(id)
+            {
+                var elm = document.getElementById(id);
+                
+                for (n=elm.firstChild; n != null; n = n.nextSibling)
+                {
+                    if (n.nodeName == "SPAN"
+                        && n.attributes.getNamedItem("class").value == "@line-no"
+                        )
+                    {
+                        if (n.style.display == "none")
+                            n.style.display = "inline";
+                        else
+                            n.style.display = "none";
+                    }
+                }
+            }
+            -->
+        </script> 
+        ${JAVASCRIPTS}
+    </head>
+    <body>
+        <div id="@html-top-navigation">
+            <table class="@nav-iconbar">
+                <tr>
+                <td>${LINK-BUTTON:PREV}</td>
+                <td>${LINK-BUTTON:UP}</td>
+                <td>${LINK-BUTTON:NEXT}</td>
+                <td class="@nav-title">${TITLE}</td>
+                <td>${LINK-BUTTON:NULL}</td>
+                <td>${LINK-BUTTON:CONTENTS}</td>
+                <td>${LINK-BUTTON:INDEX}</td>
+                </tr>
+            </table>
+            <table class="@nav-textbar">
+                <tr>
+                <td>Prev: ${LINK-TEXT:PREV</td>
+                <td>Up: ${LINK-TEXT:PREV</td>
+                <td>Next: ${LINK-TEXT:PREV</td>
+                <td>${LINK-TEXT:CONTENTS</td>
+                <td>${LINK-TEXT:INDEX</td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="@top-page-content">
+            <center><h1>${TITLE}</h1></center>
+            <hr>
+            ${ALPHABETIC-INDEX}
+            
+            ${PAGECONTENT}
+        </div>
+        
+        <div id="@html-bottom-navigation">
+            <table class="@nav-textbar">
+                <tr>
+                <td>Prev: ${LINK-TEXT:PREV</td>
+                <td>Up: ${LINK-TEXT:PREV</td>
+                <td>Next: ${LINK-TEXT:PREV</td>
+                <td>${LINK-TEXT:CONTENTS</td>
+                <td>${LINK-TEXT:INDEX</td>
+                </tr>
+            </table>
+            <table class="@nav-iconbar">
+                <tr>
+                <td>${LINK-BUTTON:PREV}</td>
+                <td>${LINK-BUTTON:UP}</td>
+                <td>${LINK-BUTTON:NEXT}</td>
+                <td class="@nav-title">${TITLE}</td>
+                <td>${LINK-BUTTON:NULL}</td>
+                <td>${LINK-BUTTON:CONTENTS}</td>
+                <td>${LINK-BUTTON:INDEX}</td>
+                </tr>
+            </table>
+        </div>
+        <div id="@top-footer">
+            ${BUILD:DATE}
+        </div>
+    </body>
+</html>
+

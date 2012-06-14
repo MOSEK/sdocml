@@ -20,6 +20,11 @@
 
     <def m="sharp"><d>&#x266f;</d></def>  <!-- Music sharp sign -->
 
+    <def m="lfloor"><d>&lfloor;</d></def>
+    <def m="rfloor"><d>&rfloor;</d></def>
+    <def m="lceil"><d>&lceil;</d></def>
+    <def m="rceil"><d>&rceil;</d></def>
+
     <!-- Simple math operators -->
     <def m="not" n="1"> <e n="mo"><d><lookup>accent-not-{{0}}</lookup></d></e></def>
     <dictentry key="accent-not-=">&#x2260;</dictentry>
@@ -34,7 +39,7 @@
     <def m="pred">               <e n="mo"><d>&#x227b;</d></e></def>
     <def m="succeq">             <e n="mo"><d>&#x227c;</d></e></def>
     <def m="predeq">             <e n="mo"><d>&#x227d;</d></e></def>
-
+    <def m="bullet">             <e n="mo"><d>&#x2219;</d></e></def>
 
     <def m="ldots">              <e n="mo"><d>&#x2026;</d></e></def> <!-- vertical ellipsis -->
     <def m="cdots">              <e n="mo"><d>&#x22EF;</d></e></def> <!-- vertical ellipsis -->

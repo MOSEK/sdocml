@@ -1,0 +1,92 @@
+<!doctype html>
+
+<html>
+<head>  
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <title> ${title:plain} </title>
+  <!--Stylesheet and script for HTML template -->
+  <link rel="stylesheet" type="text/css" media="screen,portable" href="$(resource '../style/template-style.css')"/>
+  <link rel="stylesheet" type="text/css" media="print"           href="$(resource '../style/template-print-style.css')"/>
+
+  <!-- Stylesheet for tabs -->
+  <link rel="stylesheet" type="text/css" href="$(resource '../style/tabs.css')"/>
+
+  <!-- Stylesheet and script related to page content -->
+  <link rel="stylesheet" type="text/css" media="screen,portable" href="$(resource '../style/style.css')"/>
+  <link rel="stylesheet" type="text/css" media="print" href="$(resource '../style/print-style.css')"/>
+
+  $(if (has "@next"))<link rel="next" href="${@next}">$(endif)
+  $(if (has "@prev"))<link rel="prev" href="${@prev}">$(endif)
+  $(if (has "@top"))<link rel="start" href="${@top}">$(endif)
+
+  <link href="$(resource '../graphics/appicon.png')" rel="shortcut icon"/>
+</head>
+
+<body>
+  <div style="display : none;">
+    $(if (has "@index"))
+      <div id="hidden-index-link"><sdoc:link key="@index"/></div>
+    $(endif)
+    $(if (has "@top"))
+      <div id="hidden-top-link"><sdoc:link key="@top"/></div>
+    $(endif)
+
+  </div>
+
+  <div id="template-main">    
+    <div id="template-header">
+      <div class="null-box" style="float : left;"><div id="template-header-end-left"></div></div>
+      <div class="null-box" style="float : right;"><div id="template-header-end-right"></div></div>
+      <div class="null-box" style="float : left;">      
+        <div id="template-header-site-link">
+          <a href="http://code.google.com/p/sdocml/">SDocML HOME</a>
+        </div>
+      </div>
+      <div style="width : 100%; position : relative; top:-1em;">
+        ${title:html}
+      </div>
+    </div>
+    <div class="template-top-v-spacer"></div>
+
+    <div id="template-main-container">
+      <div class="null-box" style="width : 100%;">
+        <div class="template-button-bar template-left-button-bar"><!--
+       -->$(if (has "@prev"))<a href="${@prev}"><div class="template-button">&lt;&lt; Previous</div></a>$(else)<div class="template-button" style="visibility : hidden;">&lt;&lt; Previous</div>$(endif)<!--
+       -->$(if (has "@up"))<a href="${@up}"    ><div class="template-button">Up</div></a>$(else)<div class="template-button" style="visibility : hidden;">Up</div>$(endif)<!--
+       -->$(if (has "@next"))<a href="${@next}"><div class="template-button">Next &gt;&gt;</div></a>$(else)<div class="template-button" style="visibility : hidden;">Next &gt;&gt;</div>$(endif)<!--
+       --></div>
+      </div>
+        
+      <div class="null-box" style="width : 100%;">
+        <div class="template-button-bar template-right-button-bar"><!--
+       -->$(if (has "@index"))<a href="${@index}"><div class="template-button">Index</div></a>$(endif)<!--
+       -->$(if (has "@top"))<a href="${@top}"><div class="template-button">Top</div></a>$(endif)<!--
+       --></div>
+      </div>
+
+      <div id="template-main-body-content">
+        <div style="text-align : center"><h1 class="node-file-header"><sdoc:item key="title:html"></h1></div>            
+
+        $(if (has "body") (lookup "body") "")
+        $(if (has "sections"))
+          ${sections}
+        $(else)
+          $(if (has "toc:local"))
+            <hr>
+            ${toc:local}
+          $(endif)
+        $(endif)
+      </div>
+    </div>
+
+    <div id="template-footer">
+      Copyright &copy; Mosek ApS/Ulf Wors&oslash;e, 1998-${year}.
+    </div>
+
+  </div>
+</body>
+</html>
+
+
+
