@@ -509,7 +509,6 @@ class Node:
         return node 
 
     def startChildElement(self,name,attrs,pos):
-        #dgb('startChildElement: %s' % name)
         if len(self.__cstack) == 1:
             #dgb("--- BEG FLUSH SCOPE (%s)" % self.nodeName)
             self.__flushCStack()
@@ -586,7 +585,7 @@ class Node:
                     if o.group('env') == 'begin':
                         self.__emitOpen(DelayedEnvironment(name,pos))
                     else:
-                        #dgb('End environment "%s" @ %s' % (name,pos))
+                        print ('@@@@@@@@@@@@@ End environment "%s" @ %s' % (name,pos))
                         self.__emitClose(name,pos)
                 elif o.group ('group'):
                     tok = o.group('group')
@@ -1417,7 +1416,7 @@ def SectionNode(manager,parent,cmddict,nodedict,attrs,pos):
             raise NodeError('%s: Failed to parse file "%s"' % (pos,path))
 
         return N.documentElement
-    else:
+    else:        
         return _SectionNode(manager,parent,cmddict,nodedict,attrs,pos) 
 
 class _SectionBaseElement(Node):
@@ -1453,7 +1452,6 @@ class BibliographyNode(_SectionBaseElement):
         self.__manager  = manager
 
         if self.hasAttr('url'):
-            print "url... ", self.getAttr('url')
             biburl = 'file://' + manager.findFile(self.getAttr('url'),pos.filename).replace('\\','/')
             self.__bibdb = BibDB(biburl)
         else:
@@ -1735,8 +1733,6 @@ class BibItemNode(Node):
         else:
             assert 0
 
-        
-
 
 class _SectionNode(_SectionBaseElement):
     comment     = '''
@@ -1752,7 +1748,17 @@ class _SectionNode(_SectionBaseElement):
     macroMode   = MacroMode.Text
     acceptAttrs = Attrs([Attr('id'),
                          Attr('class'),
-                         Attr('config'),
+                         Attr('config',
+                              descr="""
+                                 Configuration entries of the form NAME=VALUE.
+
+                                Recognized entries are:
+                                <dlist>
+                                   <dt>split=(yes|no)</dt><dd>If possible, put child nodes into separate files.</dd>
+                                   <dt>toc=(yes|no)</dt> <dd>Allow/disallow table of content for this node if it is in a separate file. </dd>
+                                   <dt>sectionnumber=(yes|no)</dt> <dd> Use or leave out the section number from this section title.</dd>
+                                 </dlist>
+                                    """),
                          Attr('url',descr='Read the section content from an external source. If this is given, the section element must be empty.'),
                          ])
     contIter    = ' <head> [ T %s %s %s %s ]* <section>* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
@@ -1797,10 +1803,10 @@ class _SectionNode(_SectionBaseElement):
     def toXML(self,doc,node=None):
         if node is None:
             node = doc.createElement(self.nodeName)
-            if self.hasAttr('class'):
-                node.setAttribute('class', self.getAttr('class'))
-            if self.hasAttr('id'):
-                node.setAttribute('id', self.getAttr('id'))
+
+            for attname in [ 'class','id','config']: 
+                if self.hasAttr(attname):
+                    node.setAttribute(attname, self.getAttr(attname))
         
         nodes = PushIterator(self) 
         while nodes and not isinstance(nodes.peek(),HeadNode):
@@ -1830,13 +1836,17 @@ class _SectionNode(_SectionBaseElement):
             # generate paragraphs 
             self.paragraphifyXML(lst,doc,body)
         for item in nodes:
-            if isinstance(item,_SectionBaseElement):
+            if (isinstance(item,_SectionBaseElement)):
                 node.appendChild(item.toXML(doc))
                 node.appendChild(doc.createTextNode('\n'))
             else:
                 assert not item.strip()
         assert not isinstance(node,list)
         return node
+
+
+        
+
 
 class HeadNode(Node):
     comment = 'Contains the header definitions for a \\tagref{section} in the document.'
@@ -2346,7 +2356,6 @@ class TableCellNode(Node):
 
 class DocumentNode(_SectionNode):
     nodeName   = 'sdocmlx'
-#NOTE: we should support appendixes too at some point...
     contIter    = ' <head> [ T %s %s %s %s ]* <section>* <bibliography>?' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
 
     def __init__(self,manager,parent,cmddict,nodeDict,attrs,pos):
@@ -3101,7 +3110,7 @@ class MathTableNode(_MathNode):
             elif isinstance(item,Node):
                 Node.append(self,item)
             else:
-                log.Error('%s: Text not allowed in <%s>' % (self.pos, self.nodeName))
+                err('%s: Text not allowed in <%s>' % (self.pos, self.nodeName))
                 #raise NodeError('Text not allowed in <%s>' % self.nodeName)
 
 
@@ -3154,6 +3163,8 @@ class MathTableCellNode(_MathNode):
 #  Root Node classes
 ######################################################################
 
+
+
 class _RootNode:
     rootElementlass = None
     rootElement      = None
@@ -3197,8 +3208,8 @@ class DocumentRoot(_RootNode):
     rootElementClass = DocumentNode
     rootElement      = 'sdocml'
     nodeName         = 'sdocml'
-    contIter         = _SectionNode.contIter
-    
+    contIter    = ' <head> [ T %s %s %s %s ]* <section>* <bibliography>? ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
+
     comment = None
     examples = []
     acceptAttrs = Attrs([])
@@ -3213,6 +3224,8 @@ class DocumentRoot(_RootNode):
         self.documentElement.toXML(doc,doc.documentElement)
         return doc.documentElement
         
+
+
 
 class ExternalSectionRoot(_RootNode):
     rootElementClass = _SectionNode

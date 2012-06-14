@@ -164,7 +164,6 @@ class Template:
         it = iter(self.__tmpl)
         res = []
         
-        
         try:
             while True:
                 tt,tv = it.next()
@@ -214,22 +213,4 @@ class Template:
             pass
 
         return res
-
-if __name__ == '__main__':
-    def ev(rsrc):
-        return rsrc
-    
-    import sys
-    T = Template(text=open(sys.argv[1],'r').read())
-
-    print T.expand({},
-                   { 'resource' : ev })
-    
-
-
-    T = Template(text="""$(if true) <a href="${@up}">XXX</a>$(else)<a href="${@down}">YYY</a>$(endif) $(resource 'my/data/file.txt')""")
-    print T.expand({'@up' : 'href://www.up.com/index.html',
-                    '@down' : 'href://www.down.com/index.html',
-                    },
-                   { 'resource' : ev })
 

@@ -11,6 +11,18 @@
 import re
 
 
+
+lua_keywords = [ 'and',       'break',     'do',        'else',      'elseif',    'end',
+                 'false',     'for',       'function',  'goto',      'if',        'in',
+                 'local',     'nil',       'not',       'or',        'repeat',    'return',
+                 'then',      'true',      'until',     'while' ]
+lua_language = ['nil','true','false']
+lua_syntax = re.compile('|'.join([r'(?P<cmnt>--.*)',
+                                  r'(?P<str>"(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\')',
+                                  r'(?P<word>\w+)',
+                                  r'(?P<newline>\n)',
+                                  ]),re.MULTILINE)
+
 # NOTE: List of keywords is taken from the official Python 2.4 language documentation
 python_keywords = ['and','del','from','not','while', 'as','elif','global','or','with', 'assert','else','if','pass','yield', 'break','except','import','print', 'class','exec','in','raise', 'continue','finally','is','return', 'def','for','lambda','try',]
 python_language = ['None','True','False','dict','list','classmethod','staticmethod','super','str','unicode','object','id']
@@ -150,6 +162,8 @@ class CodeHilighter:
         self.__state = None
         if   mimetype in [ 'text/x-python', 'source/python' ]:
             self.process = self.process_Python
+        elif mimetype in [ 'text/x-lua', 'source/lua' ]:
+            self.process = self.process_Lua
         elif mimetype in [ 'text/x-java', 'source/java' ]:
             self.process = self.process_Java
         elif mimetype in [ 'text/x-csharp','source/csharp' ]:
@@ -410,6 +424,31 @@ class CodeHilighter:
                 lres.append((kw_string,l[pos:]))
         return lres
 
+    def process_Lua(self,l):
+        lres = []
+        pos = 0
+
+        for o in lua_syntax.finditer(l):
+            if pos < o.start(0):
+                lres.append(l[pos:o.start()])
+            pos = o.end()
+            if   o.group('cmnt') is not None:
+                lres.append((kw_comment,o.group(0)))
+            elif o.group('str') is not None:
+                lres.append((kw_string,o.group(0)))
+            elif o.group('newline'):
+                lres.append(u'\n')
+            else:# o.group('word') is not None
+                w = o.group(0)
+                if   w in lua_keywords:
+                    lres.append((kw_keyword,w))
+                elif w in lua_language:
+                    lres.append((kw_language,w))
+                else:
+                    lres.append(w)
+        if pos < len(l):
+            lres.append(l[pos:])
+        return lres
     def process_Matlab(self,l):
         lres = []
         pos = 0

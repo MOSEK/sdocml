@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 RES=build/sdoc.tar.bz2
@@ -33,6 +34,7 @@ if  echo '** building reference sections ***************' && \
     echo '** Building HTML *****************************' && \
     $PYTHON sdoc/e2html.py build/output/sdocml-expanded.xml \
       -config conf/sdoc-html.conf \
+      -i $(dirname $0)/build/output \
       -i . \
       -o $RES \
       -tempdir build/htmltemp

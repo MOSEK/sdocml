@@ -101,7 +101,8 @@ class _mathUnicodeToTex:
         969 : '{\\omega}',
 
         # misc
-        
+
+        8729 : '{\\bullet}',
         8230 : '\\ldots{}',
         8285 : '\\vdots{}',
         8594 : '\\rightarrow',
@@ -121,10 +122,10 @@ class _mathUnicodeToTex:
         8800 : '\\not=',
         8804 : '\\leq{}',
         8805 : '\\geq{}',
-        8826 : '\\prec{}',
-        8827 : '\\succ{}',
-        8828 : '\\preceq{}',
-        8829 : '\\succeq{}',
+        8826 : '\\succ{}',
+        8827 : '\\prec{}',
+        8828 : '\\succeq{}',
+        8829 : '\\preceq{}',
         8834 : '\\subset{}',
         8838 : '\\subseteq{}',
         8840 : '\\not\\subseteq{}',
@@ -305,22 +306,22 @@ class texCollector(UserList.UserList):
 
     def texverbatim(self,data,r):
         pos = 0
-        for o in re.finditer(ur'(?P<unicode>[\u0080-\u8000])|(?P<lf>\n)|(?P<space>[ ]+)|(?P<escape>%|\#|&)|(?P<special>\\|~|\^|\$|{|}|_|%)',data,re.MULTILINE):
+        for o in re.finditer(ur'(?P<unicode>[\u0080-\u8000])|(?P<lf>\n)|(?P<space>[ ]+)|(?P<escape>%|\$|\#|_|&|{|})|(?P<special>\\|~|\^)',data,re.MULTILINE):
             if o.start(0) > pos:
                 r.append(str(data[pos:o.start(0)]))
             pos = o.end(0)
             if o.group('space'):
                 #r.append('\\ ' * len(o.group('space')))
                 #r.append('\\nullbox{}')
-                r.append(o.group('space'))
+                r.append('\\hspace{%.1fem}' % (0.5*len(o.group('space'))))
             elif o.group('escape'):
                 r.append('\\%s' % o.group('escape'))
             elif o.group('special'):
                 ch = o.group('special')
-                if   ch == '_':
-                    r.append('\\_')
-                elif ch == '^':
-                    r.append('\\^')
+                if   ch in [ '^', '~' ]:
+                    r.append('\\%s{}' % ch)
+                elif ch == '\\':
+                    r.append('\\textbackslash{}')
                 else:
                     r.append('\\char%d{}' % ord(o.group('special')))
             elif o.group('unicode'):
@@ -733,7 +734,13 @@ class Node(UserList.UserList):
         self.__attrs = attrs
         self.__filename = filename
         self.__line = line
-        self.__parent = parent
+        if isinstance(parent,AppendixNode):
+            self.__isappendix = True
+            self.__parent = parent.getParent()
+        else:
+            self.__isappendix = False
+            self.__parent = parent
+            
         self.__manager = manager
         self.manager = manager
         
@@ -753,10 +760,10 @@ class Node(UserList.UserList):
 
         if isinstance(self,SectionNode):
             self.__sect = self
-        elif parent is None:
+        elif self.__parent is None:
             self.__sect = None
         else:
-            self.__sect = parent.getSection()
+            self.__sect = self.__parent.getSection()
 
     def __hash__ (self): return id(self)
 
@@ -785,6 +792,7 @@ class Node(UserList.UserList):
     def linkText(self):
         return None
     def makeChild(self,name,attrs,filename,line):
+        print "NAME=%s" % name
         return globalNodeDict[name](self.__manager, self, attrs, filename, line)
     def newChild(self,name,attrs,filename,line):
         n = self.makeChild(name,attrs,filename,line)
@@ -947,6 +955,20 @@ class _StructuralNode(Node):
                 prev = i    
         return r
 
+class AppendixNode(Node):
+    nodeName = 'appendix'
+
+    def __init__(self,
+                 manager,
+                 parent,
+                 sectidx,
+                 sectlevel,
+                 separatefile, # the child is in a separate file
+                 attrs,
+                 filename,
+                 line):
+        Node.__init__(self,manager,parent,attrs,filename,line)
+
 class SectionNode(Node):
     nodeName = 'section'
 
@@ -996,15 +1018,14 @@ class SectionNode(Node):
             self.__sectionLinkName = attrs['id']
         else:
             self.__sectionLinkName = None 
-       
+
         if attrs.has_key('config'):
             # each entry has the form:
             # KEY or KEY=... KEY="..." or KEY='...' separated by spaces
             s = attrs['config'].strip()
             p = 0            
-            print 
             for o in re.finditer(r'(?P<key>[a-zA-Z:][a-zA-Z0-9_:\-@]*)(=("(?P<val1>[^"]*)"|\'(?P<val2>[^\']*)\'|(?P<val3>[a-zA-Z0-9_]+)))?|(?P<space>\s+)|.',s):
-                #print "####### GOT CONFIG: %s" % o.group(0)
+                print "####### GOT CONFIG: %s" % o.group(0)
                 if o.group('key'):
                   k = o.group('key').lower()
                   v = o.group('val1') or o.group('val2') or o.group('val3')
@@ -1029,14 +1050,12 @@ class SectionNode(Node):
                   pass
                 else:
                   assert 0
-                  
-                  
-            
-            
-            
 
         self.__eqncounter = counter()
         self.__figcounter = counter()
+    def isSeparateFile(self):
+        return self.__separatefile
+
     def getSectionId(self):
         return self.__nodeIndex
 
@@ -1088,6 +1107,17 @@ class SectionNode(Node):
                             filename,
                             line)
             self.__sections.append(n)
+        
+        elif name == 'appendix':
+            n = AppendixNode(self.__manager,
+                             self,
+                             sectidx,
+                             self.__sectlvl+1,
+                             self.__childrenInSepFiles,
+                             attrs,
+                             filename,
+                             line) 
+            self.__sections.append(n) 
         elif name == 'bibliography':
             n = BibliographyNode(self.__manager,
                             self,
@@ -1130,7 +1160,10 @@ class SectionNode(Node):
         
         return self.__nodefilename 
     def getSectionURI(self):
-        return '%s#%s' % (self.getSectionFilename(),self.__sectionLinkName)
+        if self.__separatefile:
+          return '%s' % self.getSectionFilename()
+        else:
+          return '%s#%s' % (self.getSectionFilename(),self.__sectionLinkName)
     def appendSubsection(self,node):
         self.__sections.append(node)
     def numChildSections(self):
@@ -1152,7 +1185,7 @@ class SectionNode(Node):
             res.tag('div',{ 'class' : cls })
         res.extend([tag(tagn),tag('a',{ 'name' : self.__sectionLinkName })])
         if self.__sectnum:
-          res.append('%s. ' % '.'.join([str(i+1) for i in self.__sectidx]))
+          res.append('%s ' % '.'.join([str(i+1) for i in self.__sectidx]))
                   
         self.getTitle().toHTML(res)
         if self.__manager.doDebug():
@@ -1262,7 +1295,7 @@ class SectionNode(Node):
                 res.tag('li')
                 sidx = s.getSectionIndex()
                 if sidx:
-                    res.append('.'.join([ str(v+1) for v in s.getSectionIndex() ]) + '. ')
+                    res.append('.'.join([ str(v+1) for v in s.getSectionIndex() ]) + ' ')
                 if self.__separatefile or fullLinks:
                     link = s.getSectionURI()
                 else:
@@ -1439,9 +1472,9 @@ class SectionNode(Node):
                         sk = ''.join([ asstr(cn) for cn in k]).lower()
                         entry.append(( pk, sk, k ))
                     else:
-                        pk = ''.join([ asstr(cn) for cn in ee]).lower()
+                        npk = ''.join([ asstr(cn) for cn in ee]).lower()
                         sk = pk
-                        entry.append(( pk, sk, ee))
+                        enntry.append(( pk, sk, ee))
                     #print '\t--ENDEND'
                
                 entries.append((entry,n))
@@ -1885,8 +1918,8 @@ class DocumentNode(SectionNode):
                              1, # sectlevel
                              not manager.singlePage(), # separatefile
                              attrs,filename,line)
-        self.__body = None
-        self.__sections = []
+        self.__body       = None
+        self.__sections   = []
     def mkAnchorStr(self):
         return ''
     def getSectionFilename(self):
@@ -1939,9 +1972,6 @@ class DocumentNode(SectionNode):
 
         self.__manager.writelinesfile("script/sidebardata.js",data)
 
-        
-        
-
     def toTeX(self,res):
         self.getTitle().contentToTeX(res['TITLE'])
         res['DATE']
@@ -1951,10 +1981,6 @@ class DocumentNode(SectionNode):
         else:
             res['AUTHOR']
         
-        #self.contentToTeX(res['BODY'],0)
-
-        #self.__body.contentToTeX(res['PREFACE'])
-
         body    = res['BODY']
         preface = res['PREFACE']
 
@@ -1968,8 +1994,16 @@ class DocumentNode(SectionNode):
             else:
                 break
 
+
+        appx = False
         for sect in sects:
-            sect.toTeX(body,1)
+            if sect.isClass('appendix') and not appx:
+                appx = True
+                body.macro('appendix').lf()
+
+            sect.toTeX(body,1)    
+
+
         return res
 
 
@@ -2262,10 +2296,12 @@ class ReferenceNode(Node):
             r.append('[??]')
         else:
             f,k = self.__ref.getLink()
-            if f == self.getFilename():
+            if f == self.getFilename() and k is not None:
                 link = '#%s' % k
-            else:
+            elif k is not None:                
                 link = '%s#%s' % (f,k)
+            else:
+                link = '%s' % f
             if self.hasAttr('class'):
                 r.anchor(link,self.getAttr('class'))
             else:
@@ -2356,6 +2392,10 @@ class AnchorNode(Node):
         else:
             self.__anchor_name = '@geneated-ID:%x' % id(self)
 
+        self.__type = None
+        if self.hasAttr('type'):
+            self.__type = self.getAttr('type')
+
     def getAnchorID(self):
         return self.__anchor_name
     def linkText(self):
@@ -2365,14 +2405,24 @@ class AnchorNode(Node):
     def anchorTextToPlainHTML(self,res):
         return self.toPlainHTML(res)
     def toHTML(self,res):
-        if self.hasAttr('target') and self.getAttr('target') == 'index':
+        if self.hasAttr('type') and self.getAttr('type') == 'index':
             return res
         else:
             return res.emptytag('a', { 'name' : self.__anchor_name }) 
     def toTeX(self,res):
-        res.macro('label').groupStart()._raw(self.__anchor_name).groupEnd().comment()
-        #res.macro('hypertarget').groupStart()._raw(self.__anchor_name).groupEnd().group(self.linkText()).comment()
-        return res
+        try:
+            if self.hasAttr('type') and self.getAttr('type') == 'index':
+                res.macro('index').groupStart()
+                self.contentToTeX(res)
+                res.groupEnd().comment()
+                return res
+            else:
+                res.macro('label').groupStart()._raw(self.__anchor_name).groupEnd().comment()
+            return res
+        except:
+            import traceback
+            traceback.print_exc()
+            raise
 
 
 class ItemListNode(Node):
@@ -2391,7 +2441,7 @@ class DefinitionListNode(Node):
     def toTeX(self,r) :
         if len(self) > 0:
             r.comment()
-            if len(self):
+            if len([ i for i in self if isinstance(i,Node)]) > 0:
                 r.begin('description')
                 for i in self:
                     if isinstance(i,Node):
@@ -3042,19 +3092,36 @@ class MathFencedNode(_MathNode):
 
 class MathFontNode(_MathNode):
     def toTeX(self,r):
-        if self.hasAttr('family'):
+        if self.hasAttr('family') or self.hasAttr('style'):
             fam = self.getAttr('family')
-            if fam in [ 'mathtt', 'mathrm','mathbb','mathbf','mathfrac','mathcal','mathit']:
-                cmd = fam
+            sty = self.getAttr('style')
+            if fam is None: famcmd = None
+            elif fam in [ 'mathtt', 'mathrm','mathbb','mathbf','mathfrac','mathcal','mathit']:
+                famcmd = fam
             else:
-                cmd = fam
+                fam = None
                 print "At %s:%d" % self.pos
-                print "Font family: %s" % cmd
+                print "Font family: %s" % famcmd
 
                 assert 0
-            r.macro(cmd).groupStart()
+
+            if sty is None: stycmd = None
+            elif sty in [ 'overline', 'underline']:
+                stycmd = sty
+            else:
+                stycmd = None
+                print "At %s:%d" % self.pos
+                print "Font style: %s" % stycmd
+
+                assert 0
+            
+            if famcmd is not None:
+                r.macro(famcmd).groupStart()
+            if stycmd is not None:
+                r.macro(stycmd).groupStart()
             self.contentToMathTeX(r)
-            r.groupEnd()
+            if famcmd is not None: r.groupEnd()
+            if stycmd is not None: r.groupEnd()
         else:
             self.contentToTeX(r)
             
@@ -3260,6 +3327,7 @@ class ImageItemNode(Node):
 ################################################################################
 
 globalNodeDict = {  'sdocmlx'      : DocumentNode,
+                    'appendix'     : AppendixNode,
                     'section'      : SectionNode,
                     'bibliography' : BibliographyNode,
                     'bibitem'      : BibItemNode,
@@ -3412,7 +3480,11 @@ class SymIDRef:
     def getLink(self):
         try:
             n = self.resolve()
-            return n.getFilename(),self.__key
+            if (isinstance(n,SectionNode) and 
+                n.isSeparateFile()):
+                return n.getFilename(),None
+            else:
+                return n.getFilename(),self.__key
         except KeyError:
             return '','??'
     def linkText(self):

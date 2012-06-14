@@ -173,6 +173,7 @@ if __name__ == "__main__":
                                     'error:refs'   : config.UniqueBoolEntry('error:refs',default=True),
                                     #'nodefaultinc' : config.UniqueEntry('nodefaultinc'),
                                     'maxsectiondepth' : config.UniqueIntEntry('macsectiondepth','4'),
+                                    'erroronmissingrefs' : config.UniqueBoolEntry('erroronmissigrefs',default=True)
                                 })
     # add a couple of default paths
     conf.update('dtdpath',os.path.join(sdocbase,'dtd'))
@@ -202,6 +203,8 @@ if __name__ == "__main__":
             conf.update('error:refs',args.pop(0))
         elif arg == '-macroreftitle':
             conf.update('macroreftitle','"%s"' % args.pop(0))
+        elif arg == '-noerroronmissingrefs':
+            conf.update('erroronmissingrefs',False)
         #elif arg == '-nodefaultinc':
         #    conf.update('nodefaultinc',args.pop(0))
         else:
@@ -429,12 +432,13 @@ if __name__ == "__main__":
                     msg('Write output file: %.1f sec.' % (time1-time0))
                     time0 = time1
             
-                msg('Checking cross-references')
-                errs = []
-                errs.extend(manager.checkIdRefs())
-                if conf['error:refs'] and errs:
-                    msg('FAILED: Missing references.')
-                    sys.exit(1)
+                if conf['erroronmissingrefs']:
+                  msg('Checking cross-references')
+                  errs = []
+                  errs.extend(manager.checkIdRefs())
+                  if conf['error:refs'] and errs:
+                      msg('FAILED: Missing references.')
+                      sys.exit(1)
             else:
                 msg('Errors were encountered.')
                 sys.exit(1)
