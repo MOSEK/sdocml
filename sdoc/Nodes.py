@@ -585,7 +585,7 @@ class Node:
                     if o.group('env') == 'begin':
                         self.__emitOpen(DelayedEnvironment(name,pos))
                     else:
-                        print ('@@@@@@@@@@@@@ End environment "%s" @ %s' % (name,pos))
+                        #print ('@@@@@@@@@@@@@ End environment "%s" @ %s' % (name,pos))
                         self.__emitClose(name,pos)
                 elif o.group ('group'):
                     tok = o.group('group')
@@ -1553,7 +1553,7 @@ class BibItemNode(Node):
                     'inbook'        : '$[author]{${author}}{${editor}, editor}. ${title}$[series+(volume|number)]{, ${series} ${volume|number}}$[edition]{, ${edition} edition}, ${year}, $[chapter]{chapter ${chapter}}{p. ${pages}}. ${publisher}$[address]{, ${address}}.$[note]{ ${note}}',
                     'incollection'  : '${author}. ${title}, ${booktitle}$[series]{, ${series}}{}$[volume]{, vol. ${volume}}{$[number]{, no. ${number}{}}}$[chapter|pages]{ $[chapter]{chapter ${chapter}}{p. ${pages}}}{}, ${year}. ${publisher}$[address]{, ${address}}.',
                     'inproceedings' : '${author}. ${title}, ${booktitle}$[series]{, ${series}}{}$[volume]{, vol. ${volume}}{$[number]{, no. ${number}{}}}$[organization]{, ${organization}}{}, ${year}. ${publisher}$[address]{, ${address}}.',
-                    'manual'        : '$[author]{${author}. }${title}$[edition]{, ${edition} edition}$[year]{, ${year}}.$[organization]{ ${organization}$[address]{, ${address}}.}$[note]{ ${note}',
+                    'manual'        : '$[author]{${author}. }${title}$[edition]{, ${edition} edition}$[year]{, ${year}}.$[organization]{ ${organization}$[address]{, ${address}}.}$[note]{ ${note}}',
                     'mastersthesis' : '${author}. $[type]{${type}}{Masters thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
                     'misc'          : '$[author]{${author}. }$[title]{${title}. }$[howpublished]{${howpublished}. }$[note]{${note}.}',
                     'phdthesis'     : '${author}. $[type]{${type}}{PhD thesis}: ${title}, ${year}. ${school}$[address]{, ${address}}.$[note]{ ${note}.}',
@@ -2633,12 +2633,15 @@ class ReferenceNode(Node):
       automatically as an equation counter, <section> might produce a section
       counter or a title text.
     """
+    comment     = """ 
+                    Defines a reference link. 
+                  """
     nodeName    = 'ref'
     macroMode   = MacroMode.Text
     acceptAttrs = Attrs([ Attr('class'), 
-                          Attr('ref',descr='A globally unique ID of another element'),
-                          Attr('type'),
-                          Attr('exuri'),
+                          Attr('ref',descr='A globally unique ID of another element. If the <tt>exuri</tt> attribute not defined, it must be resolved within the document. '),
+                          Attr('type',descr="If the reference has class ``cite'', it will be handled in a special way as a bibliography reference."),
+                          Attr('exuri',descr="An external URI. If this is given the <tt>ref</tt> ID need not be resolved within the document."),
                   ])
     traceInfo   = True
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
@@ -2837,6 +2840,7 @@ class MathFontNode(_MathNode):
     def end(self,pos):
         if self.hasAttr('family') and not self.getAttr('family') in mathFonts:
             raise NodeError('Invalid math font "%s" at %s' % (self.getAttr('family'),self.pos))
+        _MathNode.end(self,pos)
 
 class MathTextNode(Node):
     nodeName  = 'mtext'

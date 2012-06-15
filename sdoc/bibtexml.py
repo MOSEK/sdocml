@@ -254,7 +254,7 @@ class Misc(_BibEntry):
                 'title'    : Optional,
                 'year'     : Optional,  }
 class Manual(_BibEntry):
-    name = 'maunal'
+    name = 'manual'
     accepts = { 'address'  : Optional,
                 'author'   : Optional, 
                 'crossref' : Optional, 

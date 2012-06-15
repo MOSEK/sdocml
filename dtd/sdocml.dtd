@@ -179,6 +179,7 @@ A few explicit text style elements are defined: <em>, <bf>, <tt> etc., the <*siz
 <!ELEMENT ref      (ANY*)>        
 <!ATTLIST ref                           
           class    CDATA #IMPLIED
+          type     (cite|ref) "ref"
           ref      IDREF #REQUIRED>
 <!ELEMENT href     (linktext,ANY*)>               
 <!ATTLIST href     url   CDATA #REQUIRED

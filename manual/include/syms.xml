@@ -24,6 +24,8 @@
     <def m="rfloor"><d>&rfloor;</d></def>
     <def m="lceil"><d>&lceil;</d></def>
     <def m="rceil"><d>&rceil;</d></def>
+    <def m="pm"><d>&plusmn;</d></def>
+    
 
     <!-- Simple math operators -->
     <def m="not" n="1"> <e n="mo"><d><lookup>accent-not-{{0}}</lookup></d></e></def>

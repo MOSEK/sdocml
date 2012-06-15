@@ -48,6 +48,7 @@ class _mathUnicodeToTex:
     
     unicodetotex = {
         160  : '{\ }',
+        177  : '{\pm}',
         215  : '{\\times}',
         # Greek letters
         913 : '{\\rm A}',
@@ -792,7 +793,6 @@ class Node(UserList.UserList):
     def linkText(self):
         return None
     def makeChild(self,name,attrs,filename,line):
-        print "NAME=%s" % name
         return globalNodeDict[name](self.__manager, self, attrs, filename, line)
     def newChild(self,name,attrs,filename,line):
         n = self.makeChild(name,attrs,filename,line)
@@ -1025,7 +1025,6 @@ class SectionNode(Node):
             s = attrs['config'].strip()
             p = 0            
             for o in re.finditer(r'(?P<key>[a-zA-Z:][a-zA-Z0-9_:\-@]*)(=("(?P<val1>[^"]*)"|\'(?P<val2>[^\']*)\'|(?P<val3>[a-zA-Z0-9_]+)))?|(?P<space>\s+)|.',s):
-                print "####### GOT CONFIG: %s" % o.group(0)
                 if o.group('key'):
                   k = o.group('key').lower()
                   v = o.group('val1') or o.group('val2') or o.group('val3')
@@ -1738,7 +1737,7 @@ class BibliographyNode(SectionNode):
 
     def contentToTeX(self,r,level):
         if self.__items:
-            r.macro(self.sectcmds[0]).group('Bibliography').lf()
+            #r.macro(self.sectcmds[0]).group('Bibliography').lf()
             r.begin('thebibliography').group(['XXXXXX']).lf()
             for n in self.__items:
                 n.toTeX(r) 
@@ -1933,6 +1932,7 @@ class DocumentNode(SectionNode):
         n = SectionNode.newChild(self,name,attrs,filename,line)
         if   name == 'body':    self.__body = n
         elif name == 'section': self.__sections.append(n)
+        elif name == 'bibliography': self.__sections.append(n)
         
         return n
     def makeSidebarFile(self,filename='sidebar.html'):
@@ -1996,13 +1996,13 @@ class DocumentNode(SectionNode):
 
 
         appx = False
+        bibl = None
         for sect in sects:
             if sect.isClass('appendix') and not appx:
                 appx = True
                 body.macro('appendix').lf()
 
-            sect.toTeX(body,1)    
-
+            sect.toTeX(body,1)
 
         return res
 
@@ -2280,6 +2280,9 @@ class ReferenceNode(Node):
     def __init__(self,manager,parent,attrs,filename,line):
         Node.__init__(self,manager,parent,attrs,filename,line)
 
+        self.__type = attrs.get('type','ref')
+        self.__realref = attrs.get('ref')
+
         if attrs.has_key('exuri'):
             self.__exuri = attrs['exuri']
             self.__ref   = attrs['ref']
@@ -2323,28 +2326,34 @@ class ReferenceNode(Node):
         
     def toTeX(self,r):
         if self.__exuri:
+            # havent thought about how this should be handled.
             r.append('[??]')
         else:
-            #r.macro('hyperlink')
-            #r.group(self.__ref.linkText())
-            #r.group([u'XXXX'])
-            #r.groupStart()
-            #self.contentToTeX(r)
-            #r.groupEnd()
-            r.macro('hyperref').moptStart()._raw(self.__ref.getID()).moptEnd()
-            if len(self.data) > 0:
-                r.groupStart()
-                self.contentToTeX(r)
-                r.groupEnd()
+            
+            if self.__type == 'cite':
+                r.macro('cite')
+                if len(self.data) > 0:
+                    r.moptStart()._raw(self.__realref).moptEnd()
+                    r.mtoptStart()
+                    self.contentToTeX(r)
+                    r.mtoptEnd()
+                r.groupStart()._raw(self.__realref).groupEnd()
+                    
             else:
-                # horrible hack: We don't want to mix _our_ numbering with TeX's automatic numbering. 
-                # TeX produces numbers for certain things like equations, figures and tables, so in these
-                # cases we ignore any "linktext" and just use a \ref{} instead
-                linktext = self.__ref.linkText()
-                if linktext:
-                    r.group(self.__ref.linkText())
+                r.macro('hyperref').moptStart()._raw(self.__ref.getID()).moptEnd()
+                if len(self.data) > 0:
+                    r.groupStart()
+                    self.contentToTeX(r)
+                    r.groupEnd()
                 else:
-                    r.groupStart().macro('ref').groupStart()._raw(self.__ref.getID()).groupEnd().groupEnd()
+                    # horrible hack: We don't want to mix _our_ numbering with TeX's automatic numbering. 
+                    # TeX produces numbers for certain things like equations, figures and tables, so in these
+                    # cases we ignore any "linktext" and just use a \ref{} instead
+                    linktext = self.__ref.linkText()
+                    if linktext:
+                        r.group(self.__ref.linkText())
+                    else:
+                        r.groupStart().macro('ref').groupStart()._raw(self.__ref.getID()).groupEnd().groupEnd()
 
 
 class HyperRefNode(Node):
@@ -2377,7 +2386,8 @@ class HyperRefNode(Node):
                 else:
                     r.append(i)
             r.groupEnd()        
-        r.groupStart()._raw(self.getAttr('url')).groupEnd()
+        print
+        r.groupStart().append(self.getAttr('url')).groupEnd()
         return r
 
 LinkTextNode            = dummy('LinkTextNode')
