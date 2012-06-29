@@ -1,0 +1,4 @@
+# No compiled python code!
+*.pyc
+build
+*.swp
