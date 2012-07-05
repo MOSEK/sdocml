@@ -636,8 +636,7 @@ class Node:
         assert not self.__closed
 
         if   self.__sealed:
-            raise NodeError('%s: Content not allowed in <%s>' % (self.pos,self.nodeName, self.pos))
-            #raise NodeError("Content not allowed in <%s> at %s" % (self.nodeName, self.pos))
+            raise NodeError('%s: Content not allowed in <%s>' % (self.pos,self.nodeName))
         elif isinstance(item,Node) or isinstance(item,unicode):
             if isinstance(item,Node) and item.metaElement:
                 pass # Allowed everywhere, ignored

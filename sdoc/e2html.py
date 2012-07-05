@@ -1044,6 +1044,7 @@ class SectionNode(Node):
                     elif v in ['no','off','false']: self.__sectnum = False
                     else: assert 0
                   else:
+                    print o.group(0)
                     assert 0
                 elif o.group('space'):
                   pass
