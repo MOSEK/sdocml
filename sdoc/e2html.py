@@ -2201,7 +2201,7 @@ class _SimpleNode(Node):
     def toVerbatimTeX(self,res):
         res.groupStart()
         res.macro(self.macro)
-        res.append('{}')
+        res._raw('{}')
         self.contentToVerbatimTeX(res)
         res.groupEnd()
     
