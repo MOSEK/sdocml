@@ -1395,7 +1395,6 @@ class DefinesNode(Node):
 
 def SectionNode(manager,parent,cmddict,nodedict,attrs,pos):
     if attrs.has_key('url'):
-        #msg("Include section '%s'" % attrs['url'])
         filename = pos.filename
         url = urlparse.urlparse(attrs['url'])
         fullpath = manager.findFile(attrs['url'],filename)
@@ -1406,13 +1405,8 @@ def SectionNode(manager,parent,cmddict,nodedict,attrs,pos):
         P.setContentHandler(h)
         P.setEntityResolver(manager.getEntityResolver())
       
-        if 1: # try:
-            msg("Parse external section %s (%s)" % (attrs['url'],fullpath))
-            P.parse(fullpath)
-        else: # except Exception,e:
-            import traceback
-            traceback.print_exc()
-            raise NodeError('%s: Failed to parse file "%s"' % (pos,path))
+        msg("Parse external section %s (%s)" % (attrs['url'],fullpath))
+        P.parse(fullpath)
 
         return N.documentElement
     else:        
@@ -3198,7 +3192,6 @@ class _RootNode:
     def endChildElement(self,name,pos):
         pass
 
-
     def handleText(self,data,pos):
         pass
 
@@ -3225,7 +3218,8 @@ class DocumentRoot(_RootNode):
         impl = xml.dom.minidom.getDOMImplementation()
         doc = impl.createDocument(None, 'sdocmlx', None)
         self.documentElement.toXML(doc,doc.documentElement)
-        return doc.documentElement
+        node = doc.documentElement
+        return node
         
 
 

@@ -996,8 +996,12 @@ class SectionNode(Node):
         self.__separatefile = separatefile
         self.__parent = parent
 
-        self.__toc = True
-        self.__sectnum = True
+        if parent is None:
+          self.__toc = manager.getConfigEntry('indextoc')
+        else:
+          self.__toc = manager.getConfigEntry('usetoc')
+
+        self.__sectnum = manager.getConfigEntry('usesectionnumbers')
 
         if   not separatefile:
             self.__childrenInSepFiles = False
@@ -1040,7 +1044,7 @@ class SectionNode(Node):
                     else:assert 0
                   elif k == 'sectionnumber':
                     v = v.lower()
-                    if   v in ['yes','on','true']:  self.__sectnum = True
+                    if   v in ['yes','on','true']:  self.__sectnum = manager.getConfigEntry('usesectionnumbers')
                     elif v in ['no','off','false']: self.__sectnum = False
                     else: assert 0
                   else:
@@ -1547,10 +1551,13 @@ class SectionNode(Node):
        
 
         links = []
-        if prevNode is not None: links.append(('@prev', prevNode.getSectionFilename()))
-        if nextNode is not None: links.append(('@next', nextNode.getSectionFilename()))
-        if parentNode is not None: links.append(('@up', parentNode.getSectionFilename()))
-        links.append(('@index', 'xref.html'))
+        if self.manager.getConfigEntry('usenavigation'):
+          if prevNode is not None: links.append(('@prev', prevNode.getSectionFilename()))
+          if nextNode is not None: links.append(('@next', nextNode.getSectionFilename()))
+          if parentNode is not None: links.append(('@up', parentNode.getSectionFilename()))
+
+        if self.manager.getConfigEntry('useindex'):
+          links.append(('@index', 'xref.html'))
         links.append(('@top', topNode.getSectionFilename()))
        
         
@@ -1926,6 +1933,7 @@ class DocumentNode(SectionNode):
         return 'index.html'
     def endOfElement(self,filename,line):
         if not self.__manager.singlePage():
+          if self.__manager.getConfigEntry('useindex'):
             self.appendSubsection(_IndexNode(self.__manager,self, not self.__manager.singlePage()))
         SectionNode.endOfElement(self,filename,line)
     def newChild(self,name,attrs,filename,line):
@@ -3794,6 +3802,9 @@ class Manager:
                     self.__zipfile.write(icon,'%s/%s' % (topdir,iconfile))
         del iconsadded
 
+    def getConfigEntry(self,name):
+      return self.__conf[name]
+
     def close(self):
         if self.__mathpngthread != None:
             self.__mathpngthread.join()
@@ -4419,6 +4430,11 @@ def main():
 
                                     'image'      : config.DirListEntry('image'),
                                     'parallel'   : config.UniqueBoolEntry('parallel', default=True),
+                                    'usetoc'     : config.UniqueBoolEntry('usetoc',   default=True),
+                                    'indextoc'   : config.UniqueBoolEntry('indextoc', default=True),
+                                    'usesectionnumbers' : config.UniqueBoolEntry('usesectionnumbers', default=True),
+                                    'usenavigation' : config.UniqueBoolEntry('usenavigation', default=True),
+                                    'useindex'   : config.UniqueBoolEntry('useindex', default=True),
      })
    
     debug = False
@@ -4463,6 +4479,10 @@ def main():
             conf.update('pdf2svgbin', args.pop(0))
         elif arg == '-outformat':
             conf.update('outformat', args.pop(0))
+        elif arg == '-notoc':
+          conf.update('usetoc', False)
+        elif arg == '-noindextoc':
+          conf.update('indextoc', False)
         elif arg and arg[-1] == '-':
             raise Exception('Invalid argument "%s"' % arg)
         else:
