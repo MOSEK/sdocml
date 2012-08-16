@@ -376,10 +376,10 @@ class Node:
         return iter(self.__content)
     def __len__(self):
         return len(self.__content)
-    def asTree(self):
+    def asList(self):
         res = []
         for i in self:
-            res = res + i.asTree()
+            res = res + i.asList()
         return res
 
    
@@ -867,21 +867,21 @@ class DefElementNode(Node):
     def getName(self):
         return self.getAttr('n')
 
-    def asTree(self):
+    def asList(self):
         returnee = ["<"+self.getName()]
         end = ["</"+self.getName()+">"]
         for i in self:
             if isinstance(i,basestring):
                 returnee.append(i)
             elif isinstance(i,DefElementAttrNode):
-                tree = i.asTree()
-                returnee.extend(tree)
+                treeList = i.asList()
+                returnee.extend(treeList)
             else:
                 if(not returnee[-1] == ">"):
                     returnee.append(">")
-                tree = i.asTree()
-                returnee.extend(tree)
-        #silly, feel free to refactor out
+                treeList = i.asList()
+                returnee.extend(treeList)
+        #To ensure we are closing the node correctly
         ending = False
         for i in returnee:
             if i ==">":
@@ -938,7 +938,7 @@ class _DefDataNode(Node):
                 count = count + i.len()
         return count
 
-    def asTree(self):
+    def asList(self):
         returnee = []
         for i in self:
             if isinstance(i,basestring):
@@ -1073,7 +1073,7 @@ class DefElementAttrNode(_DefDataNode):
     def getName(self):
         return self.getAttr('n')
 
-    def asTree(self):
+    def asList(self):
         returnee = [' '+self.getName()+"=\""]
         for i in self:
             if isinstance(i,basestring):
@@ -1092,7 +1092,7 @@ class DefElementAttrNode(_DefDataNode):
                 if p < len(text):
                     returnee.append(text[p:])
             else:
-                returnee += i.asTree()
+                returnee += i.asList()
         returnee.append("\"")
         return returnee
 
@@ -1140,13 +1140,13 @@ class DefMacroRefNode(Node):
                 count = count + i.len()
         return count
 
-    def asTree(self):
+    def asList(self):
         returnee = [macro.Macroref(self.__name,self.__subscr,self.supscr)]
         for i in self:
             if isinstance(i,basestring):
                 returnee.append(i)
             else:
-                returnee = returnee +i.asTree()
+                returnee = returnee +i.asList()
         return returnee
 
     def asDef(self,res):
@@ -1182,10 +1182,10 @@ class DefMacroArgNode(Node):
                 count = count + i.len()
         return count
 
-   # def asTree(self):
+   # def asList(self):
    #     returnee = []
    #     for i in self:
-   #         returnee.append(i.asTree)
+   #         returnee.append(i.asList)
    #     return returnee
 
     def asDef(self,res):       
@@ -1255,16 +1255,16 @@ class DefNode(Node):
             else:
                 count = count + i.len()
         return count
-    def asTree(self):
-        tree = []
+    def asList(self):
+        treeList = []
         for i in self:  
             if isinstance(i,basestring):
-                tree.extend(i)
+                treeList.extend(i)
             elif isinstance(i,DescriptionNode):
                 pass
             else:
-                tree = tree +i.asTree()
-        return tree
+                treeList = treeList +i.asList()
+        return treeList
 
     def end(self,pos):
         try:
@@ -1280,8 +1280,8 @@ class DefNode(Node):
                 self.__descr = d
             else:
                 d.asDef(body)
-        tree = self.asTree()
-        self.macro = macro.Macro(self.__name, self.__desc,self.nArgs(),body,tree,sub=self.__accept_subscr,sup=self.__accept_supscr)
+        treeList = self.asList()
+        self.macro = macro.Macro(self.__name, self.__desc,self.nArgs(),body,treeList,sub=self.__accept_subscr,sup=self.__accept_supscr)
 
     def __repr__(self):
         return 'macro(%s)' % self.__name
@@ -1353,17 +1353,17 @@ blabla
     def getDefs(self):
         return self.__defs
 
-    def asTree(self):
-        tree = []
+    def asList(self):
+        treeList = []
         for i in self:
             if isinstance(i,basestring):
-                tree.extend(i)
+                treeList.extend(i)
             elif(isinstance(i,DescriptionNode) or isinstance(i,DefinesNode) or
                 isinstance(i,DefElementAttrNode)):
                 pass
             else:
-                tree = tree +i.asTree()
-        return tree
+                treeList = treeList +i.asList()
+        return treeList
 
     def end(self,pos):
         try:
@@ -1381,10 +1381,8 @@ blabla
             else:
                 d.asDef(body)
         desc = self.__descr
-        tree = self.asTree()
-        print "timber2"
-        print tree
-        self.env =macro.Environment(self.__name,desc,self.__localdict,self.nArgs(),None, body,tree)
+        treeList = self.asList()
+        self.env =macro.Environment(self.__name,desc,self.__localdict,self.nArgs(),None, body,treeList)
 
     def __repr__(self):
         return 'macro(%s)' % self.__name
