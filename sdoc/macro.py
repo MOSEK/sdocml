@@ -5,6 +5,8 @@ environments.
 
 from util import *
 import logging
+import re
+from EvHandler import Pos
 
 log = logging.getLogger("SDocML Macro")
 log.setLevel(logging.ERROR)
@@ -76,16 +78,6 @@ class SAXEvUnexpandedText(SAXEvent):
         self.data = data
     def __repr__(self):
         return 'TEXT{%s}' % repr(self.data)
-#class SAXEvSpecialTableRowBegin(SAXEvent):
-#    def __init__(self,pos):
-#        SAXEvent.__init__(self,pos)
-#    def __repr__(self): return '\\:'
-#class SAXEvSpecialTableCellBegin(SAXEvent):
-#    def __init__(self,pos):
-#        SAXEvent.__init__(self,pos)
-#    def __repr__(self): return '\\!'
-
-
 
 class _DelayedItem:
     autoClose = False
@@ -94,11 +86,6 @@ class _DelayedItem:
         assert isinstance(pos,Position)
     def __repr__(self):
         return self.__class__.__name__
-
-
-
-
-
 
 class DelayedMacro(_DelayedItem):
     def __init__ (self, name, pos, args=None, subscr=None, superscr=None):
@@ -139,7 +126,7 @@ class DelayedLookup(_DelayedItem):
     def __init__(self,pos,content):
         _DelayedItem.__init__(self,pos)
         self.content = content
-        log.debug('DelayedLookup content = %s' % content)
+        #log.debug('DelayedLookup content = %s' % content)
     def asDoc(self,r):
         r.append('<lookup>')
         for item in self.content:
@@ -171,7 +158,6 @@ class DelayedEnvironment(_DelayedItem):
         _DelayedItem.__init__(self,pos)
         self.endpos = None
         self.name = name
-        self.args = []
         self.content = []
     def asDoc(self,r):
         r.append('\\begin{%s}' % self.name)
@@ -187,6 +173,8 @@ class DelayedEnvironment(_DelayedItem):
         #print "DelayedEnvironment(%s). Content: %s" % (self.name,len(self.content))
     def __repr__(self):
         return 'DelayedEnvironment(%s){%s}' % (self.name, ','.join([ repr(i) for i in self.content ]))
+    def __iter__(self):
+        return iter(self.content)
 
 class DelayedGroup(_DelayedItem):
     def __init__(self,pos,args=None):
@@ -241,7 +229,6 @@ class DelayedTableContent(_DelayedItem):
         assert len(self.__cstack) == 3
         self.__cstack.pop()
         self.__cstack.pop()
-
         r = []
         self.__cstack[-1].append(r)
         self.__cstack.append(r)
@@ -292,8 +279,6 @@ class DelayedElement(_DelayedItem):
             l = []
             for i in v: i.asDoc(l)
             attrs.append((k,''.join(l)))
-            
-
         r.append('<%s%s>' % (self.name, u''.join([ u' %s="%s"' % attr for attr in attrs ])))
         for i in self.body:
             i.asDoc(r)
@@ -316,7 +301,7 @@ class DelayedElement(_DelayedItem):
         return iter(self.body)
     def extend(self,items):
         for i in items:
-            log.debug('Append to <%s> : %s' % (self.name,i))
+            #log.debug('Append to <%s> : %s' % (self.name,i))
             assert isinstance(i,_DelayedItem)
             if isinstance(i,DelayedElement) and i._mark:
                 assert 0
@@ -330,35 +315,209 @@ class DelayedElement(_DelayedItem):
         return 'DelayedElement@[%s](%s){%s}' % (self.pos,self.name,','.join([ repr(i) for i in self.body ]))
 
 
-
 class Element:
     def __init__(self,name,attrs,content):
         self.name = name
         self.attrs = attrs
         self.content = content
+    def __iter__(self):
+        return iter(content)
+
+class Placeholder:
+    def __init__(self,arg):
+        self.arg = arg
+    def __repr__(self):
+        return "Placeholder for :"+self.arg
+
+class MacroRef:
+    def __init__(self,ref,sub,sup):
+        self.ref = ref
+        self.sub = sub
+        self.sup = sup
+
+class Group:
+    def __init__(self,p):
+        self.end = False
+        self.start = p
+        self.content = ''
+        self.sub= True
+        self.sup = True
+        self.nArgs = 0
+    def __repr__(self):
+        return "{"+self.content+"}"
+
+class SubSup:
+    def __init__(self,sub,sup):
+        self.sup = sup
+        self.sub = sub
+    def __repr__(self):
+        return '_'+self.sub+'^'+self.sup
+
+
+class Sup:
+    def __init__(self):
+        self.sup = None
+
+    def sub(self,sub=None):
+        return SubSup(self.base,sub=sub,sup=self.sup)
+        
+        
+class Sub:
+    def __init__(self):
+        self.sub = None
+
+    def sup(self):
+        return SubSup(self.base,sub=self.sub,sup=none)
 
 class Macro:
-    def __init__(self,name,desc,nargs,body):
+    def __init__(self,name,desc,nargs,body,tree,sub=True,sup=True,pos=0):
+        self.name = name
         self.desc  = desc # text
         self.nargs = nargs # int        
         self.body  = body
+        self.args = {}
+        self.sub = sub
+        self.sup = sup
+        self.pos = pos
+        self.recv = 0
+        self.start = []
+        self.end = []
+        self.tree = []
+        self.tree.extend(tree)
+        for i in xrange(len(self.tree)):
+            node = self.tree[i]
+            if isinstance(node,Placeholder):
+                if node.arg in self.args:
+                    self.args[node.arg].append(i)
+                else:
+                    self.args[node.arg] = [i]
+    def copy(self,pos):
+        return Macro(self.name,self.desc,self.nargs,self.body,self.tree,pos=pos)
     def asDoc(self, r):
         for i in self.body:
             i.asDoc(r)
         return r
+    def handleSubp(char):
+        if char == '_':
+            key = 'SUBSCRIPT'
+        else:
+            key = 'SUPERSCRIPT'
+        returnee = None
+        if(self.sub):
+            if(self.args.has_key(key)):
+                self.nargs += 1
+                self.args[self.nargs] = self.args[key]
+                del self.args[key]
+            else:
+                raise MacroError(('<%s>: %s recived a %s but has no %s'+
+                'argument')%(self.pos,self.name,char,key))
+        else:
+            if(self.nargs ==0):
+                returnee = ''.join(self.content)
+            else:
+                raise MacroError('<%s>: %s does not accept %s' %
+                (self.pos,self.name,key.lower()))
+    def addArgument(self,group,pos):
+        try:
+            argument = str(group)[1:-1]
+            for n in self.args[str(self.recv)]:
+                self.tree[n] = argument
+            self.nargs = self.nargs -1
+            self.recv +=1
+        except IndexError:
+            raise MacroError(('%s: Macro %s needs no more '+
+                'arguments')%(self.pos,self.name))
+    def end(self):
+        if not self.nargs == 0:
+            raise MacroError('%s: %s missing arguments'%(self.pos,self.name))
+        return self.body
+    def __repr__(self):
+        return self.name
+    def nArgs(self):
+        return self.nargs
 
 class Environment:
-    def __init__(self,name,desc,localcmds,nargs,defines,body):
+    def __init__(self,name,desc,localcmds,nargs,defines,body,tree,sub=None,sup=None,pos='0'):
         self.desc    = desc
         self.defines = defines
         self.nargs   = nargs
         self.body    = body
         self.localcmds = localcmds
+        self.recv = 0
+        self.name = name
+        self.sub = sub
+        self.sup = sup
+        self.pos = pos
+        self.args = {}
+        self.tree = tree
+        self.printed = False
+        for i in xrange(len(self.tree)):
+            node = self.tree[i]
+            if isinstance(node,Placeholder):
+                if self.args.has_key(node.arg):
+                    self.args[node.arg].append(i)
+                else:
+                    self.args[node.arg] = [i]
+    def nArgs(self):
+        return self.nargs
+    def printable(self):
+        if not self.printed:
+            try:
+                returnee = ''.join([self.tree[x] for x in (range(self.args['BODY'][0]))])
+                self.printed = True
+                return returnee
+            except IndexError:
+                raise MacroError(('<%s>:Environment %s does not have a {{BODY}}')
+                %(self.pos,self.name))
+        else:
+            return ''
+    def printend(self):
+        r = range(self.args['BODY'][0]+1,len(self.tree))
+        try:
+            return ''.join([self.tree[x] for x in r])
+        except IndexError:
+            #This cant happen
+            raise MacroError(('<%s>:Environment %s does not have a {{BODY}}')
+            %(self.pos,self.name))
+
+    def __repr__(self):
+        return self.name
+
     def asDoc(self, r):
         for i in self.body:
             i.asDoc(r)
         return r
+    def copy(self):
+        return Environment(self.name,self.desc,self.localcmds,self.nargs,self.defines,self.body,self.tree)
 
+    def addArgument(self,group,pos):
+        if self.nArgs()!=0:
+            try:
+                for place in self.args[self.recv]:
+                    self.tree[place] = group
+                self.recv +=1
+                self.args -=1
+            except: 
+                #print group
+                raise MacroError(('%s: <%s> to many arguments '+
+                'recieved')%(pos,self.name))
+        #We are adding to the body
+        else:
+            if len(self.tree) >2:
+                start = ''.join(self.tree[:-1])+group
+                self.tree = [start,self.tree[-1]]
+            else:
+                self.tree[0] +=group
+    def end(self):
+        returnee = ''
+        try:
+            returnee.join([self.tree[x] for x in
+            range(self.args['BODY'][0],len(self.args))])
+        except IndexError:
+            raise MacroError('<%s>: Enviroment %s failed'%
+            (self.pos,self.name))
+        return returnee
+        
 class EnvDict:
     def __init__(self,parent,d):
         self.__parent = parent
@@ -406,7 +565,6 @@ class ResolvedMacro:
             raise MacroError('%s: Missing macro argument for \\%s' % (self.pos,self.name))
 
 
-
 def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False,fixpos=None):
     """
     Given a list consisting of unresolved items (DelayedText, DelayedMacro,
@@ -424,7 +582,7 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
     """
     
     pit = PushIterator(lst)
-    log.debug('----------- BEG iter(%s)\n\t%s' % (id(pit),lst))
+    #log.debug('----i------- BEG iter(%s)\n\t%s' % (id(pit),lst))
 
     prev = None
     item = None
@@ -432,11 +590,9 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
         while pit:
             prev = item
             item = pit.next()
-
             ic = item.__class__
-            log.debug("iter = %s" % id(pit))
-            log.debug("eval %s" % repr(item))
-       
+            #log.debug("iter = %s" % id(pit))
+            #log.debug("eval %s" % repr(item))
             if keymode and ic in [DelayedSubScript, DelayedSuperScript]:
                 if ic is DelayedSubScript:
                     yield SAXEvText('_',item.pos)
@@ -579,13 +735,11 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
                                 # collect arguments for macro
                                 nxt = pit.peek()
                                 nc = nxt.__class__
-
                                 # we skip whitespace between macro and group
                                 # arguments, bit if we do not find an argument
                                 # we put back the whitespace.
                                 skipped_ws = []
-
-                                log.debug("DelayedMacro \\%s. Next: %s" % (item.name,nxt))
+                                #log.debug("DelayedMacro \\%s. Next: %s" % (item.name,nxt))
                                 if nc is DelayedGroup:
                                     if macro.requireArgs() > 0:
                                         macro.append(pit.next())
@@ -608,7 +762,6 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
                                             raise MacroError("%s: Macro '%s' does not accept superscript" % (item.pos,item.name))
                                         else:
                                             raise _MakeGroupException()
-                                    
                                     pit.next()
                                     if not pit:
                                         raise MacroError("%s: Missing argument for sub-/superscript" % item.pos)
@@ -664,7 +817,7 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
                         #if macronode.acceptsSuperscript() and macro.superscr is None:
                         #    raise MacroError("%s: Missing superscript arguments for macro '%s'" % (item.pos,item.name))
 
-                        log.debug('DelayedMacro: \\%s, args = %s' % (item.name,macro.args))
+                        #log.debug('DelayedMacro: \\%s, args = %s' % (item.name,macro.args))
                         #print macrodef.body
                         try:
                             for i in eval(macrodef.body,cmddict,macro.args,subscr,superscr):
@@ -719,7 +872,7 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
                     e.trace.append(item.pos)
                     raise
             elif ic is DelayedArgRef:
-                log.debug('DelayedArgRef : {{%s}}' % item.key )
+                #log.debug('DelayedArgRef : {{%s}}' % item.key )
                 key = item.key
                 if isinstance(key,int):
                     if args is None:
@@ -748,16 +901,16 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
                     else:
                         raise MacroError("%s: Invalid {{%s}} reference" % (item.pos,key))
                     
-                    log.debug('  items = %s' % r) 
+                    #log.debug('  items = %s' % r) 
                     
                     assert r is not None
                     for i in eval([r],cmddict,keymode=keymode):
-                        log.debug('  > %s' % i)
+                        #log.debug('  > %s' % i)
                         yield i.tr(item.pos)
             elif ic is DelayedLookup:
                 r = []
-                log.debug('DelayedLookup: %s' % item.content)
-                log.debug('               args = %s' % args)
+                #log.debug('DelayedLookup: %s' % item.content)
+                #log.debug('               args = %s' % args)
                 for i in eval(item.content,cmddict,args,subscr,superscr,body,keymode=True):
                     if i.__class__ is SAXEvText:
                         r.append(i.data)
@@ -765,7 +918,7 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
                         raise MacroError('%s: Only text is allowed in dictionary lookup' % i.pos)
                 key = ''.join(r)
                 try:
-                    log.debug("Dictionary key = '%s'" % key)
+                    #log.debug("Dictionary key = '%s'" % key)
                     yield SAXEvText(cmddict.dictLookup(key).value,item.pos)
                 except KeyError:
                     raise MacroError("%s: No dictionary entry for '%s'" % (item.pos,key))
@@ -773,9 +926,9 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
                 if keymode:
                     raise MacroError('%s: Element may not be used in text-only context' % item.pos)
                
-                log.debug('DelayedElement <%s>' % item.name)
-                log.debug('  Body : %d' % len(item.body))
-                log.debug('  Body = %s' % item.body)
+                #log.debug('DelayedElement <%s>' % item.name)
+                #log.debug('  Body : %d' % len(item.body))
+                #log.debug('  Body = %s' % item.body)
                 d = {}
                 for k,v in item.attrs.items():
                     r = []
@@ -788,11 +941,11 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
 
                 yield SAXEvStartTag(item.name,d,item.pos)
                 
-                log.debug('Eval <%s> content...' % item.name)
-                log.debug(' content = %s' % item.body)
+                #log.debug('Eval <%s> content...' % item.name)
+                #log.debug(' content = %s' % item.body)
                 for i in eval(item.body, cmddict, args,subscr,superscr,body,keymode=False):
                     yield i.tr(item.pos)
-                log.debug('End <%s> content.' % item.name)
+                #log.debug('End <%s> content.' % item.name)
                 
                 yield SAXEvEndTag(item.name,item.pos)
             elif ic is DelayedTableContent:
@@ -811,12 +964,222 @@ def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False
             else:
                 print '---------',ic
                 assert False
-        log.debug('-----------<<< END iter(%s)'  % id(pit))
+        #log.debug('-----------<<< END iter(%s)'  % id(pit))
     except AssertionError:
         if prev:
             print "  trace : prev @ %s" % prev.pos
         raise
 
+def closeStack(macrostack,stopClass,pos,name):
+    text = ''
+    while(macrostack):
+        top = macrostack.pop()
+        if(isinstance(top,stopClass)):
+            break
+        else:
+            try:
+                if top.nArgs()==0:
+                    text = text + ''.join(top.tree)
+                else:
+                    raise MacroError('%s:<%s> was closed preemptivly' %(pos,top.name))
+            except AttributeError:
+                raise MacroError('%s:while closing <%s> a unclosed group was'+
+                'encountered'%(pos,name))
+    return (text,macrostack)
 
-
-
+def handleText(cmddict,data,pos,table=False):
+    text = ''
+    cmdstack = []
+    macrostack = []
+    lastelement = None
+    macro_re = re.compile('|'.join([
+        r'\\(?P<env>begin|end)\s*\{(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\}',
+        r'\\(?P<macro>[a-zA-Z@][a-zA-Z0-9@]*|[:!\\_\^\{\}| ]|[~\'"`,.\-%#][a-zA-Z]?)',
+        r'(?P<group>[{}])',
+        r'(?P<subsuperscr>[_^])',
+        r'(?P<longdash>---*)', 
+        r'(?P<leftdquote>``)', 
+        r"(?P<rightdquote>'')", 
+        r'(?P<nbspace>~)',
+        r'(?P<newline>\n)'
+        ]))
+    p = 0
+    print "giraf"
+    print repr(data)
+    for o in macro_re.finditer(data):
+        #print repr(text)
+        #close the top element if the next isnt a ^ or _
+        if(not o.group('subsuperscr') and macrostack):
+            #print macrostack
+            while(macrostack and isinstance(macrostack[-1],Group) and
+            macrostack[-1].end):
+                top = macrostack.pop()
+                if(macrostack):
+                    macrostack[-1].addArgument(top,pos)
+                    print macrostack[-1].tree
+                else:
+                    text += top.content
+            if(isinstance(macrostack[-1],Environment) and
+                macrostack[-1].nArgs()==0):
+                text += macrostack[-1].printable()
+            if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
+                top = macrostack.pop()
+                text += ''.join(top.tree)
+            #print macrostack
+        #Slight misuse of try, this is meant to check if the text is inside a
+        #group
+        try:
+            if macrostack[-1].end:
+                if p < o.start(0):
+                    text += data[p:o.start(0)]
+        except IndexError:
+            if p < o.start(0):
+                text += data[p:o.start(0)]
+        except AttributeError:
+            pass
+        p= o.end(0)
+        #print repr(text)
+        #should check if the macro is in the __cmddict
+        if o.group('macro'):
+            name = o.group('macro')
+            try:
+                i = macrostack[-1] 
+                if isinstance(i,unicode):
+                    if i=="_" or i == "^":
+                        raise MacroError("%s:%s can't have macro on"+\
+                        "left hand side"%(pos,i))
+            except IndexError:
+                pass
+            assert name not in ['begin','']
+            if name == ':':
+                if table:
+                    #dgb("%s: New table row" % pos)
+                    try:
+                        self.started
+                    except AttributeError:
+                        self.started = True
+                else:
+                    raise MacroError('%s: Row syntax used outside a Table'%pos)
+            elif name == '!':
+                if table:
+                    try:
+                        if self.started:
+                            #dgb("%s: New table cell" % pos)
+                            pass
+                    except AttributeError:
+                        #dgb('%s: cstack = %s' % (pos,self.__cstack))
+                        raise MacroError('%s: Table syntax must start with a row \\:' % pos)
+                else:
+                    raise MacroError('%s: \! syntax used outside a Table'%pos)
+            else:
+                try:
+                    macronode = cmddict[name].macro
+                    macronode = macronode.copy(pos)
+                    macrostack.append(macronode)
+                except KeyError:
+                    raise MacroError('%s: Unknown macro "%s"' % (pos,name))
+                    
+        elif o.group('env'):
+            name = o.group('envname')
+            #print name
+            if o.group('env') == 'begin':
+                #emitOpen(DelayedEnvironment(name,pos))
+                try:
+                    envnode = cmddict[name]
+                    d = envnode.getDefs()
+                    envnode = envnode.env.copy()
+                    cmdstack.append(cmddict)
+                    cmddict = CommandDict(cmddict) 
+                    cmddict.update(d.getCmdDict())
+                    macrostack.append(envnode)
+                except KeyError:
+                    raise MacroError('%s: Unknown environment\
+                    "%s"'%(pos,name))
+            else:
+                if (macrostack and macrostack[-1].name ==
+                    name):
+                    cmddict = cmdstack.pop()
+                    envdone = macrostack.pop()
+                    if envdone.nArgs()==0:
+                        text = text + ''.join(envdone.printend())
+                    else:
+                        raise MacroError(('%s: <%s> ended '+
+                            'before getting enough arguments')
+                            %(self.pos,name))
+                else:
+                    raise MacroError(('%s: <%s> end environment'+
+                    'mismatch')%(pos,name))
+        elif o.group('group'):
+            #Either a start or an end or a group
+            tok = o.group('group')
+            if tok == '{': 
+                #self.__emitOpen(DelayedGroup(pos))
+                macrostack.append(Group(p))
+            else:
+                top = macrostack[-1]
+                if(isinstance(top,Group)):
+                    top.end = True
+                    content = data[top.start:p-1]
+                    top.content = content
+                else:
+                    raise MacroError("%s: Umatched group close"%pos)
+        elif o.group('subsuperscr'):
+            char = o.group('subsuperscr')
+            if len(macrostack)>0:
+                macrostack[-1].handleSubp(char)
+                if(data[p+1]!='{'):
+                    p +=1
+                    macrostack[-1].addArgument(data[p],pos)
+            else:
+                raise MacroError("<%s-%s>:Trying to apply %s to an"\
+                +"empty argument"%(start,pos,char))
+        elif   o.group('longdash') is not None:
+            if   o.group('longdash') == '--':
+                text += u'\u2013'
+                #self.__emitItem(DelayedText(u'\u2013',pos)) # &ndash;
+            elif o.group('longdash') == '---':
+                text += u'\u2014'
+                #self.__emitItem(DelayedText(u'\u2014',pos)) # &ndash;
+                pass
+            else:
+                text += o.group('longdash')
+                #self.__emitItem(DelayedText(o.group('longdash'),pos)) # &ndash;
+        elif o.group('leftdquote') is not None:
+            #self.__emitItem(DelayedText(u'\u201c',pos)) # &ldquote
+            text += u'\u201c'
+            pass
+        elif o.group('rightdquote') is not None:
+            #self.__emitItem(DelayedText(u'\u201d',pos)) # &rdquote
+            text += u'\u201d'
+        elif o.group('nbspace'):
+            #self.__emitItem(DelayedText(u'\xa0',pos)) # &nbsp;
+            text += u'\xa0'
+        elif o.group('newline'):
+            #self.__emitItem(DelayedText(u' \n',pos))
+            text += u' \n '
+            pos = Pos(pos.filename,pos.line + 1)
+        else:
+            #print 'GOT: "%s"' % o.group(0)
+            assert 0
+    if macrostack:
+        while(macrostack and isinstance(macrostack[-1],Group) and
+        macrostack[-1].end):
+            top = macrostack.pop()
+            if(macrostack):
+                macrostack[-1].addArgument(top,pos)
+                print macrostack[-1].tree
+            else:
+                text += top.content
+        if(isinstance(macrostack[-1],Environment) and
+            macrostack[-1].nArgs()==0):
+            text += macrostack[-1].printable()
+        if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
+            top = macrostack.pop()
+            text += ''.join(top.tree)
+    if p < len(data):
+        #print "NODE : <%s>" % self.nodeName
+        #print len(self.__cstack),self.__cstack[-1].data
+        #print repr(self.__cstack[-1])
+        #self.__cstack[-1].append(DelayedText(data[p:],pos))
+        text += data[p:]
+    return (text,pos)
