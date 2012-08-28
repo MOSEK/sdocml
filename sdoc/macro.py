@@ -1004,19 +1004,14 @@ def handleText(cmddict,data,pos,table=False):
         r'(?P<newline>\n)'
         ]))
     p = 0
-    print "giraf"
-    print repr(data)
     for o in macro_re.finditer(data):
-        #print repr(text)
         #close the top element if the next isnt a ^ or _
         if(not o.group('subsuperscr') and macrostack):
-            #print macrostack
             while(macrostack and isinstance(macrostack[-1],Group) and
             macrostack[-1].end):
                 top = macrostack.pop()
                 if(macrostack):
                     macrostack[-1].addArgument(top,pos)
-                    print macrostack[-1].tree
                 else:
                     text += top.content
             if(isinstance(macrostack[-1],Environment) and
@@ -1025,7 +1020,6 @@ def handleText(cmddict,data,pos,table=False):
             if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
                 top = macrostack.pop()
                 text += ''.join(top.tree)
-            #print macrostack
         #Slight misuse of try, this is meant to check if the text is inside a
         #group
         try:
@@ -1038,7 +1032,6 @@ def handleText(cmddict,data,pos,table=False):
         except AttributeError:
             pass
         p= o.end(0)
-        #print repr(text)
         #should check if the macro is in the __cmddict
         if o.group('macro'):
             name = o.group('macro')
@@ -1081,7 +1074,6 @@ def handleText(cmddict,data,pos,table=False):
                     
         elif o.group('env'):
             name = o.group('envname')
-            #print name
             if o.group('env') == 'begin':
                 #emitOpen(DelayedEnvironment(name,pos))
                 try:
@@ -1167,7 +1159,6 @@ def handleText(cmddict,data,pos,table=False):
             top = macrostack.pop()
             if(macrostack):
                 macrostack[-1].addArgument(top,pos)
-                print macrostack[-1].tree
             else:
                 text += top.content
         if(isinstance(macrostack[-1],Environment) and
