@@ -399,19 +399,13 @@ class Node:
         #self.__data = ""
         if not data:
             return
-        print "----data----" 
-        print repr(data)
-        print "----data----" 
         assert pos is not  None
         if  self.macroMode in [ MacroMode.Invalid, MacroMode.NoExpand ]:
             #dgb('<%s>.handleRawText: %s' % (self.nodeName,repr(data)))
-            print "appending directly"
             self.append(data)
             #self.handleRawText(data,pos)
         elif self.macroMode in [ MacroMode.Text, MacroMode.Math ]:
-            print "need to evaluate"
             (data,pos) = macro.handleText(self.__cmddict,data,pos)
-            print repr(data)
             self.append(data)
             #self.handleRawText(data,pos)
         else:
@@ -1813,8 +1807,6 @@ class _SectionNode(_SectionBaseElement):
         return self.__head
 
     def toXML(self,doc,node=None):
-        for i in self:
-            print repr(i)
         if node is None:
             node = doc.createElement(self.nodeName)
             if self.hasAttr('class'):
