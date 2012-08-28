@@ -393,7 +393,6 @@ class Node:
         return self.__cmddict.items()
 
     def evaluate(self,name,pos):
-        #TODO: handle all the special macro cases
         start = pos
         data = self.__data
         #self.__data = ""
@@ -564,55 +563,6 @@ class Node:
                 node.setAttribute(k,v)
     def end(self,pos):
         pass
-    #    while len(self.__cstack) > 1 and self.__cstack[-1].data.autoClose:
-    #        self.__cstack.pop()
-    #    if len(self.__cstack) != 1:
-    #        print MacroError("%s: Mismatched end element" % pos)
-    #        print "len = %d" % len(self.__cstack)
-    #        print self.__cstack[-1].data.__class__.__name__
-    #        #assert 0
-    #        raise MacroError("%s: Mismatched end element" % pos)
-    #    #self.__flushCStack()
-    #    #dgb('End this <%s> @ %s' % (self.nodeName,pos))
-
-    #def endOfElement(self,pos):
-    #    """
-    #    Called at the end of the scope.
-    #    """
-    #    assert 0
-    #    if not self.__closed:
-    #        if self.__fakeopen > 0:
-    #            self.__fakeopen -= 1
-    #        else:
-    #            if len(self.__cstack) == 3 and\
-    #               isinstance(self.__cstack[-1],ContentManager) and \
-    #               isinstance(self.__cstack[-1].Managed(),LazyTableCell):
-    #               item = self.__cstack.pop()
-    #               item.flush()
-    #               self.__cstack[-1].append(item.Managed())
-    #               
-    #               item = self.__cstack.pop()
-    #               item.flush()
-    #               self.__cstack[-1].append(item.Managed())
-
-    #            maybeid = '[no]'
-    #            if self.hasAttr ('id'):
-    #                maybeid = self.getAttr('id')
-
-#/g'##### Close node <%s id="%s"> %d' % (self.nodeName,maybeid,id(self)))
-    #            if 0:
-    #                import traceback
-    #                traceback.print_stack()
-    #            
-    #            if len(self.__cstack) != 1:
-#/g'#SCOPE STACK:',self.__cstack)
-    #                raise NodeError('Unended scope or macro at %s' % (pos))
-    #            elif isinstance(self.__cstack[-1],ContentManager):
-    #                self.__cstack[-1].flush()
-    #                self.__cstack.pop()
-    #            self.__closed = True
-
-    #            self.end(pos)
 
     def paragraphifyXML(self,lst,doc,node):
         # generate paragraphs 
