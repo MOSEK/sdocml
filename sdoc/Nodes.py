@@ -27,7 +27,7 @@ import macro
 from macro import DelayedText, DelayedMacro,DelayedEnvironment,DelayedSubScript, DelayedSuperScript, DelayedElement,DelayedGroup,DelayedTableContent,ResolvedMacro,Placeholder,Group,handleText
 
 log = logging.getLogger("SDocML Expander")
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.ERROR)
 msg = log.info
 
 ERROR_OCCURRED = False # Not nice, but it works.
