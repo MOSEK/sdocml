@@ -499,33 +499,6 @@ class Node:
                 except TypeError:
                     raise NodeError('%s: Failed to append item to node <%s>'%
                     (self.pos,self.nodeName))
-                '''
-                try:
-                    #debug('Check item: %s', repr(item))
-                    if self.__citer(item):
-                        try:
-                            self.__content.append(item)
-                        except TypeError:
-                            raise
-                    else:
-                        #print repr(self.__citer)
-                        #print self.contIter
-                        if isinstance(item,unicode):
-                            pos = self.pos
-                            raise NodeError('%s: Text not allowed in <%s>' % (self.pos,self.nodeName))
-                        else: 
-                            pos = item.pos
-                            raise NodeError('%s: Element <%s> not allowed in <%s>' % (item.pos,item.nodeName,self.nodeName))
-                except Iters.ContentIteratorError:
-                    if isinstance(item,unicode):
-                        pos = self.pos
-                        raise NodeError('%s: Does not accept text in <%s>' % (self.pos, self.nodeName))
-                    else:
-                        pos = item.pos
-                        raise NodeError('%s: Does not accept <%s> in <%s>' % (item.pos, item.nodeName,self.nodeName))
-                except:
-                    raise
-                '''
         else:
             print item,repr(item)
             #assert 0
