@@ -24,7 +24,8 @@ import re
 import logging
 
 import macro
-from macro import DelayedText, DelayedMacro,DelayedEnvironment,DelayedSubScript, DelayedSuperScript, DelayedElement,DelayedGroup,DelayedTableContent,ResolvedMacro,Placeholder,Group,handleText
+from macro import DelayedText,
+DelayedMacro,DelayedEnvironment,DelayedSubScript, DelayedSuperScript, DelayedElement,DelayedGroup,DelayedTableContent,ResolvedMacro,Placeholder,Group,MacroParser
 
 log = logging.getLogger("SDocML Expander")
 log.setLevel(logging.ERROR)
@@ -395,18 +396,16 @@ class Node:
     def evaluate(self,name,pos):
         start = pos
         data = self.__data
-        #self.__data = ""
+        self.__data = ""
         if not data:
             return
         assert pos is not  None
         if  self.macroMode in [ MacroMode.Invalid, MacroMode.NoExpand ]:
             #dgb('<%s>.handleRawText: %s' % (self.nodeName,repr(data)))
             self.append(data)
-            #self.handleRawText(data,pos)
         elif self.macroMode in [ MacroMode.Text, MacroMode.Math ]:
             (data,pos) = macro.handleText(self.__cmddict,data,pos)
             self.append(data)
-            #self.handleRawText(data,pos)
         else:
             assert 0 
             
@@ -414,26 +413,9 @@ class Node:
         """
         End current child element.
         """
-        #print "END :: <%s> @ %s--%s" % (self.nodeName,self.pos,pos)
-        #dbg('<%s> ended with data: %s'%(name,self.__content))
-        #assert len(self.__cstack) > 1
-        #top = self.__cstack.pop().data
-        
-        #if top.nodeName != name:    
-        #    raise MacroError('%s: Mismatched end tag </%s>' % (pos,name))
-        #if isinstance(top,Node):
-        #    pass
-        #elif isinstance(top,macro.DelayedElement) and top.name == name:
-        #    pass
-        #else:
-        #    assert 0
+        pass
 
     def startElement(self,name,attrs,pos):
-        #if not len(self.__cstack) == 1:
-        #    print "@@@@@ <%s> @ %s in <%s> @ %s" % (name,pos,self.nodeName,self.pos)
-        #    print "self.__cstack =",self.__cstack
-        #    assert 0
-        #dbg('startElement: %s' % name)
         try:
             nodecon = self.__nodeDict[name]
         except KeyError:
@@ -448,20 +430,6 @@ class Node:
     def startChildElement(self,name,attrs,pos):
         dbg('startChildElement: %s' % name)
         dbg(attrs)
-        #if len(self.__cstack) == 1:
-        #    #dgb("--- BEG FLUSH SCOPE (%s)" % self.nodeName)
-        #    self.__flushCStack()
-        #    #dgb("--- END FLUSH SCOPE (%s)" % self.nodeName)
-        #elif name in ['section','sdocml','head']:
-        #    raise NodeError('%s: <%s> may not be used in macros' % (pos,name))
-        #if len(self.__cstack) > 1: # currently inside an \begin{x}...\end{x} environment or a { ... } group.
-        #    #dgb('(%s) Delayed element <%s>' % (self.nodeName,name))
-        #    #dgb('<%s>.__cstack = %s' % (self.nodeName, self.__cstack))
-        #    dattrs = dict([ (k,[ DelayedText(v,pos) ]) for k,v in attrs.items()])
-        #    node = DelayedElement(name,dattrs,pos)
-        #    self.__emitOpen(node)
-        #else:
-        #TODO verify this works
         try:
             nodecon = self.__nodeDict[name]
         except KeyError:
