@@ -202,6 +202,9 @@ class XList:
         self.data = l or []
         self.__offset = 0
         self.__last = len(self.data)
+    def __repr__(self):
+        return repr(self.data)
+            
     def __len__(self): return self.__last - self.__offset
     def __nonzero__(self): return len(self) > 0
     def __getitem__(self,idx):

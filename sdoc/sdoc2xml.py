@@ -37,8 +37,6 @@ def makemacroref(outfile,docRoot,title):
     envs.sort(lambda lhs,rhs: cmp(lhs.getAttr('m'),rhs.getAttr('m')))
     defs = zip(defs,range(len(defs)))
     envs = zip(envs,range(len(envs)))
-
-   
     if defs: 
         deftabw = min(len(defs),8)
          

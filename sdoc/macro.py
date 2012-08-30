@@ -295,8 +295,6 @@ class DelayedElement(_DelayedItem):
         pass
     def endThisElement(self,name,pos):
         pass
-    def handleText(self,data,pos):
-        self.body.append(DelayedUnexpandedText(data,pos))
     def __iter__(self):
         return iter(self.body)
     def extend(self,items):
@@ -987,26 +985,178 @@ def closeStack(macrostack,stopClass,pos,name):
                 'encountered'%(pos,name))
     return (text,macrostack)
 
-def handleText(cmddict,data,pos,table=False):
-    text = ''
-    cmdstack = []
-    macrostack = []
-    lastelement = None
-    macro_re = re.compile('|'.join([
-        r'\\(?P<env>begin|end)\s*\{(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\}',
-        r'\\(?P<macro>[a-zA-Z@][a-zA-Z0-9@]*|[:!\\_\^\{\}| ]|[~\'"`,.\-%#][a-zA-Z]?)',
-        r'(?P<group>[{}])',
-        r'(?P<subsuperscr>[_^])',
-        r'(?P<longdash>---*)', 
-        r'(?P<leftdquote>``)', 
-        r"(?P<rightdquote>'')", 
-        r'(?P<nbspace>~)',
-        r'(?P<newline>\n)'
-        ]))
-    p = 0
-    for o in macro_re.finditer(data):
-        #close the top element if the next isnt a ^ or _
-        if(not o.group('subsuperscr') and macrostack):
+class MacroParser:
+    def ___init__(self):
+        self.__macrostack = []
+        self.__cmdstack = []
+
+    def handleText(cmddict,data,pos,table=False):
+        text = ''
+        macro_re = re.compile('|'.join([
+            r'\\(?P<env>begin|end)\s*\{(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\}',
+            r'\\(?P<macro>[a-zA-Z@][a-zA-Z0-9@]*|[:!\\_\^\{\}| ]|[~\'"`,.\-%#][a-zA-Z]?)',
+            r'(?P<group>[{}])',
+            r'(?P<subsuperscr>[_^])',
+            r'(?P<longdash>---*)', 
+            r'(?P<leftdquote>``)', 
+            r"(?P<rightdquote>'')", 
+            r'(?P<nbspace>~)',
+            r'(?P<newline>\n)'
+            ]))
+        p = 0
+        for o in macro_re.finditer(data):
+            #close the top element if the next isnt a ^ or _
+            print macrostack
+            if(not o.group('subsuperscr') and macrostack):
+                while(macrostack and isinstance(macrostack[-1],Group) and
+                macrostack[-1].end):
+                    top = macrostack.pop()
+                    if(macrostack):
+                        macrostack[-1].addArgument(top,pos)
+                    else:
+                        text += top.content
+                if(isinstance(macrostack[-1],Environment) and
+                    macrostack[-1].nArgs()==0):
+                    text += macrostack[-1].printable()
+                if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
+                    top = macrostack.pop()
+                    text += ''.join(top.tree)
+            #Slight misuse of try, this is meant to check if the text is inside a
+            #group
+            try:
+                if macrostack[-1].end:
+                    if p < o.start(0):
+                        text += data[p:o.start(0)]
+            except IndexError:
+                if p < o.start(0):
+                    text += data[p:o.start(0)]
+            except AttributeError:
+                pass
+            p= o.end(0)
+            print macrostack
+            print cmddict
+            #should check if the macro is in the __cmddict
+            if o.group('macro'):
+                name = o.group('macro')
+                try:
+                    i = macrostack[-1] 
+                    if isinstance(i,unicode):
+                        if i=="_" or i == "^":
+                            raise MacroError("%s:%s can't have macro on"+\
+                            "left hand side"%(pos,i))
+                except IndexError:
+                    pass
+                assert name not in ['begin','']
+                if name == ':':
+                    if table:
+                        #dgb("%s: New table row" % pos)
+                        try:
+                            self.started
+                        except AttributeError:
+                            self.started = True
+                    else:
+                        raise MacroError('%s: Row syntax used outside a Table'%pos)
+                elif name == '!':
+                    if table:
+                        try:
+                            if self.started:
+                                #dgb("%s: New table cell" % pos)
+                                pass
+                        except AttributeError:
+                            #dgb('%s: cstack = %s' % (pos,self.__cstack))
+                            raise MacroError('%s: Table syntax must start with a row \\:' % pos)
+                    else:
+                        raise MacroError('%s: \! syntax used outside a Table'%pos)
+                else:
+                    try:
+                        macronode = cmddict[name].macro
+                        macronode = macronode.copy(pos)
+                        macrostack.append(macronode)
+                    except KeyError:
+                        raise MacroError('%s: Unknown macro "%s"' % (pos,name))
+                        
+            elif o.group('env'):
+                name = o.group('envname')
+                if o.group('env') == 'begin':
+                    #emitOpen(DelayedEnvironment(name,pos))
+                    try:
+                        envnode = cmddict[name]
+                        d = envnode.getDefs()
+                        envnode = envnode.env.copy()
+                        cmdstack.append(cmddict)
+                        cmddict = CommandDict(cmddict) 
+                        cmddict.update(d.getCmdDict())
+                        macrostack.append(envnode)
+                    except KeyError:
+                        raise MacroError('%s: Unknown environment\
+                        "%s"'%(pos,name))
+                else:
+                    if (macrostack and macrostack[-1].name ==
+                        name):
+                        cmddict = cmdstack.pop()
+                        envdone = macrostack.pop()
+                        if envdone.nArgs()==0:
+                            text = text + ''.join(envdone.printend())
+                        else:
+                            raise MacroError(('%s: <%s> ended '+
+                                'before getting enough arguments')
+                                %(self.pos,name))
+                    else:
+                        raise MacroError(('%s: <%s> end environment'+
+                        'mismatch')%(pos,name))
+            elif o.group('group'):
+                #Either a start or an end or a group
+                tok = o.group('group')
+                if tok == '{': 
+                    #self.__emitOpen(DelayedGroup(pos))
+                    macrostack.append(Group(p))
+                else:
+                    top = macrostack[-1]
+                    if(isinstance(top,Group)):
+                        top.end = True
+                        content = data[top.start:p-1]
+                        top.content = content
+                    else:
+                        raise MacroError("%s: Umatched group close"%pos)
+            elif o.group('subsuperscr'):
+                char = o.group('subsuperscr')
+                if len(macrostack)>0:
+                    macrostack[-1].handleSubp(char)
+                    if(data[p+1]!='{'):
+                        p +=1
+                        macrostack[-1].addArgument(data[p],pos)
+                else:
+                    raise MacroError("<%s-%s>:Trying to apply %s to an"\
+                    +"empty argument"%(start,pos,char))
+            elif   o.group('longdash') is not None:
+                if   o.group('longdash') == '--':
+                    text += u'\u2013'
+                    #self.__emitItem(DelayedText(u'\u2013',pos)) # &ndash;
+                elif o.group('longdash') == '---':
+                    text += u'\u2014'
+                    #self.__emitItem(DelayedText(u'\u2014',pos)) # &ndash;
+                    pass
+                else:
+                    text += o.group('longdash')
+                    #self.__emitItem(DelayedText(o.group('longdash'),pos)) # &ndash;
+            elif o.group('leftdquote') is not None:
+                #self.__emitItem(DelayedText(u'\u201c',pos)) # &ldquote
+                text += u'\u201c'
+                pass
+            elif o.group('rightdquote') is not None:
+                #self.__emitItem(DelayedText(u'\u201d',pos)) # &rdquote
+                text += u'\u201d'
+            elif o.group('nbspace'):
+                #self.__emitItem(DelayedText(u'\xa0',pos)) # &nbsp;
+                text += u'\xa0'
+            elif o.group('newline'):
+                #self.__emitItem(DelayedText(u' \n',pos))
+                text += u' \n '
+                pos = Pos(pos.filename,pos.line + 1)
+            else:
+                #print 'GOT: "%s"' % o.group(0)
+                assert 0
+        if macrostack:
             while(macrostack and isinstance(macrostack[-1],Group) and
             macrostack[-1].end):
                 top = macrostack.pop()
@@ -1020,157 +1170,10 @@ def handleText(cmddict,data,pos,table=False):
             if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
                 top = macrostack.pop()
                 text += ''.join(top.tree)
-        #Slight misuse of try, this is meant to check if the text is inside a
-        #group
-        try:
-            if macrostack[-1].end:
-                if p < o.start(0):
-                    text += data[p:o.start(0)]
-        except IndexError:
-            if p < o.start(0):
-                text += data[p:o.start(0)]
-        except AttributeError:
-            pass
-        p= o.end(0)
-        #should check if the macro is in the __cmddict
-        if o.group('macro'):
-            name = o.group('macro')
-            try:
-                i = macrostack[-1] 
-                if isinstance(i,unicode):
-                    if i=="_" or i == "^":
-                        raise MacroError("%s:%s can't have macro on"+\
-                        "left hand side"%(pos,i))
-            except IndexError:
-                pass
-            assert name not in ['begin','']
-            if name == ':':
-                if table:
-                    #dgb("%s: New table row" % pos)
-                    try:
-                        self.started
-                    except AttributeError:
-                        self.started = True
-                else:
-                    raise MacroError('%s: Row syntax used outside a Table'%pos)
-            elif name == '!':
-                if table:
-                    try:
-                        if self.started:
-                            #dgb("%s: New table cell" % pos)
-                            pass
-                    except AttributeError:
-                        #dgb('%s: cstack = %s' % (pos,self.__cstack))
-                        raise MacroError('%s: Table syntax must start with a row \\:' % pos)
-                else:
-                    raise MacroError('%s: \! syntax used outside a Table'%pos)
-            else:
-                try:
-                    macronode = cmddict[name].macro
-                    macronode = macronode.copy(pos)
-                    macrostack.append(macronode)
-                except KeyError:
-                    raise MacroError('%s: Unknown macro "%s"' % (pos,name))
-                    
-        elif o.group('env'):
-            name = o.group('envname')
-            if o.group('env') == 'begin':
-                #emitOpen(DelayedEnvironment(name,pos))
-                try:
-                    envnode = cmddict[name]
-                    d = envnode.getDefs()
-                    envnode = envnode.env.copy()
-                    cmdstack.append(cmddict)
-                    cmddict = CommandDict(cmddict) 
-                    cmddict.update(d.getCmdDict())
-                    macrostack.append(envnode)
-                except KeyError:
-                    raise MacroError('%s: Unknown environment\
-                    "%s"'%(pos,name))
-            else:
-                if (macrostack and macrostack[-1].name ==
-                    name):
-                    cmddict = cmdstack.pop()
-                    envdone = macrostack.pop()
-                    if envdone.nArgs()==0:
-                        text = text + ''.join(envdone.printend())
-                    else:
-                        raise MacroError(('%s: <%s> ended '+
-                            'before getting enough arguments')
-                            %(self.pos,name))
-                else:
-                    raise MacroError(('%s: <%s> end environment'+
-                    'mismatch')%(pos,name))
-        elif o.group('group'):
-            #Either a start or an end or a group
-            tok = o.group('group')
-            if tok == '{': 
-                #self.__emitOpen(DelayedGroup(pos))
-                macrostack.append(Group(p))
-            else:
-                top = macrostack[-1]
-                if(isinstance(top,Group)):
-                    top.end = True
-                    content = data[top.start:p-1]
-                    top.content = content
-                else:
-                    raise MacroError("%s: Umatched group close"%pos)
-        elif o.group('subsuperscr'):
-            char = o.group('subsuperscr')
-            if len(macrostack)>0:
-                macrostack[-1].handleSubp(char)
-                if(data[p+1]!='{'):
-                    p +=1
-                    macrostack[-1].addArgument(data[p],pos)
-            else:
-                raise MacroError("<%s-%s>:Trying to apply %s to an"\
-                +"empty argument"%(start,pos,char))
-        elif   o.group('longdash') is not None:
-            if   o.group('longdash') == '--':
-                text += u'\u2013'
-                #self.__emitItem(DelayedText(u'\u2013',pos)) # &ndash;
-            elif o.group('longdash') == '---':
-                text += u'\u2014'
-                #self.__emitItem(DelayedText(u'\u2014',pos)) # &ndash;
-                pass
-            else:
-                text += o.group('longdash')
-                #self.__emitItem(DelayedText(o.group('longdash'),pos)) # &ndash;
-        elif o.group('leftdquote') is not None:
-            #self.__emitItem(DelayedText(u'\u201c',pos)) # &ldquote
-            text += u'\u201c'
-            pass
-        elif o.group('rightdquote') is not None:
-            #self.__emitItem(DelayedText(u'\u201d',pos)) # &rdquote
-            text += u'\u201d'
-        elif o.group('nbspace'):
-            #self.__emitItem(DelayedText(u'\xa0',pos)) # &nbsp;
-            text += u'\xa0'
-        elif o.group('newline'):
-            #self.__emitItem(DelayedText(u' \n',pos))
-            text += u' \n '
-            pos = Pos(pos.filename,pos.line + 1)
-        else:
-            #print 'GOT: "%s"' % o.group(0)
-            assert 0
-    if macrostack:
-        while(macrostack and isinstance(macrostack[-1],Group) and
-        macrostack[-1].end):
-            top = macrostack.pop()
-            if(macrostack):
-                macrostack[-1].addArgument(top,pos)
-            else:
-                text += top.content
-        if(isinstance(macrostack[-1],Environment) and
-            macrostack[-1].nArgs()==0):
-            text += macrostack[-1].printable()
-        if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
-            top = macrostack.pop()
-            text += ''.join(top.tree)
-    if p < len(data):
-        #print "NODE : <%s>" % self.nodeName
-        #print len(self.__cstack),self.__cstack[-1].data
-        #print repr(self.__cstack[-1])
-        #self.__cstack[-1].append(DelayedText(data[p:],pos))
-        text += data[p:]
-    return (text,pos)
+        if p < len(data):
+            #print "NODE : <%s>" % self.nodeName
+            #print len(self.__cstack),self.__cstack[-1].data
+            #print repr(self.__cstack[-1])
+            #self.__cstack[-1].append(DelayedText(data[p:],pos))
+            text += data[p:]
+        return (text,pos,macrostack)
