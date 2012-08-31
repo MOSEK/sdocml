@@ -24,12 +24,12 @@ import re
 import logging
 
 import macro
-from macro import DelayedText,
-DelayedMacro,DelayedEnvironment,DelayedSubScript, DelayedSuperScript, DelayedElement,DelayedGroup,DelayedTableContent,ResolvedMacro,Placeholder,Group,MacroParser
+from macro import DelayedText, DelayedMacro,DelayedEnvironment,DelayedSubScript, DelayedSuperScript, DelayedElement,DelayedGroup,DelayedTableContent,ResolvedMacro,Placeholder,Group,MacroParser
 
 log = logging.getLogger("SDocML Expander")
 log.setLevel(logging.ERROR)
 msg = log.info
+
 
 ERROR_OCCURRED = False # Not nice, but it works.
 def err(msg):
@@ -291,8 +291,7 @@ class Node:
         self.__nodeDict = nodeDict
         self.__attrs    = {}
         self.__data     = ""
-        self.__macrostack = []
-        self.__cmdstack = []
+        self.__macroHandler = None
 
         class NodeContentChecker(CheckedAppend):
             def __init__(self,data):
@@ -404,7 +403,7 @@ class Node:
             #dgb('<%s>.handleRawText: %s' % (self.nodeName,repr(data)))
             self.append(data)
         elif self.macroMode in [ MacroMode.Text, MacroMode.Math ]:
-            (data,pos) = macro.handleText(self.__cmddict,data,pos)
+            (data,pos) = self.__macroHandler.handleText(self.__cmddict,data,pos)
             self.append(data)
         else:
             assert 0 
@@ -426,6 +425,8 @@ class Node:
             print "Failed to instantiate: <%s>" % name
             raise
         return node 
+    def macroHandler(self,macrohandler):
+        self.__macroHandler = macrohandler
 
     def startChildElement(self,name,attrs,pos):
         dbg('startChildElement: %s' % name)
@@ -440,6 +441,9 @@ class Node:
             print "Failed to instantiate: <%s>" % name
             raise
         #node = self.startElement(name,attrs,pos)
+        if self.__macroHandler == None:
+            self.__macroHandler = MacroParser()
+        node.macroHandler(self.__macroHandler)
         self.append(node)
         return node
 
@@ -3032,24 +3036,27 @@ class _RootNode:
         self.__nodeDict      = nodeDict
         self.__parent        = parent
         self.__manager       = manager
+        self.__macroHandler = None
         assert isinstance(nodeDict,dict)
         ## Create a new XML parser and read the fileanme 
     def startChildElement(self,name,attrs,pos):
         if name == self.rootElement:
             if self.documentElement is not None:
                 raise NodeError('Duplicate root element <%s> at %s' % (name,self.rootElementClass.nodeName,pos))
+            if self.__macroHandler == None:
+                self.__macroHandler = MacroParser()
             self.documentElement = self.rootElementClass(self.__manager,
                                                          self.__parent,
                                                          self.__cmddict, 
                                                          self.__nodeDict, 
                                                          attrs, 
                                                          pos)
+            self.documentElement.macroHandler(self.__macroHandler)
             return self.documentElement
         else:
             raise NodeError('Invalid element <%s>. Expected <%s> at %s' % (name,self.rootElement,pos))
     def endChildElement(self,name,pos):
         pass
-
 
     def handleText(self,data,pos):
         pass
@@ -3093,10 +3100,6 @@ class ExternalSectionRoot(_RootNode):
         # included the section to override attributes from the element in the
         # included file. We merge the attributes:
 
-        #print "----- %s" % pos.filename
-        #print "----------- Primary   attrs : %s" % self.__attrs.keys()
-        #print "----------- Secondary attrs : %s" % attrs.keys()
-
         attrd = {}
         attrd.update(self.__attrs)
         
@@ -3111,12 +3114,6 @@ class ExternalSectionRoot(_RootNode):
             elif not attrd.has_key(k):
               attrd[k] = attrs[k]
 
-        #print "############## MERGE ATTRIBUTES:"
-        #print "# Including section: \n\t%s" % '\n\t'.join([ ('%s : %s' % i) for i in self.__attrs.items() ])
-        #print "# Included section: \n\t%s" % '\n\t'.join([ ('%s : %s' % i) for i in attrs.items() ])
-        
-
-        
         return _RootNode.startChildElement(self,name,attrd,pos)
 
 class ExternalDefineRoot(_RootNode):
