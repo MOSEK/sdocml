@@ -11,6 +11,7 @@ import xml.sax.handler
 import urlparse 
 import os
 import logging
+from macro import MacroParser
 
 log = logging.getLogger("EVHandler")
 log.setLevel(logging.ERROR)
@@ -165,6 +166,7 @@ class AlternativeSAXHandler(xml.sax.handler.ContentHandler):
 
         self.__textline = None
         self.__storedtext = []
+        self.__macrohandler = MacroParser()
 
 
     def line(self): return self.__locator.getLineNumber()
@@ -221,12 +223,6 @@ class AlternativeSAXHandler(xml.sax.handler.ContentHandler):
                 self.__nodestack[-1].endChildElement(name,self.pos())
             self.__indent -= 1
     def flushText(self):
-        #try:
-        #    print self.pos()
-        #    print self.__nodestack
-        #except :
-        #    pass
-        #    print "failed"
         if self.__storedtext:
             #print "Text being flushed"
             topnode = self.__nodestack[-1]
