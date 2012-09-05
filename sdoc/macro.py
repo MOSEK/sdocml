@@ -563,410 +563,6 @@ class ResolvedMacro:
             raise MacroError('%s: Missing macro argument for \\%s' % (self.pos,self.name))
 
 
-def eval(lst,cmddict,args=None,subscr=None,superscr=None,body=None,keymode=False,fixpos=None):
-    """
-    Given a list consisting of unresolved items (DelayedText, DelayedMacro,
-    DelayedEnvironment, DelayedGroup, etc), perform recursive evaluation. 
-
-    The function evaluates to an iterator returning a list of SAXEvents.
-
-    (lst)       List of delayed items.
-    (cmddict)   Current macro dictionary
-    (args)      List of macro arguments or None of none is available.
-    (subscr)    Subscript group or None, if not defined.
-    (superscr)  Superscript group or None, if not defined.
-    (body)      List of delayed items defining the body of an environment, or None if unedfined.
-    (keymode)   (True|False) True means that we try to evaluate to a string, so '_' and '^' are ignored except when they are arguments for a macro.
-    """
-    
-    pit = PushIterator(lst)
-    #log.debug('----i------- BEG iter(%s)\n\t%s' % (id(pit),lst))
-
-    prev = None
-    item = None
-    try:
-        while pit:
-            prev = item
-            item = pit.next()
-            ic = item.__class__
-            #log.debug("iter = %s" % id(pit))
-            #log.debug("eval %s" % repr(item))
-            if keymode and ic in [DelayedSubScript, DelayedSuperScript]:
-                if ic is DelayedSubScript:
-                    yield SAXEvText('_',item.pos)
-                else:
-                    yield SAXEvText('^',item.pos)
-            elif   ic is DelayedUnexpandedText:
-                if item.data:
-                    yield SAXEvUnexpandedText(item.data,item.pos)
-            elif   ic is DelayedText:
-                if (not keymode) and pit and pit.peek().__class__ in [DelayedSubScript, DelayedSuperScript]:
-                    next = pit.peek()
-                    nc = next.__class__
-                    # encapsulate one char in a group and push it back
-                    if len(item.data) > 1:
-                        yield SAXEvText(item.data[:-1],item.pos)
-                    item = DelayedText(item.data[-1],item.pos)
-                    g = DelayedGroup(item.pos)
-                    g.append(item)
-                    #print "Create ResolvedSubSuperScript with base = %s" % item.data[-1]
-                    pit.pushback(ResolvedSubSuperScript(item.pos,g))
-                else:
-                    yield SAXEvText(item.data,item.pos)
-            elif ic is DelayedGroup:
-                if (not keymode) and pit and pit.peek().__class__ in [DelayedSubScript, DelayedSuperScript]:
-                    pit.pushback(ResolvedSubSuperScript(item.pos,item))
-                else:
-                    if item.args is not None:
-                        exargs = item.args
-                    else:
-                        exargs = (args,subscr,superscr,body)
-                    for i in eval(item,cmddict,*exargs,keymode=keymode):
-                        yield i.tr(item.pos)
-            elif ic is ResolvedSubSuperScript:
-                if pit and pit.peek().__class__ in [DelayedSubScript, DelayedSuperScript]:
-                    op = pit.next()
-                    opc = op.__class__
-                        
-                    if not pit:
-                        raise MacroError("%s: Missing argument for sub-/superscript" % (item.pos,))
-                    rhs = pit.next()
-                    rc = rhs.__class__
-                    if rc is DelayedText:
-                        if len(rhs.data) > 1:
-                            pit.pushback(DelayedText(rhs.data[1:],rhs.pos))
-                            rhs = DelayedText(rhs.data[0],rhs.pos)
-                        g = DelayedGroup(rhs.pos)
-                        #print "Sub-/superscript (%s) = '%s'" % (ic,rhs.data)
-                        g.append(rhs)
-                    elif rc is DelayedGroup:
-                        g = rhs
-                    else:
-                        raise MacroError("%s: Invalid argument for sub-/superscript" % rhs.pos)
-
-                    if   opc is DelayedSubScript:
-                        if item.subscr is not None:
-                            raise MacroError("%s: Duplicate subscript for group" % rhs.pos)
-                        item.subscr = rhs
-                    else:
-                        if item.superscr is not None:
-                            raise MacroError("%s: Duplicate superscript for group" % rhs.pos)
-                        item.superscr = rhs
-                    pit.pushback(item)
-                else:
-                    # ugly, ugly! Assume that we're in math mode! Sorry, that's just how it works for now.
-                    if item.subscr and item.superscr:
-                        tag = 'msubsup'
-                    elif item.subscr:
-                        tag = 'msub'
-                    elif item.superscr:
-                        tag = 'msup'
-                    else:
-                        assert 0
-
-                    assert not keymode
-                    yield SAXEvStartTag(tag,{},item.pos)
-                    yield SAXEvStartTag('mrow',{},item.pos)
-                    for i in eval([item.base],cmddict,args,subscr,superscr,body):
-                        yield i.tr(item.pos)
-                    yield SAXEvEndTag('mrow',item.pos)
-
-                    if item.subscr:
-                        yield SAXEvStartTag('mrow',{},item.pos)
-                        for i in eval([item.subscr],cmddict,args,subscr,superscr,body):
-                            yield i.tr(item.pos)
-                        yield SAXEvEndTag('mrow',item.pos)
-                    if item.superscr:
-                        yield(SAXEvStartTag('mrow',{},item.pos))
-                        for i in eval([item.superscr],cmddict,args,subscr,superscr,body):
-                            yield i.tr(item.pos)
-                        yield(SAXEvEndTag('mrow',item.pos))
-
-                    yield(SAXEvEndTag(tag,item.pos))
-            elif ic is DelayedMacro:
-                #if   item.name == ':':
-                #    assert not keymode
-                #    yield(SAXEvSpecialTableRowBegin(item.pos))
-                #elif item.name == '!':
-                #    assert not keymode
-                #    yield(SAXEvSpecialTableCellBegin(item.pos))
-                #else:
-                if True:
-                    macroitem = item
-                    try:
-                        macronode = cmddict[item.name]
-                    except KeyError:
-                        #print "Known macros:"
-                        #print cmddict
-                        raise MacroError('%s: Unknown macro "%s"' % (item.pos,item.name))
-                    
-                    if not macronode.nodeName == 'def':
-                        raise MacroError('%s: Environment "%s" used as a macro' % (item.pos,item.name))
-                    macrodef = macronode.macro
-                   
-                    macro = ResolvedMacro(macronode,item.pos)
-                    class _MakeGroupException(Exception): pass
-                    try:
-                        if item.args is not None:
-                            if len(item.args) != macronode.nArgs():
-                                raise MacroError('%s: Too few arguments for macro "%s"; expected %d, got %d' % (item.pos,item.name,macronode.nArgs(),len(item.args)))
-                            for a in item.args:
-                                g = DelayedGroup(item.pos,args=(args,subscr,superscr,body))
-                                g.extend(a)
-                                macro.append(g)
-                            if item.subscr is not None:
-                                if not macronode.acceptsSubscript():
-                                    raise MacroError('%s: Macro "%s" does not accept subscript' % (item.pos,item.name))
-                                else:
-                                    g = DelayedGroup(item.pos,args=(args,subscr,superscr,body))
-                                    g.extend(items.subscr)
-                                    macro.subscr = g
-                            if item.superscr is not None:
-                                if not macronode.acceptsSubscript():
-                                    raise MacroError('%s: Macro "%s" does not accept superscript' % (item.pos,item.name))
-                                else:
-                                    g = DelayedGroup(item.pos,args=(args,subscr,superscr,body))
-                                    g.extend(items.superscr)
-                                    macro.superscr = g
-                        else:
-                            while pit:
-                                # collect arguments for macro
-                                nxt = pit.peek()
-                                nc = nxt.__class__
-                                # we skip whitespace between macro and group
-                                # arguments, bit if we do not find an argument
-                                # we put back the whitespace.
-                                skipped_ws = []
-                                #log.debug("DelayedMacro \\%s. Next: %s" % (item.name,nxt))
-                                if nc is DelayedGroup:
-                                    if macro.requireArgs() > 0:
-                                        macro.append(pit.next())
-                                    else:
-                                        break
-                                elif nc is DelayedText:
-                                    if not nxt.data.strip():
-                                        skipped_ws.append(pit.next()) # ignore whitespace between arguments
-                                    else:
-                                        break
-                                elif nc in [DelayedSubScript,DelayedSuperScript]:
-                                    opc = nc
-                                    if   nc is DelayedSubScript and not macronode.acceptsSubscript():
-                                        if macro.requireArgs() > 0:
-                                            raise MacroError("%s: Macro '%s' does not accept subscript" % (item.pos,item.name))
-                                        else:
-                                            raise _MakeGroupException()
-                                    elif nc is DelayedSuperScript and not macronode.acceptsSuperscript():
-                                        if macro.requireArgs() > 0:
-                                            raise MacroError("%s: Macro '%s' does not accept superscript" % (item.pos,item.name))
-                                        else:
-                                            raise _MakeGroupException()
-                                    pit.next()
-                                    if not pit:
-                                        raise MacroError("%s: Missing argument for sub-/superscript" % item.pos)
-                                    
-                                    rhs = pit.next()
-                                    rc = rhs.__class__
-
-                                    if rc is DelayedText:
-                                        if len(rhs.data) > 1:
-                                            pit.pushback(DelayedText(rhs.data[1:],rhs.pos))
-                                            rhs = DelayedText(rhs.data[1], rhs.pos)
-                                        g = DelayedGroup(item.pos)
-                                        g.append(rhs)
-                                        rhs = g
-                                    elif rc is DelayedGroup:
-                                        g = rhs
-                                    else:
-                                        raise MacroError("%s: Invalid argument for sub-/superscript" % item.pos)
-
-                                    if opc is DelayedSubScript:
-                                        if item.subscr is not None:
-                                            raise MacroError("%s: Duplicate subscript" % rhs.pos)
-                                        macro.subscr = rhs
-                                    else:
-                                        if item.superscr is not None:
-                                            raise MacroError("%s: Duplicate superscript" % rhs.pos)
-                                        macro.superscr = rhs
-                                else:
-                                    while skipped_ws:
-                                        pit.pushback(skipped_ws.pop())
-                                    break
-                    except _MakeGroupException:                    
-                        g = DelayedGroup(item.pos)
-                        g.append(macroitem)
-                        for a in macro.args:
-                            g.append(a)
-                        if macro.subscr:
-                            g.append(DelayedSubScript(item.pos))
-                            g.append(macro.subscr)
-                        if macro.superscr:
-                            g.append(DelayedSuperScript(item.pos))
-                            g.append(macro.superscr)
-                        pit.pushback(g)
-                    else:
-                        #print "  Macro args: %s" % macro.args
-                        if macro.requireArgs() > 0:
-                            raise MacroError("%s: Missing arguments for macro '%s'" % (item.pos,item.name))
-
-                        subscr   = (macro.subscr   or DelayedGroup(item.pos)) if macronode.acceptsSubscript()   else None
-                        superscr = (macro.superscr or DelayedGroup(item.pos)) if macronode.acceptsSuperscript() else None
-                        #if macronode.acceptsSubscript() and macro.subscr is None:
-                        #    raise MacroError("%s: Missing subscript arguments for macro '%s'" % (item.pos,item.name))
-                        #if macronode.acceptsSuperscript() and macro.superscr is None:
-                        #    raise MacroError("%s: Missing superscript arguments for macro '%s'" % (item.pos,item.name))
-
-                        #log.debug('DelayedMacro: \\%s, args = %s' % (item.name,macro.args))
-                        #print macrodef.body
-                        try:
-                            for i in eval(macrodef.body,cmddict,macro.args,subscr,superscr):
-                                yield i.tr(item.pos)
-                        except MacroError,e:
-                            e.trace.append(item.pos)
-                            raise
-                        
-            elif ic is DelayedEnvironment:
-                try:
-                    envnode = cmddict[item.name]
-                except KeyError:
-                    raise MacroError('%s: Unknown macro "%s"' % (item.pos,item.name))
-                
-                if envnode.nodeName != 'defenv':
-                    raise MacroError('%s: Macro "%s" used as an environment' % (item.pos,item.name))
-                
-                #env = ResolvedEnvironment(envnode,item.pos)
-
-                content = item.content
-                envargs = []
-            
-                idx = 0
-                while idx < len(content) and len(envargs) < envnode.nArgs():
-                    # collect arguments for macro
-                    nxt = content[idx]
-                    nc = nxt.__class__
-
-                    if nc is DelayedGroup:
-                        envargs.append(nxt)
-                    elif nc is DelayedText:
-                        if not nxt.data.strip():
-                            pass
-                        else:
-                            break
-                    else:
-                        break
-                    idx += 1
-                if len(envargs) < envnode.nArgs():
-                    raise MacroError("%s: Missing arguments for environment '%s't" % (item.pos,item.name))
-                envbody = DelayedGroup(item.pos)
-                envbody.extend(content[idx:])
-
-
-                # TODO: Add defines from the env node to the dict
-                d = EnvDict(cmddict,envnode.env.localcmds)
-
-                try:
-                    for i in eval(envnode.env.body,d,envargs,None,None,envbody):
-                        yield i.tr(item.pos)
-                except MacroError,e:
-                    e.trace.append(item.pos)
-                    raise
-            elif ic is DelayedArgRef:
-                #log.debug('DelayedArgRef : {{%s}}' % item.key )
-                key = item.key
-                if isinstance(key,int):
-                    if args is None:
-                        raise MacroError("%s: Invalid argument reference" % item.pos)
-                    elif len(args) <= key:
-                        raise MacroError("%s: Referred to argument %d, but only %d are defined" % (item.pos,key,len(args)))
-                    
-                    for i in eval([args[key]],cmddict,keymode=keymode):
-                        yield i.tr(item.pos)
-                else:
-                    if key == 'BODY':
-                        if body is None:
-                            raise MacroError("%s: Invalid {{BODY}} reference" % item.pos)
-                        r = body
-                        assert r.__class__ is not list
-                    elif key == 'SUBSCRIPT':
-                        if subscr is None:
-                            raise MacroError("%s: Invalid {{SUBSCRIPT}} reference" % item.pos)
-                        r = subscr
-                        assert r.__class__ is not list
-                    elif key == 'SUPERSCRIPT':
-                        if superscr is None:
-                            raise MacroError("%s: Invalid {{SUPERSCRIPT}} reference" % item.pos)
-                        r = superscr
-                        assert r.__class__ is not list
-                    else:
-                        raise MacroError("%s: Invalid {{%s}} reference" % (item.pos,key))
-                    
-                    #log.debug('  items = %s' % r) 
-                    
-                    assert r is not None
-                    for i in eval([r],cmddict,keymode=keymode):
-                        #log.debug('  > %s' % i)
-                        yield i.tr(item.pos)
-            elif ic is DelayedLookup:
-                r = []
-                #log.debug('DelayedLookup: %s' % item.content)
-                #log.debug('               args = %s' % args)
-                for i in eval(item.content,cmddict,args,subscr,superscr,body,keymode=True):
-                    if i.__class__ is SAXEvText:
-                        r.append(i.data)
-                    else:                    
-                        raise MacroError('%s: Only text is allowed in dictionary lookup' % i.pos)
-                key = ''.join(r)
-                try:
-                    #log.debug("Dictionary key = '%s'" % key)
-                    yield SAXEvText(cmddict.dictLookup(key).value,item.pos)
-                except KeyError:
-                    raise MacroError("%s: No dictionary entry for '%s'" % (item.pos,key))
-            elif ic is DelayedElement:
-                if keymode:
-                    raise MacroError('%s: Element may not be used in text-only context' % item.pos)
-               
-                #log.debug('DelayedElement <%s>' % item.name)
-                #log.debug('  Body : %d' % len(item.body))
-                #log.debug('  Body = %s' % item.body)
-                d = {}
-                for k,v in item.attrs.items():
-                    r = []
-                    for i in eval(v,cmddict,args,subscr,superscr,body,keymode=True):
-                        if i.__class__ is SAXEvText:
-                            r.append(i.data)
-                        else:
-                            raise MacroError('%s: Only text is allowed in element attributes' % i.pos)
-                    d[k] = ''.join(r)
-
-                yield SAXEvStartTag(item.name,d,item.pos)
-                
-                #log.debug('Eval <%s> content...' % item.name)
-                #log.debug(' content = %s' % item.body)
-                for i in eval(item.body, cmddict, args,subscr,superscr,body,keymode=False):
-                    yield i.tr(item.pos)
-                #log.debug('End <%s> content.' % item.name)
-                
-                yield SAXEvEndTag(item.name,item.pos)
-            elif ic is DelayedTableContent:
-                data = item.get()
-                pos = item.pos
-                for row in data:
-                    yield SAXEvTableRowStart(pos)
-                    for cell in row:
-                        yield SAXEvTableCellStart(pos)
-                        for i in eval(cell,cmddict,args,subscr,superscr,body,keymode=False):
-                            yield i
-                        yield SAXEvTableCellEnd(pos)
-                    yield SAXEvTableRowEnd(pos)
-            elif ic in [ DelayedSubScript, DelayedSuperScript ]:
-                raise MacroError('%s: Missing left-hand operand for sub-/superscript' % item.pos)
-            else:
-                print '---------',ic
-                assert False
-        #log.debug('-----------<<< END iter(%s)'  % id(pit))
-    except AssertionError:
-        if prev:
-            print "  trace : prev @ %s" % prev.pos
-        raise
 
 def closeStack(macrostack,stopClass,pos,name):
     text = ''
@@ -986,11 +582,14 @@ def closeStack(macrostack,stopClass,pos,name):
     return (text,macrostack)
 
 class MacroParser:
+    __macrostack= []
+    __cmdstack = []
+
     def ___init__(self):
         self.__macrostack = []
         self.__cmdstack = []
 
-    def handleText(cmddict,data,pos,table=False):
+    def handleText(self,cmddict,data,pos,table=False):
         text = ''
         macro_re = re.compile('|'.join([
             r'\\(?P<env>begin|end)\s*\{(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\}',
@@ -1006,25 +605,24 @@ class MacroParser:
         p = 0
         for o in macro_re.finditer(data):
             #close the top element if the next isnt a ^ or _
-            print macrostack
-            if(not o.group('subsuperscr') and macrostack):
-                while(macrostack and isinstance(macrostack[-1],Group) and
-                macrostack[-1].end):
-                    top = macrostack.pop()
-                    if(macrostack):
-                        macrostack[-1].addArgument(top,pos)
+            if(not o.group('subsuperscr') and self.__macrostack):
+                while(self.__macrostack and isinstance(self.__macrostack[-1],Group) and
+                self.__macrostack[-1].end):
+                    top = self.__macrostack.pop()
+                    if(self.__macrostack):
+                        self.__macrostack[-1].addArgument(top,pos)
                     else:
                         text += top.content
-                if(isinstance(macrostack[-1],Environment) and
-                    macrostack[-1].nArgs()==0):
-                    text += macrostack[-1].printable()
-                if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
-                    top = macrostack.pop()
+                if(isinstance(self.__macrostack[-1],Environment) and
+                    self.__macrostack[-1].nArgs()==0):
+                    text += self.__macrostack[-1].printable()
+                if(isinstance(self.__macrostack[-1],Macro) and self.__macrostack[-1].nArgs()==0):
+                    top = self.__macrostack.pop()
                     text += ''.join(top.tree)
             #Slight misuse of try, this is meant to check if the text is inside a
             #group
             try:
-                if macrostack[-1].end:
+                if self.__macrostack[-1].end:
                     if p < o.start(0):
                         text += data[p:o.start(0)]
             except IndexError:
@@ -1033,13 +631,11 @@ class MacroParser:
             except AttributeError:
                 pass
             p= o.end(0)
-            print macrostack
-            print cmddict
             #should check if the macro is in the __cmddict
             if o.group('macro'):
                 name = o.group('macro')
                 try:
-                    i = macrostack[-1] 
+                    i = self.__macrostack[-1] 
                     if isinstance(i,unicode):
                         if i=="_" or i == "^":
                             raise MacroError("%s:%s can't have macro on"+\
@@ -1071,8 +667,10 @@ class MacroParser:
                     try:
                         macronode = cmddict[name].macro
                         macronode = macronode.copy(pos)
-                        macrostack.append(macronode)
+                        self.__macrostack.append(macronode)
                     except KeyError:
+                        print "Known Macros"
+                        print cmddict
                         raise MacroError('%s: Unknown macro "%s"' % (pos,name))
                         
             elif o.group('env'):
@@ -1083,18 +681,18 @@ class MacroParser:
                         envnode = cmddict[name]
                         d = envnode.getDefs()
                         envnode = envnode.env.copy()
-                        cmdstack.append(cmddict)
+                        self.__cmdstack.append(cmddict)
                         cmddict = CommandDict(cmddict) 
                         cmddict.update(d.getCmdDict())
-                        macrostack.append(envnode)
+                        self.__macrostack.append(envnode)
                     except KeyError:
                         raise MacroError('%s: Unknown environment\
                         "%s"'%(pos,name))
                 else:
-                    if (macrostack and macrostack[-1].name ==
+                    if (self.__macrostack and self.__macrostack[-1].name ==
                         name):
-                        cmddict = cmdstack.pop()
-                        envdone = macrostack.pop()
+                        cmddict = self.__cmdstack.pop()
+                        envdone = self.__macrostack.pop()
                         if envdone.nArgs()==0:
                             text = text + ''.join(envdone.printend())
                         else:
@@ -1109,9 +707,9 @@ class MacroParser:
                 tok = o.group('group')
                 if tok == '{': 
                     #self.__emitOpen(DelayedGroup(pos))
-                    macrostack.append(Group(p))
+                    self.__macrostack.append(Group(p))
                 else:
-                    top = macrostack[-1]
+                    top = self.__macrostack[-1]
                     if(isinstance(top,Group)):
                         top.end = True
                         content = data[top.start:p-1]
@@ -1120,11 +718,11 @@ class MacroParser:
                         raise MacroError("%s: Umatched group close"%pos)
             elif o.group('subsuperscr'):
                 char = o.group('subsuperscr')
-                if len(macrostack)>0:
-                    macrostack[-1].handleSubp(char)
+                if len(self.__macrostack)>0:
+                    self.__macrostack[-1].handleSubp(char)
                     if(data[p+1]!='{'):
                         p +=1
-                        macrostack[-1].addArgument(data[p],pos)
+                        self.__macrostack[-1].addArgument(data[p],pos)
                 else:
                     raise MacroError("<%s-%s>:Trying to apply %s to an"\
                     +"empty argument"%(start,pos,char))
@@ -1156,19 +754,19 @@ class MacroParser:
             else:
                 #print 'GOT: "%s"' % o.group(0)
                 assert 0
-        if macrostack:
-            while(macrostack and isinstance(macrostack[-1],Group) and
-            macrostack[-1].end):
-                top = macrostack.pop()
-                if(macrostack):
-                    macrostack[-1].addArgument(top,pos)
+        if self.__macrostack:
+            while(self.__macrostack and isinstance(self.__macrostack[-1],Group) and
+            self.__macrostack[-1].end):
+                top = self.__macrostack.pop()
+                if(self.__macrostack):
+                    self.__macrostack[-1].addArgument(top,pos)
                 else:
                     text += top.content
-            if(isinstance(macrostack[-1],Environment) and
-                macrostack[-1].nArgs()==0):
-                text += macrostack[-1].printable()
-            if(isinstance(macrostack[-1],Macro) and macrostack[-1].nArgs()==0):
-                top = macrostack.pop()
+            if(isinstance(self.__macrostack[-1],Environment) and
+                self.__macrostack[-1].nArgs()==0):
+                text += self.__macrostack[-1].printable()
+            if(isinstance(self.__macrostack[-1],Macro) and self.__macrostack[-1].nArgs()==0):
+                top = self.__macrostack.pop()
                 text += ''.join(top.tree)
         if p < len(data):
             #print "NODE : <%s>" % self.nodeName
@@ -1176,4 +774,4 @@ class MacroParser:
             #print repr(self.__cstack[-1])
             #self.__cstack[-1].append(DelayedText(data[p:],pos))
             text += data[p:]
-        return (text,pos,macrostack)
+        return (text,pos)
