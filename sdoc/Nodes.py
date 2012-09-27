@@ -401,6 +401,7 @@ class Node:
         assert pos is not  None
         if  self.macroMode in [ MacroMode.Invalid, MacroMode.NoExpand ]:
             #dgb('<%s>.handleRawText: %s' % (self.nodeName,repr(data)))
+            data = self.__macroHandler.handleRawText(data)
             self.append(data)
         elif self.macroMode in [ MacroMode.Text, MacroMode.Math ]:
             (data,pos) = self.__macroHandler.handleText(self.__cmddict,data,pos)

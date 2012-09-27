@@ -341,8 +341,8 @@ class Group:
         self.sub= True
         self.sup = True
         self.nArgs = 0
-    def __repr__(self):
-        return "{"+self.content+"}"
+ #   def __repr__(self):
+ #       return "{"+repr(self.content)+"}" 
 
 class SubSup:
     def __init__(self,sub,sup):
@@ -417,9 +417,8 @@ class Macro:
                 (self.pos,self.name,key.lower()))
     def addArgument(self,group,pos):
         try:
-            argument = str(group)[1:-1]
             for n in self.args[str(self.recv)]:
-                self.tree[n] = argument
+                self.tree[n] = group
             self.nargs = self.nargs -1
             self.recv +=1
         except IndexError:
@@ -429,8 +428,9 @@ class Macro:
         if not self.nargs == 0:
             raise MacroError('%s: %s missing arguments'%(self.pos,self.name))
         return self.body
-    def __repr__(self):
-        return self.name
+#    def __repr__(self):
+#        returnee = self.name +str(self.nargs)
+#        return returnee
     def nArgs(self):
         return self.nargs
 
@@ -563,7 +563,6 @@ class ResolvedMacro:
             raise MacroError('%s: Missing macro argument for \\%s' % (self.pos,self.name))
 
 
-
 def closeStack(macrostack,stopClass,pos,name):
     text = ''
     while(macrostack):
@@ -584,12 +583,27 @@ def closeStack(macrostack,stopClass,pos,name):
 class MacroParser:
     __macrostack= []
     __cmdstack = []
+    __textstack = []
 
     def ___init__(self):
         self.__macrostack = []
         self.__cmdstack = []
+        self.__textstack = []
 
+    def handleRawText(self,data):
+        text = ''
+        if(self.__macrostack and
+           isinstance(self.__macrostack[-1],Group)):
+            self.__macrostack[-1].content += data
+        else:
+            text = data
+        return text
     def handleText(self,cmddict,data,pos,table=False):
+        if self.__cmdstack:
+            if len(cmddict) < len(self.__cmdstack[-1]):
+                cmddict = self.__cmdstack[-1]
+        else:
+            self.__cmdstack.append(cmddict)
         text = ''
         macro_re = re.compile('|'.join([
             r'\\(?P<env>begin|end)\s*\{(?P<envname>[a-zA-Z][a-zA-Z0-9@]*)\}',
@@ -610,7 +624,7 @@ class MacroParser:
                 self.__macrostack[-1].end):
                     top = self.__macrostack.pop()
                     if(self.__macrostack):
-                        self.__macrostack[-1].addArgument(top,pos)
+                        self.__macrostack[-1].addArgument(top.content,pos)
                     else:
                         text += top.content
                 if(isinstance(self.__macrostack[-1],Environment) and
@@ -619,19 +633,13 @@ class MacroParser:
                 if(isinstance(self.__macrostack[-1],Macro) and self.__macrostack[-1].nArgs()==0):
                     top = self.__macrostack.pop()
                     text += ''.join(top.tree)
-            #Slight misuse of try, this is meant to check if the text is inside a
-            #group
-            try:
-                if self.__macrostack[-1].end:
-                    if p < o.start(0):
-                        text += data[p:o.start(0)]
-            except IndexError:
-                if p < o.start(0):
+            if p < o.start(0):
+                if self.__macrostack and isinstance(self.__macrostack[-1],Group):
+                    self.__macrostack[-1].content += data[p:o.start(0)]
+                else:
                     text += data[p:o.start(0)]
-            except AttributeError:
-                pass
             p= o.end(0)
-            #should check if the macro is in the __cmddict
+            #print repr(data[p:])
             if o.group('macro'):
                 name = o.group('macro')
                 try:
@@ -670,7 +678,7 @@ class MacroParser:
                         self.__macrostack.append(macronode)
                     except KeyError:
                         print "Known Macros"
-                        print cmddict
+                        print cmddict.dump()
                         raise MacroError('%s: Unknown macro "%s"' % (pos,name))
                         
             elif o.group('env'):
@@ -678,19 +686,21 @@ class MacroParser:
                 if o.group('env') == 'begin':
                     #emitOpen(DelayedEnvironment(name,pos))
                     try:
+                        self.__cmdstack.append(cmddict)
                         envnode = cmddict[name]
                         d = envnode.getDefs()
                         envnode = envnode.env.copy()
-                        self.__cmdstack.append(cmddict)
                         cmddict = CommandDict(cmddict) 
                         cmddict.update(d.getCmdDict())
                         self.__macrostack.append(envnode)
+                        self.__cmdstack.append(cmddict)
                     except KeyError:
                         raise MacroError('%s: Unknown environment\
                         "%s"'%(pos,name))
                 else:
                     if (self.__macrostack and self.__macrostack[-1].name ==
                         name):
+                        self.__cmdstack.pop()
                         cmddict = self.__cmdstack.pop()
                         envdone = self.__macrostack.pop()
                         if envdone.nArgs()==0:
@@ -701,19 +711,20 @@ class MacroParser:
                                 %(self.pos,name))
                     else:
                         raise MacroError(('%s: <%s> end environment'+
-                        'mismatch')%(pos,name))
+                        ' mismatch')%(pos,name))
             elif o.group('group'):
                 #Either a start or an end or a group
                 tok = o.group('group')
                 if tok == '{': 
-                    #self.__emitOpen(DelayedGroup(pos))
                     self.__macrostack.append(Group(p))
+                    self.__textstack.append(text)
+                    text = ''
                 else:
                     top = self.__macrostack[-1]
                     if(isinstance(top,Group)):
                         top.end = True
-                        content = data[top.start:p-1]
-                        top.content = content
+                        top.content += text
+                        text = self.__textstack.pop()
                     else:
                         raise MacroError("%s: Umatched group close"%pos)
             elif o.group('subsuperscr'):
@@ -759,7 +770,7 @@ class MacroParser:
             self.__macrostack[-1].end):
                 top = self.__macrostack.pop()
                 if(self.__macrostack):
-                    self.__macrostack[-1].addArgument(top,pos)
+                    self.__macrostack[-1].addArgument(top.content,pos)
                 else:
                     text += top.content
             if(isinstance(self.__macrostack[-1],Environment) and
@@ -769,9 +780,11 @@ class MacroParser:
                 top = self.__macrostack.pop()
                 text += ''.join(top.tree)
         if p < len(data):
-            #print "NODE : <%s>" % self.nodeName
-            #print len(self.__cstack),self.__cstack[-1].data
-            #print repr(self.__cstack[-1])
-            #self.__cstack[-1].append(DelayedText(data[p:],pos))
-            text += data[p:]
+            if(self.__macrostack and
+                isinstance(self.__macrostack[-1],Group) and
+                not self.__macrostack[-1].end):
+                self.__macrostack[-1].content += data[p:]
+            else:
+                text += data[p:]
+        print repr(text)
         return (text,pos)
