@@ -758,8 +758,8 @@ class DefElementNode(Node):
         return self.getAttr('n')
 
     def asList(self):
-        returnee = ["<"+self.getName()]
-        end = ["</"+self.getName()+">"]
+        returnee = ["\<"+self.getName()]
+        end = ["\</"+self.getName()+"\>"]
         for i in self:
             if isinstance(i,basestring):
                 returnee.append(i)
@@ -767,17 +767,17 @@ class DefElementNode(Node):
                 treeList = i.asList()
                 returnee.extend(treeList)
             else:
-                if(not returnee[-1] == ">"):
-                    returnee.append(">")
+                if(not returnee[-1] == "\>"):
+                    returnee.append("\>")
                 treeList = i.asList()
                 returnee.extend(treeList)
         #To ensure we are closing the node correctly
         ending = False
         for i in returnee:
-            if i ==">":
+            if i =="\>":
                 ending = True
         if not ending:
-            returnee.append(">")
+            returnee.append("\>")
         returnee.extend(end)
         return returnee
 
