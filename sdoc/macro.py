@@ -786,5 +786,4 @@ class MacroParser:
                 self.__macrostack[-1].content += data[p:]
             else:
                 text += data[p:]
-        print repr(text)
         return (text,pos)

@@ -551,7 +551,7 @@ def texescape(data,r):
 
 def escape(data,r):
     pos = 0
-    for o in re.finditer(r'&|<|>',data):
+    for o in re.finditer(r'&|(?!\\)<|(?!\\)>|\\<|\\>',data):
         if o.start(0) > pos:
             r.append(data[pos:o.start(0)])
         pos = o.end(0)
@@ -560,11 +560,14 @@ def escape(data,r):
             r.append('&amp;')
         elif t == '<':
             r.append('&lt;')
-        else: #t == '<':
+        elif t == '<':
             r.append('&gt;')
+        elif t== '\\<':
+            r.append('<')
+        else:
+            r.append('>')
     if pos < len(data):
         r.append(data[pos:])
-
     return r
 
 class IncludeError(Exception):
