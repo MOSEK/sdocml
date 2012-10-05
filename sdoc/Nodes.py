@@ -90,18 +90,40 @@ def dummy(name):
 
 def escape(s):
     def repl(o):
-        if   o.group(0) == '<': return '&lt;'
+        if o.group(0) == '\\>': return '>'
+        elif o.group(0) == '\\<': return '<'
+        elif   o.group(0) == '<': return '&lt;'
         elif o.group(0) == '>': return '&gt;'
         elif o.group(0) == '&': return '&amp;'
-    return re.sub(r'<|>|&',repl,s)
+    return re.sub(r'\\\>|\\\<|<|>|&',repl,s)
+    #return re.sub(r'<|>|&',repl,s)
 
 def xescape(s):
+    
     def repl(o):
-        if   o.group(0) == '<': return '&lt;'
+        if o.group(0) == '\\>': return '>'
+        elif o.group(0) == '\\<': return '<'
+        elif   o.group(0) == '<': return '&lt;'
         elif o.group(0) == '>': return '&gt;'
         elif o.group(0) == '&': return '&amp;'
         else:                   return '&#%d;' % ord(o.group(0))
-    return re.sub(u'<|>|&|[\u0080-\u8000]',repl,s)
+    text =  re.sub(u'\\\>|\\\<|<|>|&|[\u0080-\u8000]',repl,s)
+    #text =  re.sub(u'<|>|&|[\u0080-\u8000]',repl,s)
+    return text
+
+def unescape(s):
+    #please do rewrite if you are more knowledge about regexs then me
+    def quot(o):
+        if o.group(1)=='&quot;':return o.group(0).replace(o.group(1),'\"')
+    s = re.sub(r'\\\&lt;.*?(&quot;).*?\\\&gt;',quot,s)
+    def amp(o):
+        if o.group(1) == '&amp;':return o.group(0).replace(o.group(1),'&')
+    s = re.sub(r'\\\&lt;.*?(&amp;).*?\\\&gt;',amp,s)
+    def repl(o):
+        if o.group(0) == '\\&gt;': return '>'
+        elif o.group(0) == '\\&lt;': return '<'
+    return re.sub(r'\\\&gt;|\\\&lt;',repl,s)
+    
 
 class Attr:
     defaultDescr = {
