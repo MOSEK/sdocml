@@ -474,7 +474,6 @@ class Environment:
         try:
             return ''.join([self.tree[x] for x in r])
         except IndexError:
-            #This cant happen
             raise MacroError(('<%s>:Environment %s does not have a {{BODY}}')
             %(self.pos,self.name))
 
