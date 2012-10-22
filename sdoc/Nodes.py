@@ -532,6 +532,8 @@ class Node:
     def end(self,pos):
         pass
 
+
+
     def paragraphifyXML(self,lst,doc,node):
         # generate paragraphs 
         pars = []
@@ -583,16 +585,31 @@ class Node:
             if not isinstance(p,list):
                 node.appendChild(p)
             else:
-                par = doc.createElement('p')
-                node.appendChild(par)
+                #Rewrite
                 for item in p:
-                    assert not isinstance(item,list)
-                    par.appendChild(item)
+                    node.appendChild(item)
+                #par = doc.createElement('p')
+                #node.appendChild(par)
+                #for item in p:
+                #    assert not isinstance(item,list)
+                #    par.appendChild(item)
         
     def toXML(self,doc,node=None):
         '''
         Convert the node to XML. Return either the generated node or None.
         '''
+        node_re = r'\\<(?P<name>[a-zA-Z][a-zA-Z0-9@]*)\\>'
+        indices = [x for x in range(len(doc)) if( isinstance(doc[x],basestring)
+                    and '\\<' in doc[x] )]
+        nodes = map(lambda x:node_re.finditer(doc[x]),indices)
+        solution = []
+        stack =[]
+        for i in indices:
+            for o in nodes[i]:
+                name = o.group('name')
+                if 
+            
+            
         if self.expandElement:
             if node is None:
                 node = doc.createElement(self.nodeName)
@@ -609,6 +626,7 @@ class Node:
                 lst = []
                 for item in self:
                     if isinstance(item,basestring):
+                        #make it into nodes again.
                         if not lst or isinstance(lst[-1],Node):
                             lst.append([item])
                         else:
