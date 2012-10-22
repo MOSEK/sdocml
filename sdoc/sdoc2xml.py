@@ -423,8 +423,8 @@ if __name__ == "__main__":
                                         print "attr %s = %s" % (a.name,a.value)
                                         assert isinstance(a.value,basestring) 
 
-                    #f.write(unescape(doc.toxml('utf-8')) )
-                    f.write(doc.toxml('utf-8'))
+                    f.write(unescape(doc.toxml('utf-8')) )
+                    #f.write(doc.toxml('utf-8'))
                     f.close()
                     
                     time1 = time.time()
