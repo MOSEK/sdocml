@@ -403,7 +403,6 @@ class Node:
         for i in self:
             res = res + i.asList()
         return res
-
    
     ##\brief Append a new child, append it and return it. This is called by the
     #        SAX parser when an tag-open event occurs.
@@ -594,22 +593,11 @@ class Node:
                 #    assert not isinstance(item,list)
                 #    par.appendChild(item)
         
+
     def toXML(self,doc,node=None):
         '''
         Convert the node to XML. Return either the generated node or None.
         '''
-        node_re = r'\\<(?P<name>[a-zA-Z][a-zA-Z0-9@]*)\\>'
-        indices = [x for x in range(len(doc)) if( isinstance(doc[x],basestring)
-                    and '\\<' in doc[x] )]
-        nodes = map(lambda x:node_re.finditer(doc[x]),indices)
-        solution = []
-        stack =[]
-        for i in indices:
-            for o in nodes[i]:
-                name = o.group('name')
-                if 
-            
-            
         if self.expandElement:
             if node is None:
                 node = doc.createElement(self.nodeName)
