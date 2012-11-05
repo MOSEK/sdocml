@@ -64,6 +64,8 @@ class Manager:
         self.__error = False
 
         self.__log = logging.getLogger("SdocTeX")
+    def getConfigEntry(self,name):
+      return self.__config[name]
 
     def singlePage(self): True
     def failed(self): return self.__error
@@ -404,6 +406,12 @@ if __name__ == "__main__":
             'titlepagebg' : config.UniqueDirEntry('titlepagebg'),
             'pagebg'      : config.UniqueDirEntry('pagebg'),
             'template'    : config.UniqueDirEntry('template',defaulttemplate),
+            
+            'usetoc'     : config.UniqueBoolEntry('usetoc',   default=True),
+            'indextoc'   : config.UniqueBoolEntry('indextoc', default=True),
+            'usesectionnumbers' : config.UniqueBoolEntry('usesectionnumbers', default=True),
+            'usenavigation' : config.UniqueBoolEntry('usenavigation', default=True),
+            'useindex'   : config.UniqueBoolEntry('useindex', default=True),
             }
         )
     

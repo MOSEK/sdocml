@@ -514,11 +514,23 @@ class DefaultDict(UserDict):
 #    sys.stderr.write(' '.join(args))
 #    sys.stderr.write('\n')
 
-def counter():
-    i = 0
+def counter(i=0):
     while True:
         yield i
         i = i + 1
+def alpha_counter():
+    yield 'A'
+    i = 1
+    abase = ord('A')
+    astep = ord('Z') - abase
+    while True:
+      l = []
+      iv = i
+      while iv > 0:
+        l.append( chr(iv % astep + abase))
+        iv /= astep
+      yield ''.join(l)
+      i += 2
 
 def asUTF8(s):
     if isinstance(s,unicode):
@@ -955,19 +967,6 @@ class _StructuralNode(Node):
                 prev = i    
         return r
 
-class AppendixNode(Node):
-    nodeName = 'appendix'
-
-    def __init__(self,
-                 manager,
-                 parent,
-                 sectidx,
-                 sectlevel,
-                 separatefile, # the child is in a separate file
-                 attrs,
-                 filename,
-                 line):
-        Node.__init__(self,manager,parent,attrs,filename,line)
 
 class SectionNode(Node):
     nodeName = 'section'
@@ -990,11 +989,12 @@ class SectionNode(Node):
         self.__sections = []
         self.__sectlvl = sectlevel
         self.__sectidx = sectidx
-        self.__ssectcounter = counter()
+        self.__ssectcounter = counter(1)
         self.__manager = manager
         self.__nodeIndex = manager.nextNodeIndex()
         self.__separatefile = separatefile
         self.__parent = parent
+        self.__startapx = False
 
         if parent is None:
           self.__toc = manager.getConfigEntry('indextoc')
@@ -1047,6 +1047,9 @@ class SectionNode(Node):
                     if   v in ['yes','on','true']:  self.__sectnum = manager.getConfigEntry('usesectionnumbers')
                     elif v in ['no','off','false']: self.__sectnum = False
                     else: assert 0
+                  elif k == 'appendix':
+                    pass
+
                   else:
                     print o.group(0)
                     assert 0
@@ -1095,6 +1098,29 @@ class SectionNode(Node):
         elif name == 'body':
             n = BodyNode(self.__manager,self,attrs,filename,line)
             self.__body = n
+        elif name == 'bibliography':
+            n = BibliographyNode(self.__manager,
+                            self,
+                            self.__childrenInSepFiles,
+                            attrs,
+                            filename,
+                            line)
+            self.__sections.append(n)
+        elif name == 'appendix' or self.__startapx:
+            if not self.__startapx:
+              self.__startapx = True
+              self.__ssectcounter = alpha_counter()
+
+            sectidx = self.__sectidx + (self.__ssectcounter.next(),)
+            n = AppendixNode(self.__manager,
+                             self,
+                             sectidx,
+                             self.__sectlvl+1,
+                             self.__childrenInSepFiles,
+                             attrs,
+                             filename,
+                             line) 
+            self.__sections.append(n) 
         elif name == 'section':
             # Special case: parent node is the top-level
             if attrs.has_key('class') and 'preface' in attrs['class'].split(' '):
@@ -1106,25 +1132,6 @@ class SectionNode(Node):
                             self,
                             sectidx,
                             self.__sectlvl+1,
-                            self.__childrenInSepFiles,
-                            attrs,
-                            filename,
-                            line)
-            self.__sections.append(n)
-        
-        elif name == 'appendix':
-            n = AppendixNode(self.__manager,
-                             self,
-                             sectidx,
-                             self.__sectlvl+1,
-                             self.__childrenInSepFiles,
-                             attrs,
-                             filename,
-                             line) 
-            self.__sections.append(n) 
-        elif name == 'bibliography':
-            n = BibliographyNode(self.__manager,
-                            self,
                             self.__childrenInSepFiles,
                             attrs,
                             filename,
@@ -1143,7 +1150,7 @@ class SectionNode(Node):
         return self.__head.getAuthors()
     def linkText(self):
         if self.__sectidx:
-            return ['.'.join([str(v+1) for v in  self.__sectidx])]
+            return ['.'.join([str(v) for v in  self.__sectidx])]
         else:
             assert 0
     def getSectionIndex(self):
@@ -1189,7 +1196,7 @@ class SectionNode(Node):
             res.tag('div',{ 'class' : cls })
         res.extend([tag(tagn),tag('a',{ 'name' : self.__sectionLinkName })])
         if self.__sectnum:
-          res.append('%s ' % '.'.join([str(i+1) for i in self.__sectidx]))
+          res.append('%s ' % '.'.join([str(v) for v in self.__sectidx]))
                   
         self.getTitle().toHTML(res)
         if self.__manager.doDebug():
@@ -1299,7 +1306,7 @@ class SectionNode(Node):
                 res.tag('li')
                 sidx = s.getSectionIndex()
                 if sidx:
-                    res.append('.'.join([ str(v+1) for v in s.getSectionIndex() ]) + ' ')
+                    res.append('.'.join([ str(v) for v in s.getSectionIndex() ]) + ' ')
                 if self.__separatefile or fullLinks:
                     link = s.getSectionURI()
                 else:
@@ -1330,7 +1337,7 @@ class SectionNode(Node):
                     res.tagend('div').tagend('div')
                 
                 if sidx:
-                    res.append('.'.join([ str(v+1) for v in sidx ]) + '. ')
+                    res.append('.'.join([ str(v) for v in sidx ]) + '. ')
 
                 link = s.getSectionURI()
                 res.tag('a',{ 'href' : link, 'target' : '_top' })
@@ -1364,7 +1371,7 @@ class SectionNode(Node):
         res.tagend('div')
             
         if sidx:            
-            res.tag('div',{ 'class' : 'sidebar-content-tree-number' }).append('.'.join([ str(v+1) for v in sidx ]) + '.').entity('nbsp').tagend('div')
+            res.tag('div',{ 'class' : 'sidebar-content-tree-number' }).append('.'.join([ str(v) for v in sidx ]) + '.').entity('nbsp').tagend('div')
         res.tag('div',{ 'class' : 'sidebar-content-tree-link'}).tag('a',{ 'href' : link, 'target' : '_top' })
         self.getTitle().toPlainHTML(res)
         res.tagend('a').tagend('div').tagend('div')
@@ -1401,7 +1408,7 @@ class SectionNode(Node):
                     res.tag('div',{ 'style' : 'display : inline-block; margin-left : 14px;' })
                 
                 if sidx:
-                    res.append('.'.join([ str(v+1) for v in sidx ]) + '. ')
+                    res.append('.'.join([ str(v) for v in sidx ]) + '. ')
                 res.tag('a',{ 'href' : link, 'target' : '_top' })
                 s.getTitle().toPlainHTML(res)
                 res.tagend('a').tagend('div')
@@ -1421,7 +1428,6 @@ class SectionNode(Node):
             else: return ''.join(n.toPlainText([]))
         entries = []
         for n in self.__manager.getAnchors():
-            print "Anchor : %s" % ''.join(n.toPlainText([]))
             if n.hasAttr('type') and 'index' in re.split('\s+',n.getAttr('type')):
                 keys = [[]]
                 # Split the string over "!", then each entry over '@'
@@ -1755,6 +1761,19 @@ class BibliographyNode(SectionNode):
     def toTeX(self,r,level):
         return self.contentToTeX(r,level)
 
+class AppendixNode(SectionNode):
+    nodeName = 'appendix'
+
+    def __init__(self,
+                 manager,
+                 parent,
+                 sectidx,
+                 sectlevel,
+                 separatefile, # the child is in a separate file
+                 attrs,
+                 filename,
+                 line):
+        SectionNode.__init__(self, manager, parent, sectidx, sectlevel, separatefile, attrs, filename, line)
 
 class BibItemNode(Node):
     nodeName = 'bibitem'
@@ -1940,8 +1959,7 @@ class DocumentNode(SectionNode):
         # horrible hack to intercept body and sections
         n = SectionNode.newChild(self,name,attrs,filename,line)
         if   name == 'body':    self.__body = n
-        elif name == 'section': self.__sections.append(n)
-        elif name == 'bibliography': self.__sections.append(n)
+        elif name in [ 'section','appendix','bibliography']: self.__sections.append(n)
         
         return n
     def makeSidebarFile(self,filename='sidebar.html'):
@@ -1996,22 +2014,22 @@ class DocumentNode(SectionNode):
         self.__body.contentToTeX(preface) 
 
         sects = list(self.__sections)
+        sects.reverse()
+
         while sects and sects[0].hasAttr('class'):
             cls = sects[0].getAttr('class')
             if 'preface' in cls.split(' '):
-                sects.pop(0).toTeX(preface,1)
+                sects.pop().toTeX(preface,1)
             else:
                 break
 
-
-        appx = False
-        bibl = None
-        for sect in sects:
-            if sect.isClass('appendix') and not appx:
-                appx = True
-                body.macro('appendix').lf()
-
-            sect.toTeX(body,1)
+        apx = False
+        while sects:
+          sect = sects.pop()
+          if isinstance(sect,AppendixNode) and not apx:
+            apx = True
+            body.macro('appendix')
+          sect.toTeX(body,1)
 
         return res
 
@@ -2395,7 +2413,6 @@ class HyperRefNode(Node):
                 else:
                     r.append(i)
             r.groupEnd()        
-        print
         r.groupStart().append(self.getAttr('url')).groupEnd()
         return r
 
@@ -2653,12 +2670,12 @@ class FloatNode(_StructuralNode):
         if self.__index is None:
             return None
         else:
-            return u'.'.join([str(v+1) for v in  self.__index])
+            return u'.'.join([str(v) for v in  self.__index])
 
     def linkText(self):
         if self.__index is None:
             raise NodeError('Requested linktext for a id-less node "%s"' % self.nodeName)
-        return ['.'.join([str(v+1) for v in  self.__index])]
+        return ['.'.join([str(v) for v in  self.__index])]
 
     def append(self,item):
         if   isinstance(item,FloatBodyNode):
@@ -2978,7 +2995,7 @@ class MathEnvNode(Node):
     def linkText(self):
         if self.__index is None:
             raise NodeError('Requested linktext for a id-less node "%s"' % self.nodeName)
-        return ['.'.join([str(v+1) for v in  self.__index])]
+        return ['.'.join([str(v) for v in  self.__index])]
     def toHTML(self,r):
         r.div('math-equation')
         if self.hasAttr('id'):
@@ -2991,7 +3008,7 @@ class MathEnvNode(Node):
         if self.__index is not None:
             r.extend([tag('td',{ 'width' :"0px" }),
                       '(',
-                      '.'.join([str(i+1) for i in self.__index]),
+                      '.'.join([str(v) for v in self.__index]),
                       ')',
                       tagend('td') ])
         else:
@@ -3041,11 +3058,11 @@ class EqnNode(Node):
     def linkText(self):
         if self.__index is None:
             raise NodeError('Requested linktext for a id-less node "%s"' % self.nodeName)
-        return [ '.'.join([str(v+1) for v in  self.__index]) ]
+        return [ '.'.join([str(v) for v in  self.__index]) ]
     def toHTML(self,r):
         r.append('<td width="100%%" class="math"><img src="math/math%d.png"></td>' % (self.getEqnIdx()+1))
         if self.__index is not None:
-            r.append('<td width="0px">(%s)</td>' % '.'.join([str(i+1) for i in self.__index]))
+            r.append('<td width="0px">(%s)</td>' % '.'.join([str(v) for v in self.__index]))
         else:
             r.append('<td/>')
         

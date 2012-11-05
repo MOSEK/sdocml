@@ -1750,6 +1750,7 @@ class _SectionNode(_SectionBaseElement):
                                    <dt>split=(yes|no)</dt><dd>If possible, put child nodes into separate files.</dd>
                                    <dt>toc=(yes|no)</dt> <dd>Allow/disallow table of content for this node if it is in a separate file. </dd>
                                    <dt>sectionnumber=(yes|no)</dt> <dd> Use or leave out the section number from this section title.</dd>
+                                   <dt>appendix=(yes|no)</dt><dd> Defines this section (and all sections hereafter) to be an appendix. Will be ignored for sub-sections. </dd>
                                  </dlist>
                                     """),
                          Attr('url',descr='Read the section content from an external source. If this is given, the section element must be empty.'),
@@ -1795,11 +1796,16 @@ class _SectionNode(_SectionBaseElement):
 
     def toXML(self,doc,node=None):
         if node is None:
-            node = doc.createElement(self.nodeName)
+          nodename = self.nodeName
+          if self.hasAttr('config'):
+            d = dict([ i.split('=',1) for i in re.split(r'\s+',self.getAttr('config').strip())])
+            if d.get('appendix','no') in ['yes','on','true']:
+               nodename = 'appendix'
+          node = doc.createElement(nodename)
 
-            for attname in [ 'class','id','config']: 
-                if self.hasAttr(attname):
-                    node.setAttribute(attname, self.getAttr(attname))
+          for attname in [ 'class','id','config']: 
+              if self.hasAttr(attname):
+                  node.setAttribute(attname, self.getAttr(attname))
         
         nodes = PushIterator(self) 
         while nodes and not isinstance(nodes.peek(),HeadNode):
