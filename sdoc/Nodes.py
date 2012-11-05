@@ -699,8 +699,11 @@ class Node:
 
     def hasAttr(self,key):
         return self.__attrs.has_key(key) and self.__attrs[key] is not None
-    def getAttr(self,key):
-        return self.__attrs[key]
+    def getAttr(self,key,*args):
+        if args:
+          return self.__attrs.get(key,args[0])
+        else:
+          return self.__attrs[key]
     def attrs(self):
         return iter(self.__attrs.items())
 
@@ -2808,14 +2811,44 @@ class InlineMathNode(_MathNode):
 
 class MathEnvNode(_MathNode):
     nodeName    = 'math'
-    acceptAttrs = Attrs([ Attr('class'), 
+    acceptAttrs = Attrs([ 
+                    Attr('class'), 
                     Attr('id'),
-                    Attr('numbered') ])
+                    Attr('numbered'),
+                    Attr('parse',descr="(yes|no) Validate the math content. If (no), the con") ])
     comment     = '''
                     A math paragraph. Id the id attribute is defined, a number
                     is generated, which can be used when referring to the
                     paragraph. 
                   '''
+    def __init__(self,
+                 manager,
+                 parent,
+                 macroDict, 
+                 nodeDict, 
+                 attrs, 
+                 pos):                 
+        _MathNode.__init__(self, manager, parent, macroDict, nodeDict, attrs, pos)
+        self.__attrs = attrs
+        if self.getAttr('parse','yes') in ['no','false','off']:
+            self.macroMode = MacroMode.NoExpand
+    def toXML(self,doc,node=None):
+        if self.macroMode == MacroMode.NoExpand:
+            if node is None:
+                node = doc.createElement(self.nodeName)
+            for item in self:
+                if isinstance(item,unicode):
+                    node.appendChild(doc.createTextNode(item))
+
+            for k,v in self.__attrs.items():
+                if v is not None and k not in [ 'macroexpand' ]:
+                    node.setAttribute(k,v)
+            node.setAttribute('validated','no')
+            return node
+        else:
+            return _MathNode.toXML(self,doc)
+        
+        
 
 
 class MathEqnNode(_MathNode):

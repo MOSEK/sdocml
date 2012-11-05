@@ -135,6 +135,8 @@ class _mathUnicodeToTex:
         8943 : '\\cdots{}',
         8945 : '\\ddots{}',
 
+        0x2329 : '\\langle{}',
+        0x232a : '\\rangle{}',
     }
 
 class _unicodeToTex:
@@ -2955,6 +2957,7 @@ class MathEnvNode(Node):
         Node.__init__(self,manager,parent,attrs,filename,line)
         self.__eqnidx = None
         self.__alttext = '[math]'
+        self.__attrs = attrs
 
         if attrs.has_key('id'):
             self.__index = self.parentSection().nextEquationIndex()
@@ -2973,9 +2976,29 @@ class MathEnvNode(Node):
     def getAltText(self):
         return self.__alttext
     def endOfElement(self,filename,line):
-        mathtext = ''.join(self.contentToTeX(texCollector(self.manager,texCollector.MathMode)))
+        if self.__attrs.get('validated','yes') in ['no','false','off']:
+            r = texCollector(self.manager,texCollector.MathMode)
+            for i in self:
+                if isinstance(i,Node): pass
+                else: r._raw(re.sub('[ \t\n\r]+',' ',i))
+            mathtext = ''.join(r)
+        else:
+            mathtext = ''.join(self.contentToTeX(texCollector(self.manager,texCollector.MathMode)))
+
         self.__alttext = re.sub(r'[\r\n ]+',' ',mathtext)
         self.__eqnidx,self.__eqnfile  = self.manager.addEquation('$\\displaystyle{}%s$' % mathtext,self.__filename, self.__line)
+        
+        #if self.__attrs.get('validated','yes') in ['no','false','off']:
+        #  print "GOT UNVALIDATED CONTEXT:", self.__alttext
+
+    def contentToMathTeX(self,r):    
+        if self.__attrs.get('validated','yes') in ['no','false','off']:
+          for i in self:
+              if isinstance(i,Node): pass
+              else: r._raw(re.sub('[ \t\n\r]+',' ',i))
+          return r
+        else:
+          return Node.contentToMathTeX(self,r)
 
     def toTeX(self,r):
         r.append('\n')
@@ -3098,6 +3121,21 @@ class MathRootNode(_MathNode):
     pass
     
 class MathFencedNode(_MathNode):
+    fencetex_close = { '}' : '\\}',
+                       '|' : '|',
+                       '||' : '\\Vert',
+                       '>'  : '\\rangle',
+                       ')'  : ')',
+                       ']'  : ']',
+                        }
+    fencetex_open  = { '{' : '\\{',
+                       '|' : '|',
+                       '||' : '\\Vert',
+                       '<'  : '\\langle',
+                       '('  : '(',
+                       '['  : '[',
+                        }
+
     def toTeX(self,r):
         open = '.'
         close = '.'
@@ -3107,6 +3145,8 @@ class MathFencedNode(_MathNode):
                 open = '\\{'
             elif open == '||':
                 open = '\\Vert'
+            elif open == '<':
+                open = '\\langle'
             elif len(open) > 1:
                 raise NodeError('Invalid open="%s" for <mfenced> node' % open)
             open = open or '.'
@@ -3118,6 +3158,8 @@ class MathFencedNode(_MathNode):
                 close = '\\}'
             elif close == '||':
                 close = '\\Vert'
+            elif open == '>':
+                open = '\\rangle'
             elif len(close) > 1:
                 raise NodeError('Invalid close="%s" for <mfenced> node' % close)
             close = close or '.'
