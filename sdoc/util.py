@@ -113,7 +113,10 @@ class CommandDict(UserDict):
                 raise
 
     def has_key(self,key):
-        return self.data.has_key(key) or self.__parent.has_key(key)
+        if self.__parent:
+            return self.data.has_key(key) or self.__parent.has_key(key)
+        else:
+            return self.data.has_key(key)
 
     def __setitem__(self,key,value):
         if not self.data.has_key(key):
@@ -157,6 +160,12 @@ class CommandDict(UserDict):
     def items(self):
         return self.__collect({}).items()
 
+    def __len__(self):
+        returnee = 0
+        if self.__parent is not None:
+            returnee += len(self.__parent)
+        returnee += len(self.data)
+        return returnee
 
 class PushIterator:
     def __init__(self,buffer):
@@ -202,6 +211,9 @@ class XList:
         self.data = l or []
         self.__offset = 0
         self.__last = len(self.data)
+    def __repr__(self):
+        return repr(self.data)
+            
     def __len__(self): return self.__last - self.__offset
     def __nonzero__(self): return len(self) > 0
     def __getitem__(self,idx):

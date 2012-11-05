@@ -17,7 +17,7 @@ import math
 import config
 import logging
 import Nodes
-from Nodes import Node,NodeError,escape,xescape,MotexException,msg
+from Nodes import Node,NodeError,unescape,escape,xescape,MotexException,msg
 import re
 
 def makemacroref(outfile,docRoot,title):
@@ -37,8 +37,6 @@ def makemacroref(outfile,docRoot,title):
     envs.sort(lambda lhs,rhs: cmp(lhs.getAttr('m'),rhs.getAttr('m')))
     defs = zip(defs,range(len(defs)))
     envs = zip(envs,range(len(envs)))
-
-   
     if defs: 
         deftabw = min(len(defs),8)
          
@@ -425,7 +423,8 @@ if __name__ == "__main__":
                                         print "attr %s = %s" % (a.name,a.value)
                                         assert isinstance(a.value,basestring) 
 
-                    f.write(doc.toxml('utf-8')) 
+                    f.write(unescape(doc.toxml('utf-8')) )
+                    #f.write(doc.toxml('utf-8'))
                     f.close()
                     
                     time1 = time.time()

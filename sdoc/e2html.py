@@ -550,22 +550,34 @@ def texescape(data,r):
 
 
 def escape(data,r):
-    pos = 0
-    for o in re.finditer(r'&|<|>',data):
-        if o.start(0) > pos:
-            r.append(data[pos:o.start(0)])
-        pos = o.end(0)
-        t = o.group(0)
-        if   t == '&':
-            r.append('&amp;')
-        elif t == '<':
-            r.append('&lt;')
-        else: #t == '<':
-            r.append('&gt;')
-    if pos < len(data):
-        r.append(data[pos:])
-
+    def repl(o):
+        if o.group(0) == '\\>': return '>'
+        elif o.group(0) == '\\<': return '<'
+        elif   o.group(0) == '<': return '&lt;'
+        elif o.group(0) == '>': return '&gt;'
+        elif o.group(0) == '&': return '&amp;'
+    r.append(re.sub(r'\\\>|\\\<|<|>|&',repl,data))
     return r
+    
+    #pos = 0
+    #for o in re.finditer(r'&|\\\<|\\\>|<|>',data):
+    #    if o.start(0) > pos:
+    #        r.append(data[pos:o.start(0)])
+    #    pos = o.end(0)
+    #    t = o.group(0)
+    #    if   t == '&':
+    #        r.append('&amp;')
+    #    elif t== '\\<':
+    #        r.append('<')
+    #    elif t== '\\>':
+    #        r.append('>')
+    #    elif t == '<':
+    #        r.append('&lt;')
+    #    elif t == '>':
+    #        r.append('&gt;')
+    #if pos < len(data):
+    #    r.append(data[pos:])
+    #return r
 
 class IncludeError(Exception):
     pass

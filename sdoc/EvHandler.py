@@ -40,7 +40,6 @@ class entityhandler(xml.sax.handler.EntityResolver):
         #print '\n'.join([ '\t' + p for p in self.__paths])
         for p in self.__paths:
             fullname = os.path.join(p,basename)
-
             if os.path.exists(fullname):
                 return os.path.abspath(fullname)
         return sysid
@@ -51,10 +50,8 @@ class handler(xml.sax.handler.ContentHandler):
         self.__indent = 0
         self.__locator = None
         self.__filename = filename
-
         self.__rootnode = rootElement
         self.__nodestack = [ rootElement ] 
-
         self.__textline = None
         self.__storedtext = []
     def setDocumentLocator(self,locator):
@@ -85,8 +82,8 @@ class handler(xml.sax.handler.ContentHandler):
                 topnode.handleText(l+' \n',Pos(self.__filename,lineno))
                 lineno += 1
             topnode.handleText(lines[-1],Pos(self.__filename,lineno))
-                
             self.__storedtext = []        
+
     def characters(self,content):
         self.__textline = self.__locator.getLineNumber()
         self.__storedtext.append(content)
@@ -185,11 +182,10 @@ class AlternativeSAXHandler(xml.sax.handler.ContentHandler):
     def startElement(self,name,attr):
         self.flushText()        
         topnode = self.__nodestack[-1]
-
+        topnode.evaluate(name,self.pos())
         if name == 'sdocml:conditional':
             if (not attr.has_key('cond')) or (attr['cond'].strip() and self.__manager.evalCond(attr['cond'],self.pos())):
                 self.__nodestack.append(StandInNode(topnode,name))
-                #topnode.startChildElement(name,attr,self.pos()))
             else:
                 self.__nodestack.append(DummyNode(name,attr,self.pos()))
         elif attr.has_key('cond') and attr['cond'].strip() and not self.__manager.evalCond(attr['cond'],self.pos()):
@@ -200,38 +196,39 @@ class AlternativeSAXHandler(xml.sax.handler.ContentHandler):
                 del attr['cond']
             if attr.has_key('xmlns:sdocml'):
                 del attr['xmlns:sdocml']
-
             self.__nodestack.append(topnode.startChildElement(name,attr,self.pos()))
-            log.debug("%sOPEN <%s> (%s) @ %d" % (' '*len(self.__nodestack),name,self.__nodestack[-1].nodeName,self.line()))
+            #log.debug("%sOPEN <%s> (%s) @ %d" % (' '*len(self.__nodestack),name,self.__nodestack[-1].nodeName,self.line()))
             self.__indent += 1
     def endElement(self,name):
         self.flushText()
         p = self.pos()
-        log.debug("%sCLOSE <%s> (%s) @ %d" % (' '*len(self.__nodestack),name,self.__nodestack[-1].nodeName,self.line()))
+        #log.debug("%sCLOSE <%s> (%s) @ %d" % (' '*len(self.__nodestack),name,self.__nodestack[-1].nodeName,self.line()))
         topnode = self.__nodestack.pop()
         nc = topnode.__class__
         if   nc in [ DummyNode, StandInNode ]:
             pass
         else: 
+            #turns strings into nodes if any is there
+            topnode.evaluate(name,self.pos())
+            #closes the node
+            topnode.end(self.pos())
+            #Do a check if the topnode is a validnode
             if self.__nodestack:
                 self.__nodestack[-1].endChildElement(name,self.pos())
-            topnode.end(self.pos())
             self.__indent -= 1
     def flushText(self):
         if self.__storedtext:
             topnode = self.__nodestack[-1]
-            
             lines = ''.join(self.__storedtext).split('\n')
             lineno = self.__textline
-
             for l in lines[:-1]:
-                log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),l,lineno))
+                #log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),l,lineno))
                 topnode.handleText(l+'\n',Pos(self.__filename,lineno))
                 lineno += 1
-            log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),lines[-1],lineno))
+            #log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),lines[-1],lineno))
             topnode.handleText(lines[-1],Pos(self.__filename,lineno))
-                
             del self.__storedtext[:] 
+
     def characters(self,content):
         if not self.__storedtext: # keep index fo the first of multiple lines
             self.__textline = self.__locator.getLineNumber()
@@ -239,11 +236,11 @@ class AlternativeSAXHandler(xml.sax.handler.ContentHandler):
         #if c: print ">>%s<<" % c
     def processingInstruction(self,target,data):
         self.flushText()
-        log("PROC INSTR:",target,data)
+        #log("PROC INSTR:",target,data)
 
     def skippedEntry(self,name):
         self.flushText()
-        log("Skipped Entry: %s" % name)
+        #log("Skipped Entry: %s" % name)
 
     def getDocumentElement(self):
         return self.__rootnode.documentElement
