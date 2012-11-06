@@ -78,7 +78,7 @@
   <def m="norm" n="1"><e n="mfenced"><attr n="open">||</attr><attr n="close">||</attr><d>{{0}}</d></e></def>
   <def m="abs" n="1"><e n="mfenced"><attr n="open">|</attr><attr n="close">|</attr><d>{{0}}</d></e></def>
         
-  <defenv m="angles"><e n="mfenced"><attr n="open">&lt;</attr><attr n="close">&gt;/attr><d>{{BODY}}</d></e></defenv>
+  <defenv m="angles"><e n="mfenced"><attr n="open">&lt;</attr><attr n="close">&gt;</attr><d>{{BODY}}</d></e></defenv>
   <defenv m="braces"><e n="mfenced"><attr n="open">{</attr><attr n="close">}</attr><d>{{BODY}}</d></e></defenv>
   <defenv m="brackets"><e n="mfenced"><attr n="open">[</attr><attr n="close">]</attr><d>{{BODY}}</d></e></defenv>
   <defenv m="parens"><e n="mfenced"><attr n="open">(</attr><attr n="close">)</attr><d>{{BODY}}</d></e></defenv>
