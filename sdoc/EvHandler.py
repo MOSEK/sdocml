@@ -45,7 +45,7 @@ class entityhandler(xml.sax.handler.EntityResolver):
         return sysid
 
 class handler(xml.sax.handler.ContentHandler):
-    def __init__(self,filename,rootElement):
+    def __init__(self,filename,rootElement,reeval=False):
         xml.sax.handler.ContentHandler.__init__(self)
         self.__indent = 0
         self.__locator = None
@@ -54,6 +54,7 @@ class handler(xml.sax.handler.ContentHandler):
         self.__nodestack = [ rootElement ] 
         self.__textline = None
         self.__storedtext = []
+        self.__reeval = reeval
     def setDocumentLocator(self,locator):
         self.__locator = locator
 
@@ -151,6 +152,40 @@ class DummyNode:
         pass
     def endOfElement(self,pos):
         pass
+
+class reParsingSAXHandler(xml.sax.handler.ContentHandler):
+    def __init__(self,nodeDict,manager,parent):
+        self.__nodeDict = nodeDict
+        xml.sax.handler.ContentHandler.__init__(self)
+        self.manager = manager
+        self.__parent = parent
+        self.__nodestack = [parent]
+        self.__storedtext = ""
+    def startDocument(self):
+        pass
+    def endDocument(self):
+        #TODO
+        pass
+    def startElement(self,name,attr):
+        self.flushText()
+        #magic valueeeeesssssss
+        node = self.__nodeDict[name](self.manager,None,{},self.nodeDict,attr,0)
+        self.__nodestack.append(node)
+
+    def endElement(self,name):
+        self.flushText()
+        topnode = self.__nodestack.pop()
+
+    def flushText(self)
+        if self.__storedtext:
+            self.__nodestack[-1].handleRawText(self.__storedtext,0)
+            self.__storedtext = ""
+
+    def characters(self,content):
+        self.__storedtext += content
+
+        
+        
 
 class AlternativeSAXHandler(xml.sax.handler.ContentHandler):
     def __init__(self,filename,rootElement,manager):

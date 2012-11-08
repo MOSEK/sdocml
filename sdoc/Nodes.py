@@ -531,7 +531,8 @@ class Node:
     def end(self,pos):
         pass
 
-
+    def reParse(self,doc,):
+        
 
     def paragraphifyXML(self,lst,doc,node):
         # generate paragraphs 
