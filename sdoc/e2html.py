@@ -2169,7 +2169,7 @@ class AuthorNode(Node):
 
         if d['email']:
             if hasname:
-                r.append('{, }')
+                r.group(', ')
             d['email'].toTeX(r)
         
 

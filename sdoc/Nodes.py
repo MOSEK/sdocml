@@ -102,6 +102,24 @@ def xescape(s):
         else:                   return '&#%d;' % ord(o.group(0))
     return re.sub(u'<|>|&|[\u0080-\u8000]',repl,s)
 
+
+class TokenizerError(Exception):
+  pass
+def tokniter(regex,text):
+    p = 0    
+    r = re.compile(regex)
+    while p < len(text):
+      o = r.match(text,p)
+      if o is not None:
+        yield o
+        p = o.end(0)
+      else:
+        o = re.match(r'\s+')
+        if o is not None:
+          p = o.end(0)
+        else:
+          raise TokenizerError()
+
 class Attr:
     defaultDescr = {
         'id'          : 'A globally unique ID that may be used to refer to this element.',
@@ -2233,6 +2251,12 @@ class TableNode(Node):
 
         self.__halign = halign
         self.__valign = valign
+
+        
+        #if self.hasAttr('style'): 
+        #  styled = dict([ (o.group('key'),o.group('value')) for o in tokeniter(r'(?P<key>[a-zA-Z]+)=(?P<value>[^\s]+)',self.getAttr('style'))])
+        #  if styled.has_key()
+
 
     def toXML(self,doc):
         node = doc.createElement('table')
