@@ -146,7 +146,7 @@ class DummyNode:
     def endOfElement(self,pos):
         pass
 
-class reParsingSAXHandler(xml.sax.handler.ContentHandler):
+class ReParsingSAXHandler(xml.sax.handler.ContentHandler):
     def __init__(self,nodeDict,manager,parent):
         self.__nodeDict = nodeDict
         xml.sax.handler.ContentHandler.__init__(self)
@@ -169,7 +169,7 @@ class reParsingSAXHandler(xml.sax.handler.ContentHandler):
         self.flushText()
         topnode = self.__nodestack.pop()
 
-    def flushText(self)
+    def flushText(self):
         if self.__storedtext:
             self.__nodestack[-1].handleRawText(self.__storedtext,0)
             self.__storedtext = ""

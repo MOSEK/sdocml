@@ -11,7 +11,7 @@ import xml.sax
 import re
 import sys,os,time
 import urlparse
-from EvHandler import dtdhandler, handler, Pos, AlternativeSAXHandler, reParsingSAXHandler
+from EvHandler import dtdhandler, handler, Pos, AlternativeSAXHandler, ReParsingSAXHandler
 import inspect
 import math
 import config
@@ -381,9 +381,18 @@ if __name__ == "__main__":
             time0 = time1
 
             msg('Reparsing document')
-            doc = docRoot.docAsString()
-            docRoot = Nodes.DocumentRoot(manager,None,None,Nodes.globalNodeDict,Pos('<root>',0))
-            pars = 
+            doc = docRoot.toXML(formating=False)
+            print doc
+            #docRoot = Nodes.DocumentRoot(manager,None,None,Nodes.globalNodeDict,Pos('<root>',0))
+            #pars = ReParsingSAXHandler('tmp',docRoot,manager)
+            #xml.sax.parseString(doc,pars)
+
+            #tmp = open('tmp','w')
+            #tmp.write(doc)
+            #tmp.close
+            #P.setContentHandler(pars)
+            #P.setEntityResolver(manager.getEntityResolver())
+            #P.parse('tmp')
 
             msg('Convert to XML')
             doc = docRoot.toXML()

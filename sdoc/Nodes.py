@@ -401,7 +401,10 @@ class Node:
     def asList(self):
         res = []
         for i in self:
-            res = res + i.asList()
+            if isinstance(i,basestring):
+                res.append(i)
+            else:
+                res = res + i.asList()
         return res
    
     ##\brief Append a new child, append it and return it. This is called by the
@@ -1727,8 +1730,13 @@ class _SectionNode(_SectionBaseElement):
     
     def getHeadNode(self):
         return self.__head
+    def asString(self):
+        print "hest"
+        for i in self:
+            print i
+        return []
 
-    def toXML(self,doc,node=None):
+    def toXML(self,doc,node=None,formating=True):
         if node is None:
             node = doc.createElement(self.nodeName)
             if self.hasAttr('class'):
@@ -1759,8 +1767,7 @@ class _SectionNode(_SectionBaseElement):
                     lst[-1].append(item)
             else:
                 lst.append(item)
-
-        if self.paragraphElement:
+        if self.paragraphElement and formating:
             # generate paragraphs 
             self.paragraphifyXML(lst,doc,body)
         for item in nodes:
@@ -3093,6 +3100,8 @@ class _RootNode:
         self.end(file,line)
     def end(self,pos):
         assert self.documentElement is not None 
+                
+                
 
 class DocumentRoot(_RootNode):
     rootElementClass = DocumentNode
@@ -3107,16 +3116,11 @@ class DocumentRoot(_RootNode):
         
     def __init__(self,manager,parent,cmddict,nodeDict,pos):
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,pos)
-    def asString(self):
-        docAsString = ''
-        for n in self:
-            docAsString + ''.join(n.asList())
-        return docAsString
 
-    def toXML(self):
+    def toXML(self,formating=True):
         impl = xml.dom.minidom.getDOMImplementation()
         doc = impl.createDocument(None, 'sdocmlx', None)
-        self.documentElement.toXML(doc,doc.documentElement)
+        self.documentElement.toXML(doc,doc.documentElement,formating)
         node = doc.documentElement
         return node
         
