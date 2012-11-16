@@ -3107,6 +3107,11 @@ class DocumentRoot(_RootNode):
         
     def __init__(self,manager,parent,cmddict,nodeDict,pos):
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,pos)
+    def asString(self):
+        docAsString = ''
+        for n in self:
+            docAsString + ''.join(n.asList())
+        return docAsString
 
     def toXML(self):
         impl = xml.dom.minidom.getDOMImplementation()

@@ -105,13 +105,6 @@ class handler(xml.sax.handler.ContentHandler):
 
 
 
-
-
-
-
-
-
-
 class StandInNode:
     nodeName = '*stand-in*'
     def __init__(self,
@@ -184,7 +177,8 @@ class reParsingSAXHandler(xml.sax.handler.ContentHandler):
     def characters(self,content):
         self.__storedtext += content
 
-        
+    def getDocumentElement(self):
+        return self.__rootnode.parent
         
 
 class AlternativeSAXHandler(xml.sax.handler.ContentHandler):

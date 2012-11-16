@@ -11,7 +11,7 @@ import xml.sax
 import re
 import sys,os,time
 import urlparse
-from EvHandler import dtdhandler, handler, Pos, AlternativeSAXHandler 
+from EvHandler import dtdhandler, handler, Pos, AlternativeSAXHandler, reParsingSAXHandler
 import inspect
 import math
 import config
@@ -379,6 +379,11 @@ if __name__ == "__main__":
             time1 = time.time()
             msg('Parse and expand: %.1f sec.' % (time1-time0))
             time0 = time1
+
+            msg('Reparsing document')
+            doc = docRoot.docAsString()
+            docRoot = Nodes.DocumentRoot(manager,None,None,Nodes.globalNodeDict,Pos('<root>',0))
+            pars = 
 
             msg('Convert to XML')
             doc = docRoot.toXML()
