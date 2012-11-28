@@ -135,8 +135,15 @@ class _mathUnicodeToTex:
         8943 : '\\cdots{}',
         8945 : '\\ddots{}',
 
+        0x2019 : "'", # rsquo
+        0x2032 : "'", # prime
+        0x2308 : '\\lceil{}',
+        0x2309 : '\\rceil{}',
+        0x230a : '\\lfloor{}',
+        0x230b : '\\rfloor{}',
         0x2329 : '\\langle{}',
         0x232a : '\\rangle{}',
+
     }
 
 class _unicodeToTex:
@@ -274,6 +281,8 @@ class texCollector(UserList.UserList):
                             r.append(_mathUnicodeToTex.unicodetotex[uidx])
                         except KeyError:
                             Warning('Unknown unicode: %d' % uidx)
+                            print('Unknown unicode: %d' % uidx)
+                            assert 0
                             r.append('.')
                     else:
                         try:
@@ -295,6 +304,7 @@ class texCollector(UserList.UserList):
                         r.append(_mathUnicodeToTex.unicodetotex[uidx])
                     except KeyError:
                         self.Warning('Unknown unicode: %d' % uidx)
+                        assert 0
                         r.append('.')
                 else:
                     try:
@@ -2379,10 +2389,16 @@ class ReferenceNode(Node):
                     # TeX produces numbers for certain things like equations, figures and tables, so in these
                     # cases we ignore any "linktext" and just use a \ref{} instead
                     linktext = self.__ref.linkText()
-                    if linktext:
-                        r.group(self.__ref.linkText())
-                    else:
+
+                    linktgt = self.__ref.resolve()
+                    if not linktext or \
+                       isinstance(linktgt,SectionNode) or \
+                       isinstance(linktgt,FloatNode) or \
+                       isinstance(linktgt,MathEnvNode): 
                         r.groupStart().macro('ref').groupStart()._raw(self.__ref.getID()).groupEnd().groupEnd()
+                    else:
+                        print self.__ref.resolve()
+                        r.group(self.__ref.linkText())
 
 
 class HyperRefNode(Node):
@@ -3121,48 +3137,51 @@ class MathRootNode(_MathNode):
     pass
     
 class MathFencedNode(_MathNode):
-    fencetex_close = { '}' : '\\}',
-                       '|' : '|',
-                       '||' : '\\Vert',
-                       '>'  : '\\rangle',
-                       ')'  : ')',
-                       ']'  : ']',
+    fencetex_close = { u'}'  : '\\}',
+                       u'|'  : '|',
+                       u'||' : '\\Vert',
+                       u'>'  : '\\rangle',
+                       u')'  : ')',
+                       u']'  : ']',
+                       u'.'  : '.',
+                        ''   : '.',
+                  u'\x2309' : '\\rceil',
+                  u'\x230b' : '\\rfloor',
                         }
-    fencetex_open  = { '{' : '\\{',
-                       '|' : '|',
-                       '||' : '\\Vert',
-                       '<'  : '\\langle',
-                       '('  : '(',
-                       '['  : '[',
+    fencetex_open  = { u'{'  : '\\{',
+                       u'|'  : '|',
+                       u'||' : '\\Vert',
+                       u'<'  : '\\langle',
+                       u'('  : '(',
+                       u'['  : '[',                      
+                       u'.'  : '.',
+                        ''   : '.',
+                  u'\x2308' : '\\lceil',
+                  u'\x230a' : '\\lfloor',
                         }
 
     def toTeX(self,r):
-        open = '.'
-        close = '.'
-        if self.hasAttr('open'):
-            open = self.getAttr('open').strip()
-            if open == '{':
-                open = '\\{'
-            elif open == '||':
-                open = '\\Vert'
-            elif open == '<':
-                open = '\\langle'
-            elif len(open) > 1:
-                raise NodeError('Invalid open="%s" for <mfenced> node' % open)
-            open = open or '.'
-
+        if self.hasAttr('open'):          
+            of = self.getAttr('open').strip()
+            if self.fencetex_open.has_key(of):
+              open = self.fencetex_open[of]
+            elif len(of) > 1:
+                raise NodeError('Invalid open="%s" for <mfenced> node' % of)
+            else: 
+              raise NodeError('Invalid open="%s" for <mfenced> node' % of)
+        else:                
+            open = '.'
                 
-        if self.hasAttr('close'):
-            close = self.getAttr('close')
-            if close == '}':
-                close = '\\}'
-            elif close == '||':
-                close = '\\Vert'
-            elif open == '>':
-                open = '\\rangle'
-            elif len(close) > 1:
-                raise NodeError('Invalid close="%s" for <mfenced> node' % close)
-            close = close or '.'
+        if self.hasAttr('close'):          
+            cf = self.getAttr('close').strip()
+            if self.fencetex_close.has_key(cf):
+              close = self.fencetex_close[cf]
+            elif len(cf) > 1:
+              raise NodeError('Invalid close="%s" for <mfenced> node' % cf)
+            else:    
+              raise NodeError('Invalid close="%s" for <mfenced> node' % cf)
+        else:
+          close = '.'
        
         r.macro('left')._raw(open).group()
         self.contentToMathTeX(r)

@@ -53,7 +53,9 @@
       <e n="mrow"><d>{{SUPERSCRIPT}}</d></e>
     </e>
   </def>
-  
+  <def m="rsquo"><e n="mi"><d>&rsquo;</d></e></def>  
+  <def m="prime"><e n="mi"><d>&prime;</d></e></def>  
+      
   <def m="prod" superscript-arg="yes" subscript-arg="yes">
     <e n="msubsup">
       <e n="mrow"><e n="mo"><attr n="op">prod</attr></e></e>
