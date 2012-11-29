@@ -382,13 +382,20 @@ if __name__ == "__main__":
 
             msg('Reparsing document')
             doc = docRoot.toXML(formating=False)
+            doc = doc.toxml('utf-8')
+            doc = unescape(doc)
+            print "hest"
             print doc
-            #docRoot = Nodes.DocumentRoot(manager,None,None,Nodes.globalNodeDict,Pos('<root>',0))
-            #pars = ReParsingSAXHandler('tmp',docRoot,manager)
-            #xml.sax.parseString(doc,pars)
-
+            print "kat"
+            manager = Nodes.Manager(conds=conf['define'],
+                                    incpaths=conf['incpath'],
+                                    maxsectdepth=conf['maxsectiondepth'],
+                                    dtdpaths=conf['dtdpath'])
+            docRoot = Nodes.MetaDocumentRoot(manager,None,None,Nodes.metaNodeDict,Pos('<root>',0))
+            pars = ReParsingSAXHandler(Nodes.metaNodeDict,manager,docRoot)
+            xml.sax.parseString(doc,pars)
             #tmp = open('tmp','w')
-            #tmp.write(doc)
+            #tmp.write()
             #tmp.close
             #P.setContentHandler(pars)
             #P.setEntityResolver(manager.getEntityResolver())
@@ -403,7 +410,6 @@ if __name__ == "__main__":
                 except OSError:
                     pass
                 makemacroref(macroref,docRoot,macrorefsecname) 
-               
                 
             if not Nodes.ERROR_OCCURRED:
                 if outputfile  is not None:

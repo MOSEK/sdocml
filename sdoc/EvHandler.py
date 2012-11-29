@@ -162,15 +162,16 @@ class ReParsingSAXHandler(xml.sax.handler.ContentHandler):
     def startElement(self,name,attr):
         self.flushText()
         #magic valueeeeesssssss
-        node = self.__nodeDict[name](self.manager,None,{},self.nodeDict,attr,0)
-        self.__nodestack.append(node)
+        parent = self.__nodestack[-1]
+        #node = self.__nodeDict[name](self.manager,parent,{},self.__nodeDict,attr,0)
+        self.__nodestack.append(parent.startChildElement(name,attr,0))
 
     def endElement(self,name):
         self.flushText()
         topnode = self.__nodestack.pop()
 
     def flushText(self):
-        if self.__storedtext:
+        if self.__storedtext.strip():
             self.__nodestack[-1].handleRawText(self.__storedtext,0)
             self.__storedtext = ""
 

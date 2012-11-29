@@ -27,7 +27,7 @@ import macro
 from macro import DelayedText, DelayedMacro,DelayedEnvironment,DelayedSubScript, DelayedSuperScript, DelayedElement,DelayedGroup,DelayedTableContent,ResolvedMacro,Placeholder,Group,MacroParser
 
 log = logging.getLogger("SDocML Expander")
-log.setLevel(logging.ERROR)
+#log.setLevel(logging.ERROR)
 msg = log.info
 
 
@@ -379,7 +379,7 @@ class Node:
             for k,v in attrs.items():
                 if self.__attrs.has_key(k):
                     self.__attrs[k] = v
-                elif k == 'xmlns':
+                elif k == 'xmlns' or 'trace' in k:
                     pass
                 else:
                     raise NodeError('Invalid attribute "%s" in <%s> at %s' % (k,self.nodeName,pos))
@@ -440,6 +440,7 @@ class Node:
         pass
 
     def startElement(self,name,attrs,pos):
+        print self.__nodeDict
         try:
             nodecon = self.__nodeDict[name]
         except KeyError:
@@ -459,6 +460,7 @@ class Node:
         try:
             nodecon = self.__nodeDict[name]
         except KeyError:
+            print self.__nodeDict
             raise NodeError('Unknown element <%s> in <%s> at %s' % (name,self.nodeName, pos))
         try:
             node = nodecon(self.__manager,self,self.__cmddict,self.__nodeDict,attrs,pos)
@@ -638,7 +640,7 @@ class Node:
             for k,v in self.__attrs.items():
                 if v is not None and k not in [ 'macroexpand' ]:
                     node.setAttribute(k,v)
-            if self.traceInfo:
+            if self.traceInfo and not isinstance(self.pos,int):
                 if self.pos is not None and self.pos.filename is not None and self.pos.line is not None:
                     node.setAttribute("xmlns:trace","http://odense.mosek.com/emotek.dtd")
                     node.setAttribute('trace:file',str(self.pos.filename))
@@ -661,6 +663,15 @@ class _MathNode(Node):
     mathElement = True
   
     #__init__ = Node.__init__
+######################################################################
+# Meta nodes for the reparsing
+######################################################################
+
+class BodyNode(Node):
+    comment = 'this comment shouldnt be shown'
+    nodeName = 'body'
+    macroMode = MacroMode.NoExpand
+    contIter = ' T '
 
 
 ######################################################################
@@ -2265,7 +2276,7 @@ class DocumentNode(_SectionNode):
     contIter    = ' <head> [ T %s %s %s %s ]* <section>* <bibliography>?' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
 
     def __init__(self,manager,parent,cmddict,nodeDict,attrs,pos):
-        _SectionNode.__init__(self,manager,None,cmddict,globalNodeDict,attrs,pos)
+        _SectionNode.__init__(self,manager,None,cmddict,nodeDict,attrs,pos)
 
 
 class FontNode(_SimpleTextElement):
@@ -2363,39 +2374,41 @@ class PreformattedNode(Node):
         Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
 
         self.__realurl = None
-        
-        filename = pos.filename
+        if isinstance(pos,int):
+            pass
+        else:
+            filename = pos.filename
 
-        if self.hasAttr('url'):
-            url = self.getAttr('url')
-            #dgb("In <pre> : url='%s', pos=%s",url,pos)
-            self.__realurl = os.path.abspath(manager.findFile(url,filename))
-            lines = manager.readFrom(self.__realurl,self.getAttr('encoding')).split('\n')
-            firstline = 0
-            if self.hasAttr('firstline'):
-                firstline = max(int(self.getAttr('firstline'))-1,0)
-            lastline = len(lines)
-            if self.hasAttr('lastline'):
-                lastline = min(int(self.getAttr('lastline'))-1,lastline)
+            if self.hasAttr('url'):
+                url = self.getAttr('url')
+                #dgb("In <pre> : url='%s', pos=%s",url,pos)
+                self.__realurl = os.path.abspath(manager.findFile(url,filename))
+                lines = manager.readFrom(self.__realurl,self.getAttr('encoding')).split('\n')
+                firstline = 0
+                if self.hasAttr('firstline'):
+                    firstline = max(int(self.getAttr('firstline'))-1,0)
+                lastline = len(lines)
+                if self.hasAttr('lastline'):
+                    lastline = min(int(self.getAttr('lastline'))-1,lastline)
 
-            if firstline >= lastline:
-                raise NodeError('Empty inclusion from "%s" in <pre> at %s' % (url,self.pos))
-            
-            while firstline < lastline and not lines[firstline].strip():
-                firstline += 1
-            while firstline < lastline and not lines[lastline-1].strip():
-                lastline -= 1
-            if firstline == lastline:
-                raise NodeError('Only blank lines in inclusion in <pre> at %s' % self.pos)
-            inclines = lines[firstline:lastline]
+                if firstline >= lastline:
+                    raise NodeError('Empty inclusion from "%s" in <pre> at %s' % (url,self.pos))
+                
+                while firstline < lastline and not lines[firstline].strip():
+                    firstline += 1
+                while firstline < lastline and not lines[lastline-1].strip():
+                    lastline -= 1
+                if firstline == lastline:
+                    raise NodeError('Only blank lines in inclusion in <pre> at %s' % self.pos)
+                inclines = lines[firstline:lastline]
 
-            for l in inclines[:-1]:
-                self.handleRawText(l,pos)
-                self.handleRawText(u'\n',pos)
-            self.handleRawText(inclines[-1],pos)
+                for l in inclines[:-1]:
+                    self.handleRawText(l,pos)
+                    self.handleRawText(u'\n',pos)
+                self.handleRawText(inclines[-1],pos)
 
-            self.__firstline = firstline
-            self.seal()
+                self.__firstline = firstline
+                self.seal()
     def toXML(self,doc,node=None):
         items = list(self)
         
@@ -3115,6 +3128,7 @@ class DocumentRoot(_RootNode):
     macroMode = MacroMode.Text
         
     def __init__(self,manager,parent,cmddict,nodeDict,pos):
+        print "odfajiojaos"
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,pos)
 
     def toXML(self,formating=True):
@@ -3123,7 +3137,28 @@ class DocumentRoot(_RootNode):
         self.documentElement.toXML(doc,doc.documentElement,formating)
         node = doc.documentElement
         return node
-        
+
+class MetaDocumentRoot(_RootNode):
+    rootElementClass = DocumentNode
+    rootElement      = 'sdocmlx'
+    nodeName         = 'sdocmlx'
+    contIter    = ' <head> [ T %s %s %s %s ]* <body>* <section>* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
+    
+    comment = None
+    examples = []
+    acceptAttrs = Attrs([])
+    macroMode = MacroMode.NoExpand
+
+    def __init__(self,manager,parent,cmddict,nodeDict,pos):
+        _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,pos)
+        contIter    = ' <head> <body>* [ T %s %s %s %s ]*  <section>* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
+
+    def toXML(self,formating=True):
+        impl = xml.dom.minidom.getDOMImplementation()
+        doc = impl.createDocument(None, 'sdocmlx', None)
+        self.documentElement.toXML(doc,doc.documentElement,formating)
+        node = doc.documentElement
+        return node
 
 class ExternalSectionRoot(_RootNode):
     rootElementClass = _SectionNode
@@ -3346,7 +3381,6 @@ class Manager:
 #  Node dictionary      
 ######################################################################
 #from BibNode import *
-
 globalNodeDict =  { 'sdocml'   : DocumentRoot,
                     'section'  : SectionNode,
                     'bibliography' : BibliographyNode,
@@ -3457,5 +3491,10 @@ globalNodeDict =  { 'sdocml'   : DocumentRoot,
                     'warning'  : WarningNode,
                     'error'    : ErrorNode,
                     'note'     : NoteNode,
-
                     }
+
+metaNodeDict = {
+                    'sdocmlx': MetaDocumentRoot,
+                    'body' : BodyNode
+                }
+metaNodeDict.update(globalNodeDict)
