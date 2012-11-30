@@ -137,6 +137,7 @@ class _mathUnicodeToTex:
 
         0x2019 : "'", # rsquo
         0x2032 : "'", # prime
+        0x2202 : '\\partial{}',
         0x2308 : '\\lceil{}',
         0x2309 : '\\rceil{}',
         0x230a : '\\lfloor{}',
@@ -224,7 +225,7 @@ class texCollector(UserList.UserList):
     def texescape(self,data,r):
         pos = 0
         #unicoderegex = re.compile(u'[\u0080-\u8000]')
-        for o in re.finditer(ur'(?P<backslash>\\)|(?P<spctex>{|}|<|>|#|\$|\^|_|&|%)|(?P<combined>[a-zA-Z][\u0300-\u036f]+)|(?P<unicodecombined>[\u0080-\u8000][\u0300-\u036f]?)',data):
+        for o in re.finditer(ur'(?P<backslash>\\)|(?P<spctex>{|}|<|>|#|\$|\^|_|&|%|~)|(?P<combined>[a-zA-Z][\u0300-\u036f]+)|(?P<unicodecombined>[\u0080-\u8000][\u0300-\u036f]?)',data):
             # backslash -> '\'
             # spctex    -> single char special tex characters
             # combined  -> combining character: normal char + combining chars (one or more, but we only support one)
@@ -248,6 +249,11 @@ class texCollector(UserList.UserList):
                 elif t in [ '<', '>' ]:
                     if self.__mode == self.MathMode:
                         r.append(str(t))
+                    else:
+                        r.append('\\char%d{}' % ord(t))
+                elif t == '~':
+                    if self.__mode == self.MathMode:
+                        r.append('\\~{}')
                     else:
                         r.append('\\char%d{}' % ord(t))
                 else:
@@ -282,7 +288,7 @@ class texCollector(UserList.UserList):
                         except KeyError:
                             Warning('Unknown unicode: %d' % uidx)
                             print('Unknown unicode: %d' % uidx)
-                            assert 0
+                            #assert 0
                             r.append('.')
                     else:
                         try:
@@ -304,7 +310,7 @@ class texCollector(UserList.UserList):
                         r.append(_mathUnicodeToTex.unicodetotex[uidx])
                     except KeyError:
                         self.Warning('Unknown unicode: %d' % uidx)
-                        assert 0
+                        #assert 0
                         r.append('.')
                 else:
                     try:
