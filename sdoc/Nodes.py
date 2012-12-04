@@ -2558,7 +2558,6 @@ class PreformattedNode(Node):
         codelight = syntax.CodeHilighter(self.getAttr('type'))
         # special case: If first line is blank in a <pre>, we throw it away.
 
-
         minindent = sys.maxint
 
         xlines = [ [] ]
@@ -2584,9 +2583,11 @@ class PreformattedNode(Node):
         else:
             minindent = 0
                         
+
         for line in xlines:
             if minindent > 0:
-                line[0] = line[0][minindent:]
+                if line[0].strip():
+                  line[0] = line[0][minindent:]
                 
             for item in line:
                 if isinstance(item,basestring):
@@ -2601,7 +2602,7 @@ class PreformattedNode(Node):
                         node.appendChild(n)
                 else:
                     n = item.toXML(doc)
-                    if n is not None:
+                    if n is not None: 
                         node.appendChild(n)
 
         for k in [ 'id', 'class', 'xml:space','type','style' ]:
