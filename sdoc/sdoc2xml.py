@@ -380,29 +380,9 @@ if __name__ == "__main__":
             msg('Parse and expand: %.1f sec.' % (time1-time0))
             time0 = time1
 
-            msg('Reparsing document')
-            doc = docRoot.toXML(formating=False)
-            doc = doc.toxml('utf-8')
-            doc = unescape(doc)
-            print "hest"
-            print doc
-            print "kat"
-            manager = Nodes.Manager(conds=conf['define'],
-                                    incpaths=conf['incpath'],
-                                    maxsectdepth=conf['maxsectiondepth'],
-                                    dtdpaths=conf['dtdpath'])
-            docRoot = Nodes.MetaDocumentRoot(manager,None,None,Nodes.metaNodeDict,Pos('<root>',0))
-            pars = ReParsingSAXHandler(Nodes.metaNodeDict,manager,docRoot)
-            xml.sax.parseString(doc,pars)
-            #tmp = open('tmp','w')
-            #tmp.write()
-            #tmp.close
-            #P.setContentHandler(pars)
-            #P.setEntityResolver(manager.getEntityResolver())
-            #P.parse('tmp')
 
             msg('Convert to XML')
-            doc = docRoot.toXML()
+            doc = docRoot.toXML(formating=False)
 
             if macroref is not None:
                 try:
@@ -417,7 +397,6 @@ if __name__ == "__main__":
                         os.makedirs(os.path.dirname(outputfile))
                     except OSError:
                         pass
-
                     f = open(outputfile,'w')
                     f.write('<?xml version="1.0" encoding="utf-8" ?>\n')
                     f.write('<!DOCTYPE sdocmlx>\n')
@@ -443,6 +422,21 @@ if __name__ == "__main__":
                                         assert isinstance(a.value,basestring) 
 
                     #f.write(unescape(doc.toxml('utf-8')) )
+                    msg('Reparsing document')
+                    doc = docRoot.toXML(formating=False)
+                    doc = doc.toxml('utf-8')
+                    doc = unescape(doc)
+                    print doc
+                    tmpmanager = Nodes.Manager(conds=conf['define'],
+                                            incpaths=conf['incpath'],
+                                            maxsectdepth=conf['maxsectiondepth'],
+                                            dtdpaths=conf['dtdpath'])
+                    docRoot = Nodes.MetaDocumentRoot(tmpmanager,None,None,Nodes.metaNodeDict,Pos('<root>',0))
+                    pars = ReParsingSAXHandler(Nodes.metaNodeDict,tmpmanager,docRoot)
+                    xml.sax.parseString(doc,pars)
+                    doc = docRoot.toXML()
+                    print "Filler"
+                    print doc.toxml('utf-8')
                     f.write(doc.toxml('utf-8'))
                     f.close()
                     

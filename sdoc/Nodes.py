@@ -536,7 +536,7 @@ class Node:
     def end(self,pos):
         pass
 
-    def paragraphifyXML(self,lst,doc,node):
+    def paragraphifyXML(self,lst,doc,node,formating):
         # generate paragraphs 
         pars = []
         par = []
@@ -587,17 +587,18 @@ class Node:
             if not isinstance(p,list):
                 node.appendChild(p)
             else:
-                #Rewrite
-                for item in p:
-                    node.appendChild(item)
-                #par = doc.createElement('p')
-                #node.appendChild(par)
-                #for item in p:
-                #    assert not isinstance(item,list)
-                #    par.appendChild(item)
-        
+                if formating:
+                    par = doc.createElement('p')
+                    node.appendChild(par)
+                    for item in p:
+                        assert not isinstance(item,list)
+                        par.appendChild(item)
+                else:
+                    for item in p:
+                        node.appendChild(item)
 
-    def toXML(self,doc,node=None):
+
+    def toXML(self,doc,node=None,formating=True):
         '''
         Convert the node to XML. Return either the generated node or None.
         '''
@@ -626,7 +627,7 @@ class Node:
                         lst.append(item)
                 if self.paragraphElement:
                     # generate paragraphs 
-                    self.paragraphifyXML(lst,doc,node)
+                    self.paragraphifyXML(lst,doc,node,formating)
                 else: # not paragraph element. Eliminate all newlines.
                     for item in lst:
                         if not isinstance(item,list):
@@ -1741,11 +1742,6 @@ class _SectionNode(_SectionBaseElement):
     
     def getHeadNode(self):
         return self.__head
-    def asString(self):
-        print "hest"
-        for i in self:
-            print i
-        return []
 
     def toXML(self,doc,node=None,formating=True):
         if node is None:
@@ -1778,9 +1774,9 @@ class _SectionNode(_SectionBaseElement):
                     lst[-1].append(item)
             else:
                 lst.append(item)
-        if self.paragraphElement and formating:
+        if self.paragraphElement:
             # generate paragraphs 
-            self.paragraphifyXML(lst,doc,body)
+            self.paragraphifyXML(lst,doc,body,formating)
         for item in nodes:
             if isinstance(item,_SectionBaseElement):
                 node.appendChild(item.toXML(doc))
@@ -2152,7 +2148,6 @@ class TableNode(Node):
 
     def toXML(self,doc):
         node = doc.createElement('table')
-
         if self.hasAttr('class'):
             node.setAttribute('class',self.getAttr('class'))
         node.setAttribute('cellhalign',' '.join(self.__halign))
@@ -2555,6 +2550,27 @@ class ReferenceNode(Node):
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
     paragraphElement = False
 
+class DoneReferenceNode(Node):
+    nodeName    = 'ref'
+    macroMode   = MacroMode.Text
+    acceptAttrs = Attrs([ Attr('class'), 
+                          Attr('ref',descr='A globally unique ID of another element'),
+                          Attr('type'),
+                          Attr('exuri'),
+                  ])
+    traceInfo   = True
+    contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
+    paragraphElement = False
+
+class ParagraphNode(Node):
+    nodeName    = 'ref'
+    macroMode   = MacroMode.Text
+    traceInfo   = True
+    contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
+    paragraphElement = False
+    
+
+
 class LinkTextNode(Node):
     nodeName    = 'linktext'
     macroMode   = MacroMode.Text
@@ -2626,7 +2642,7 @@ class ImageItemNode(Node):
         filename = pos.filename
         self.__realurl = os.path.abspath(manager.findFile(url,filename))
 
-    def toXML(self,doc,node=None):
+    def toXML(self,doc,node=None,formating=True):
         if self.expandElement:
             if node is None:
                 node = doc.createElement(self.nodeName)
@@ -2664,7 +2680,7 @@ class _ExceptionNode(Node):
     def onCreate(self):
         pass
 
-    def toXML(self,doc,node=None):
+    def toXML(self,doc,node=None,formating=True):
         return node
         pass
 
@@ -2955,7 +2971,7 @@ class MathTableNode(_MathNode):
         self.__halign = halign
         self.__valign = valign
 
-    def toXML(self,doc):
+    def toXML(self,doc,formating=True):
         node = doc.createElement('mtable')
         rows = [ r for r in self if isinstance(r,MathTableRowNode) ]
 
@@ -3128,7 +3144,6 @@ class DocumentRoot(_RootNode):
     macroMode = MacroMode.Text
         
     def __init__(self,manager,parent,cmddict,nodeDict,pos):
-        print "odfajiojaos"
         _RootNode.__init__(self,manager,parent,cmddict,nodeDict,None,pos)
 
     def toXML(self,formating=True):
@@ -3156,7 +3171,7 @@ class MetaDocumentRoot(_RootNode):
     def toXML(self,formating=True):
         impl = xml.dom.minidom.getDOMImplementation()
         doc = impl.createDocument(None, 'sdocmlx', None)
-        self.documentElement.toXML(doc,doc.documentElement,formating)
+        self.documentElement.toXML(doc,doc.documentElement)
         node = doc.documentElement
         return node
 
@@ -3372,7 +3387,7 @@ class Manager:
                         assert 0
         
         res = evalc(root)
-        return res
+        return res,
 
     def getCond(self,key):
         return self.__conds[key]
@@ -3495,6 +3510,8 @@ globalNodeDict =  { 'sdocml'   : DocumentRoot,
 
 metaNodeDict = {
                     'sdocmlx': MetaDocumentRoot,
-                    'body' : BodyNode
+                    'body' : BodyNode,
+                    'ref' : DoneReferenceNode,
+                    'p' : ParagraphNode,
                 }
 metaNodeDict.update(globalNodeDict)
