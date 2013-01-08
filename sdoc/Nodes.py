@@ -549,7 +549,7 @@ class Node:
         prevWasNode = False
         for item in lst:
             if isinstance(item,Node):
-                n = item.toXML(doc)
+                n = item.toXML(doc,formating=formating)
                 if n is not None:
                     if item.paragraphElement:
                         par = cleanpar(par)
@@ -610,7 +610,7 @@ class Node:
                     if isinstance(item,basestring):
                         node.appendChild(doc.createTextNode(item))
                     else:
-                        n = item.toXML(doc)
+                        n = item.toXML(doc,formating=formating)
                         assert not isinstance(n,list)
                         if n is not None:
                             node.appendChild(n)
@@ -631,7 +631,7 @@ class Node:
                 else: # not paragraph element. Eliminate all newlines.
                     for item in lst:
                         if not isinstance(item,list):
-                            n = item.toXML(doc)
+                            n = item.toXML(doc,formating=formating)
                             assert not isinstance(n,list)
                             if n is not None:
                                 node.appendChild(n)
@@ -1459,7 +1459,7 @@ class BibliographyNode(_SectionBaseElement):
                 Warning('No bibliography database found')
 
 
-    def toXML(self,doc):
+    def toXML(self,doc,formating=True):
         node = doc.createElement(self.nodeName)
         if 1:
             n = doc.createElement('head')
@@ -1474,14 +1474,14 @@ class BibliographyNode(_SectionBaseElement):
         num = 0
         for i in self:
             if i.nodeName == 'bibitem':
-                n = i.toXML(doc)
+                n = i.toXML(doc,formating=formating)
                 assert not isinstance(n,list)
                 if n is not None:
                     node.appendChild(n)
                 num += 1
                     
         for i in self.__genitems:
-            n = i.toXML(doc)
+            n = i.toXML(doc,formating=formating)
             assert not isinstance(n,list)
             if n is not None:
                 node.appendChild(n)
@@ -1750,19 +1750,24 @@ class _SectionNode(_SectionBaseElement):
                 node.setAttribute('class', self.getAttr('class'))
             if self.hasAttr('id'):
                 node.setAttribute('id', self.getAttr('id'))
-        
+        if formating:
+            for i in xrange(len(self)):
+                if isinstance(self[i], BodyNode):
+                    nodes = self[i:] + 
+                    
+                
         nodes = PushIterator(self) 
         while nodes and not isinstance(nodes.peek(),HeadNode):
             nodes.next()
-
         if nodes: 
-            n = nodes.next().toXML(doc)
+            n = nodes.next().toXML(doc,formating=formating)
             assert not isinstance(n,list)
             node.appendChild(n)
         node.appendChild(doc.createTextNode('\n'))
 
-        body = doc.createElement('body')
-        node.appendChild(body)
+        if not formating:
+            body = doc.createElement('body')
+            node.appendChild(body)
        
         lst = [] 
         while nodes and not isinstance(nodes.peek(),_SectionNode):
@@ -1779,7 +1784,7 @@ class _SectionNode(_SectionBaseElement):
             self.paragraphifyXML(lst,doc,body,formating)
         for item in nodes:
             if isinstance(item,_SectionBaseElement):
-                node.appendChild(item.toXML(doc))
+                node.appendChild(item.toXML(doc,formating=formating))
                 node.appendChild(doc.createTextNode('\n'))
             else:
                 pass
@@ -2146,7 +2151,7 @@ class TableNode(Node):
         self.__halign = halign
         self.__valign = valign
 
-    def toXML(self,doc):
+    def toXML(self,doc,formating=True):
         node = doc.createElement('table')
         if self.hasAttr('class'):
             node.setAttribute('class',self.getAttr('class'))
@@ -2160,7 +2165,7 @@ class TableNode(Node):
                 if r.strip():
                     raise NodeError('Non-whitespace text not allowed in table at %s' % self.pos)
             else:
-                n = r.toXML(doc,rowlen)            
+                n = r.toXML(doc,rowlen,formating=formating)            
                 if n is not None:
                     node.appendChild(n)
         
@@ -2240,7 +2245,7 @@ class TableRowNode(Node):
     def __len__(self):
         return len([ i for i in self if isinstance(i,TableCellNode)])
     
-    def toXML(self,doc,rowlen):
+    def toXML(self,doc,rowlen,formating=True):
         node = doc.createElement('tr')
         for k,v in self.attrs():
             if v is not None and k not in [ 'macroexpand' ]:
@@ -2251,7 +2256,7 @@ class TableRowNode(Node):
 
         for cell in cells:
             if cell is not None:
-                node.appendChild(cell.toXML(doc))
+                node.appendChild(cell.toXML(doc,formating=formating))
             else:
                 node.appendChild(doc.createElement('td'))
         assert not isinstance(node,list)
@@ -2293,9 +2298,9 @@ class NoExpandInlineNode(_NoExpandAnyNode):
     nodeName  = 'nx'
     paragraphElement = False
 
-    def toXML(self,doc):
+    def toXML(self,doc,formating=True):
         n = doc.createElement('span')
-        _NoExpandAnyNode.toXML(self,doc,n)
+        _NoExpandAnyNode.toXML(self,doc,n,formating=formating)
         return n
 
 
@@ -2404,7 +2409,7 @@ class PreformattedNode(Node):
 
                 self.__firstline = firstline
                 self.seal()
-    def toXML(self,doc,node=None):
+    def toXML(self,doc,node=None,formating=True):
         items = list(self)
         
         # If the first line is blank, we kill it.
@@ -2480,7 +2485,7 @@ class PreformattedNode(Node):
                             n.appendChild(doc.createTextNode(val))
                         node.appendChild(n)
                 else:
-                    n = item.toXML(doc)
+                    n = item.toXML(doc,formating=formating)
                     if n is not None:
                         node.appendChild(n)
 
@@ -2983,7 +2988,7 @@ class MathTableNode(_MathNode):
         rowlen = len(self.__halign)
 
         for r in rows:
-            n = r.toXML(doc,rowlen)
+            n = r.toXML(doc,rowlen,formating=formating)
             if n is not None:
                 node.appendChild(n)
         
@@ -3066,13 +3071,13 @@ class MathTableRowNode(_MathNode):
         #print "@@@@@@@@@@@ <%s>::end @ %s--%s" % (self.nodeName,self.pos,pos)
         self.__len = len([ cell for cell in self if isinstance(cell,MathTableCellNode) ])
         
-    def toXML(self,doc,rowlen):
+    def toXML(self,doc,rowlen,formating=True):
         node = doc.createElement(self.nodeName)
         cells = [ r for r in self if isinstance(r,MathTableCellNode) ]
         cells += [ None ] * (rowlen - len(cells))
         for c in cells:
             if c is not None:
-                n = c.toXML(doc)
+                n = c.toXML(doc,formating=formating)
             else:
                 n = doc.createElement('mtd')
             if n is not None:
@@ -3149,7 +3154,7 @@ class DocumentRoot(_RootNode):
     def toXML(self,formating=True):
         impl = xml.dom.minidom.getDOMImplementation()
         doc = impl.createDocument(None, 'sdocmlx', None)
-        self.documentElement.toXML(doc,doc.documentElement,formating)
+        self.documentElement.toXML(doc,doc.documentElement,formating=formating)
         node = doc.documentElement
         return node
 
@@ -3171,7 +3176,7 @@ class MetaDocumentRoot(_RootNode):
     def toXML(self,formating=True):
         impl = xml.dom.minidom.getDOMImplementation()
         doc = impl.createDocument(None, 'sdocmlx', None)
-        self.documentElement.toXML(doc,doc.documentElement)
+        self.documentElement.toXML(doc,doc.documentElement,formating=formating)
         node = doc.documentElement
         return node
 

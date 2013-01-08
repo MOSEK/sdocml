@@ -426,7 +426,6 @@ if __name__ == "__main__":
                     doc = docRoot.toXML(formating=False)
                     doc = doc.toxml('utf-8')
                     doc = unescape(doc)
-                    print doc
                     tmpmanager = Nodes.Manager(conds=conf['define'],
                                             incpaths=conf['incpath'],
                                             maxsectdepth=conf['maxsectiondepth'],
@@ -435,8 +434,6 @@ if __name__ == "__main__":
                     pars = ReParsingSAXHandler(Nodes.metaNodeDict,tmpmanager,docRoot)
                     xml.sax.parseString(doc,pars)
                     doc = docRoot.toXML()
-                    print "Filler"
-                    print doc.toxml('utf-8')
                     f.write(doc.toxml('utf-8'))
                     f.close()
                     

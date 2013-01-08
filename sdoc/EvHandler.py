@@ -169,6 +169,7 @@ class ReParsingSAXHandler(xml.sax.handler.ContentHandler):
     def endElement(self,name):
         self.flushText()
         topnode = self.__nodestack.pop()
+        topnode.end(0)
 
     def flushText(self):
         if self.__storedtext.strip():
