@@ -382,7 +382,7 @@ if __name__ == "__main__":
 
 
             msg('Convert to XML')
-            doc = docRoot.toXML(formating=False)
+            doc = docRoot.toXMLLite()
 
             if macroref is not None:
                 try:
@@ -423,7 +423,7 @@ if __name__ == "__main__":
 
                     #f.write(unescape(doc.toxml('utf-8')) )
                     msg('Reparsing document')
-                    doc = docRoot.toXML(formating=False)
+                    doc = docRoot.toXMLLite()
                     doc = doc.toxml('utf-8')
                     doc = unescape(doc)
                     tmpmanager = Nodes.Manager(conds=conf['define'],
