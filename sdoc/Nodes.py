@@ -487,7 +487,8 @@ class Node:
         #assert len(self.__cstack) == 1
         assert not self.__closed
         if   self.__sealed:
-            raise NodeError('%s: Content not allowed in <%s>' % (self.pos,self.nodeName, self.pos))
+            print item
+            raise NodeError('%s: Content not allowed in <%s>' % (self.pos,self.nodeName))
             #raise NodeError("Content not allowed in <%s> at %s" % (self.nodeName, self.pos))
         elif isinstance(item,Node) or isinstance(item,basestring):
             if isinstance(item,Node) and item.metaElement:
@@ -536,7 +537,7 @@ class Node:
     def end(self,pos):
         pass
 
-    def paragraphifyXML(self,lst,doc,node,formating):
+    def paragraphifyXML(self,lst,doc,node,formating=True):
         # generate paragraphs 
         pars = []
         par = []
@@ -1557,6 +1558,36 @@ class BibliographyNode(_SectionBaseElement):
         assert not isinstance(node,list)
         return node
 
+class metaBibliographyNode(Node):
+    comment     = '''
+                    Defines the bibliography section.
+
+                    This is either built automatically from an external bibliography database or explicitly written.
+
+                    If an external URL is <em>not</em> given, the section will
+                    be rendered containing ALL entries listed, ordered as they
+                    appear.
+                    If an external URL <em>is</em> given, the content of the
+                    section is ignored, and a list of bibliography entries is
+                    automatically generated from the database.
+                  '''
+    traceInfo   = True
+    nodeName    = 'bibliography'
+    macroMode   = MacroMode.Invalid
+    acceptAttrs = Attrs([Attr('id'), 
+                         Attr('url',descr='Adderess of the external bibliography database to use.')])
+    #contIter    = ' <head>  <bibitem> * '
+    contIter    = ' <bibitem> * '
+
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        #_SectionBaseElement.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,pos)
+        self.__bibdb = None
+        self.__cmddict  = cmddict
+        self.__nodedict = nodeDict
+        self.__manager  = manager
+    def postprocess(self):
+        pass
+
 class BibItemNode(Node):
     nodeName = 'bibitem'
     contIter = ' [ T %s <href> <m> ] * ' % _simpleTextNodes
@@ -1863,12 +1894,12 @@ class _SectionNode(_SectionBaseElement):
             if self.hasAttr('id'):
                 node.setAttribute('id', self.getAttr('id'))
         nodes = PushIterator(self)
-        while nodes and not isinstance(nodes.peek(),headnode):
+        while nodes and not isinstance(nodes.peek(),HeadNode):
             nodes.next()
         if nodes: 
-            n = nodes.next().toxml(doc)
+            n = nodes.next().toXML(doc)
             assert not isinstance(n,list)
-            node.appendchild(n)
+            node.appendChild(n)
         node.appendChild(doc.createTextNode('\n'))
 
         body = doc.createElement('body')
@@ -2453,6 +2484,7 @@ class NoExpandInlineNode(_NoExpandAnyNode):
 class NoExpandNode(_NoExpandAnyNode):
     nodeName  = 'noexpand'
 
+
 class PreformattedNode(Node):
     comment = '''
                 The \\tagref{pre} element serves two different purposes: First
@@ -2745,6 +2777,37 @@ class PreformattedNode(Node):
             node.setAttribute('trace:line',str(self.pos.line))
         assert not isinstance(node,list)
         return node
+
+class metaPreformattedNode(PreformattedNode):
+    nodeName  = 'pre'
+    macroMode = MacroMode.NoExpand
+    acceptAttrs = Attrs([
+                    Attr('id'), 
+                    Attr('class'), 
+                    Attr('url',descr="Location of a text file to include."),
+                    Attr('firstline',descr="Index of the first line to use from the url (1-based)."),
+                    Attr('lastline',descr="Index of the last line+1 to use from the url (1-based)."),
+                    Attr('xml:space',default='preserve'),
+                    Attr('type',default='text/plain',descr=
+                         "MIME type of the text element content or of the URL target.\n"
+                         "SDoc can hilight a few types, currently 'source/LANG', where LANG is one of: python, c, java, csharp or matlab."),
+                    Attr('encoding',default='ascii'), # (ascii|utf-8)
+                    Attr('macroexpand',default='no',descr="Tells if macros should be processed in the content of the element. For external sources this is ignored."), # (yes|no)
+                    Attr('flushleft',default='yes',
+                         descr="Flush text left as much as possible while preserving the relative indention. White-space is only remove from the top-level pre-element, not from any child nodes."),
+                    ])
+    macroMode = MacroMode.NoExpand
+    contIter  = ' [ T %s <a> ]* ' % (_simpleTextNodes )
+    structuralElement = True
+    paragraphElement = True
+
+    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
+        Node.__init__(self,manager,parent,cmddict,nodeDict,attrs,pos)
+        self.__realurl = self.getAttr('url')
+
+    def toXML(self,doc,node=None):
+        Node.toXML(self,doc,node)
+    
 
 ######################################################################
 #  Link and reference elements
@@ -3455,7 +3518,7 @@ class DocumentRoot(_RootNode):
 
 class MetaDocumentRoot(_RootNode):
     rootElementClass = DocumentNode
-    rootElement      = 'sdocmlx'
+    rootElement      = 'sdocml'
     nodeName         = 'sdocmlx'
     contIter    = ' <head> [ T %s %s %s %s ]* <body>* <section>* ' % (_simpleTextNodes,_structTextNodes,_linkNodes,_mathEnvNodes)
     
@@ -3808,10 +3871,12 @@ globalNodeDict =  { 'sdocml'   : DocumentRoot,
                     'note'     : NoteNode,
                     }
 
-metaNodeDict = {
+metaNodeDict = globalNodeDict.copy()
+metaNodeDict.update({
                     'sdocmlx': MetaDocumentRoot,
                     'body' : BodyNode,
                     'ref' : DoneReferenceNode,
                     'p' : ParagraphNode,
-                }
-metaNodeDict.update(globalNodeDict)
+                    'pre' : metaPreformattedNode,
+                    'bibliography' : metaBibliographyNode,
+                })

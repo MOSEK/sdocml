@@ -154,26 +154,33 @@ class ReParsingSAXHandler(xml.sax.handler.ContentHandler):
         self.__parent = parent
         self.__nodestack = [parent]
         self.__storedtext = ""
+        self.__locator = None
+        self.__filename = None
+    def setDocumentLocator(self,locator):
+        self.__locator = locator
+    def line(self):
+        return self.__locator.getLineNumber()
+    def pos(self):
+        return Pos(self.__filename,self.line())
     def startDocument(self):
         pass
     def endDocument(self):
-        #TODO
         pass
     def startElement(self,name,attr):
         self.flushText()
         #magic valueeeeesssssss
         parent = self.__nodestack[-1]
         #node = self.__nodeDict[name](self.manager,parent,{},self.__nodeDict,attr,0)
-        self.__nodestack.append(parent.startChildElement(name,attr,0))
+        self.__nodestack.append(parent.startChildElement(name,attr,self.pos()))
 
     def endElement(self,name):
         self.flushText()
         topnode = self.__nodestack.pop()
-        topnode.end(0)
+        topnode.end(self.pos())
 
     def flushText(self):
         if self.__storedtext.strip():
-            self.__nodestack[-1].handleRawText(self.__storedtext,0)
+            self.__nodestack[-1].handleRawText(self.__storedtext,self.pos())
             self.__storedtext = ""
 
     def characters(self,content):
