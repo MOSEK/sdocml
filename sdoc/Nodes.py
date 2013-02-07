@@ -2867,6 +2867,9 @@ class DoneReferenceNode(Node):
                           Attr('ref',descr='A globally unique ID of another element'),
                           Attr('type'),
                           Attr('exuri'),
+                          Attr('trace:file'),
+                          Attr('trace:line'),
+                          Attr('xmlns:trace'),
                   ])
     traceInfo   = True
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
