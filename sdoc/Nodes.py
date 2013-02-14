@@ -2871,7 +2871,7 @@ class DoneReferenceNode(Node):
                           Attr('trace:line'),
                           Attr('xmlns:trace'),
                   ])
-    traceInfo   = True
+    traceInfo   = False
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
     paragraphElement = False
 

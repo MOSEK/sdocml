@@ -255,17 +255,16 @@ class AlternativeSAXHandler(xml.sax.handler.ContentHandler):
                 self.__nodestack[-1].endChildElement(name,self.pos())
             self.__indent -= 1
     def flushText(self):
-        if self.__storedtext:
-            topnode = self.__nodestack[-1]
-            lines = ''.join(self.__storedtext).split('\n')
-            lineno = self.__textline
-            for l in lines[:-1]:
-                #log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),l,lineno))
-                topnode.handleText(l+'\n',Pos(self.__filename,lineno))
-                lineno += 1
-            #log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),lines[-1],lineno))
-            topnode.handleText(lines[-1],Pos(self.__filename,lineno))
-            del self.__storedtext[:] 
+        topnode = self.__nodestack[-1]
+        lines = ''.join(self.__storedtext).split('\n')
+        lineno = self.__textline
+        for l in lines[:-1]:
+            #log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),l,lineno))
+            topnode.handleText(l+'\n',Pos(self.__filename,lineno))
+            lineno += 1
+        #log.debug("%s '%s' @ %d" % (' '*len(self.__nodestack),lines[-1],lineno))
+        topnode.handleText(lines[-1],Pos(self.__filename,lineno))
+        del self.__storedtext[:] 
 
     def characters(self,content):
         if not self.__storedtext: # keep index fo the first of multiple lines
