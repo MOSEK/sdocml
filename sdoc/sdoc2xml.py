@@ -426,7 +426,6 @@ if __name__ == "__main__":
                     doc = docRoot.toXMLLite()
                     doc = doc.toxml('utf-8')
                     doc = unescape(doc)
-                    print doc
                     tmpmanager = Nodes.Manager(conds=conf['define'],
                                             incpaths=conf['incpath'],
                                             maxsectdepth=conf['maxsectiondepth'],

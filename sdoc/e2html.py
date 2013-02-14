@@ -2336,7 +2336,7 @@ class ReferenceNode(Node):
             else:
                 linkText = self.__ref.linkText()
                 if linkText is None:
-                    pass # raise NodeError('Required linktext at %s:%d' % self.pos)
+                    # raise NodeError('Required linktext at %s:%d' % self.pos)
                     r.append('[??]')
                 else:
                     r.extend(self.__ref.linkText())
@@ -3509,6 +3509,7 @@ class SymIDRef:
     def resolve(self):
         return self.__manager.resolveIDTarget(self.__key)
     def getLink(self):
+        print self.__key
         try:
             n = self.resolve()
             if (isinstance(n,SectionNode) and 
