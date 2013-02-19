@@ -2778,7 +2778,7 @@ class PreformattedNode(Node):
         assert not isinstance(node,list)
         return node
 
-class metaPreformattedNode(PreformattedNode):
+class MetaPreformattedNode(PreformattedNode):
     nodeName  = 'pre'
     macroMode = MacroMode.NoExpand
     acceptAttrs = Attrs([
@@ -2806,8 +2806,86 @@ class metaPreformattedNode(PreformattedNode):
         self.__realurl = self.getAttr('url')
 
     def toXML(self,doc,node=None):
-        Node.toXML(self,doc,node)
-    
+        items = list(self)
+        
+        # If the first line is blank, we kill it.
+        if not self.hasAttr('url'):
+            if items and isinstance(items[0],basestring):
+                v = items[0].lstrip(' \t')
+                if v and v[0] == '\n':
+                    items[0] = v[1:]
+            
+            # If the last line is blank, we kill that too.
+            if items and isinstance(items[-1],basestring):
+                item = items.pop().rstrip(' \t')
+                if item:
+                    if item[-1] == '\n':
+                        items.append(item[:-1])
+                    else:
+                        items.append(item)
+                else:# last line was spaces only, so delete the trailing newline in the second last line
+                    if items and isinstance(items[-1],basestring):
+                        item = items.pop()
+                        if item and item[-1] == '\n':
+                            items.append(item[:-1])
+                        else:
+                            items.append(item)
+        if node is None:
+            node = doc.createElement(self.nodeName)
+            
+        codelight = syntax.CodeHilighter(self.getAttr('type'))
+        # special case: If first line is blank in a <pre>, we throw it away.
+
+
+        minindent = sys.maxint
+
+        xlines = [ [] ]
+        for i in items:
+            if isinstance(i,basestring):
+                it = lineiter(i)
+                if xlines[-1] and isinstance(xlines[-1][-1],basestring):
+                    xlines[-1][-1] += it.next()
+                else:
+                    xlines[-1].append(it.next())
+                for i in it:
+                    xlines.append([ i ])
+            else:
+                xlines[-1].append(i)
+
+        if self.getAttr('flushleft') != 'no':
+            for l in xlines:
+                try:
+                    if isinstance(l[0],basestring):
+                        if len(l) > 1 or len(l[0].strip()) > 0: # disregard all-blank lines
+                            minindent = min(minindent, len(l[0])-len(l[0].lstrip()))
+                    else:
+                        minindent = 0
+                except IndexError:
+                    minindent = 0
+        else:
+            minindent = 0
+                        
+        for line in xlines:
+            if minindent > 0:
+                line[0] = line[0][minindent:]
+                
+            for item in line:
+                if isinstance(item,basestring):
+                    for itm in codelight.process(item):
+                        if isinstance(itm,basestring):
+                            n = doc.createTextNode(itm)
+                        else:
+                            t,val = itm
+                            n = doc.createElement('span')
+                            n.setAttribute('class','language-syntax-%s' % t)
+                            n.appendChild(doc.createTextNode(val))
+                        node.appendChild(n)
+                else:
+                    n = item.toXML(doc)
+                    if n is not None:
+                        node.appendChild(n)
+        assert not isinstance(node,list)
+        return node
 
 ######################################################################
 #  Link and reference elements
@@ -2860,7 +2938,7 @@ class ReferenceNode(Node):
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
     paragraphElement = False
 
-class DoneReferenceNode(Node):
+class MetaReferenceNode(Node):
     nodeName    = 'ref'
     macroMode   = MacroMode.Text
     acceptAttrs = Attrs([ Attr('class'), 
@@ -3878,8 +3956,8 @@ metaNodeDict = globalNodeDict.copy()
 metaNodeDict.update({
                     'sdocmlx': MetaDocumentRoot,
                     'body' : BodyNode,
-                    'ref' : DoneReferenceNode,
+                    'ref' : MetaReferenceNode,
                     'p' : ParagraphNode,
-                    'pre' : metaPreformattedNode,
+                    'pre' : MetaPreformattedNode,
                     'bibliography' : metaBibliographyNode,
                 })

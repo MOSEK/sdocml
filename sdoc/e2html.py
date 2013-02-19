@@ -3509,7 +3509,6 @@ class SymIDRef:
     def resolve(self):
         return self.__manager.resolveIDTarget(self.__key)
     def getLink(self):
-        print self.__key
         try:
             n = self.resolve()
             if (isinstance(n,SectionNode) and 

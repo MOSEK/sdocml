@@ -179,7 +179,7 @@ class ReParsingSAXHandler(xml.sax.handler.ContentHandler):
         topnode.end(self.pos())
 
     def flushText(self):
-        if self.__storedtext.strip():
+        if self.__storedtext:
             self.__nodestack[-1].handleRawText(self.__storedtext,self.pos())
             self.__storedtext = ""
 

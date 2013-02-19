@@ -431,6 +431,7 @@ if __name__ == "__main__":
                                             maxsectdepth=conf['maxsectiondepth'],
                                             dtdpaths=conf['dtdpath'])
                     docRoot = Nodes.MetaDocumentRoot(tmpmanager,None,None,Nodes.metaNodeDict,Pos('<root>',0))
+                    print Nodes.metaNodeDict['ref'].acceptAttrs
                     pars = ReParsingSAXHandler(Nodes.metaNodeDict,tmpmanager,docRoot)
                     xml.sax.parseString(doc,pars)
                     doc = docRoot.toXML()
