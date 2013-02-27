@@ -2310,9 +2310,12 @@ class ReferenceNode(Node):
         else:
             self.__exuri = None
             if attrs.has_key('type'):
-                self.__ref = manager.getIDTarget('@%s-%s' % (attrs['type'], attrs['ref']),self)
+                #self.__ref = manager.getIDTarget('@%s-%s' % (attrs['type'], attrs['ref']),self)
+                self.__ref   = manager.getIDTarget(attrs['ref'],self)
             elif attrs.has_key('ref'):
                 self.__ref   = manager.getIDTarget(attrs['ref'],self)
+            elif attrs.has_key('cite'):
+                self.__ref = manager.getIDTarget(attrs['ref'],self)
             else:
                 raise NodeError("Missing attribute 'type' or 'ref' at %s:%d" % (filename,line))
     def toHTML(self,r):
@@ -3517,6 +3520,9 @@ class SymIDRef:
             else:
                 return n.getFilename(),self.__key
         except KeyError:
+            print "looking for :" + self.__key
+            print "in:"
+            print self.__manager.getIDDict()
             return '','??'
     def linkText(self):
         try:
@@ -3816,6 +3822,8 @@ class Manager:
 
     def getConfigEntry(self,name):
       return self.__conf[name]
+    def getIDDict(self):
+        return self.__iddict
 
     def close(self):
         if self.__mathpngthread != None:
