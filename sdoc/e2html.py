@@ -2314,8 +2314,6 @@ class ReferenceNode(Node):
                 self.__ref   = manager.getIDTarget(attrs['ref'],self)
             elif attrs.has_key('ref'):
                 self.__ref   = manager.getIDTarget(attrs['ref'],self)
-            elif attrs.has_key('cite'):
-                self.__ref = manager.getIDTarget(attrs['ref'],self)
             else:
                 raise NodeError("Missing attribute 'type' or 'ref' at %s:%d" % (filename,line))
     def toHTML(self,r):
