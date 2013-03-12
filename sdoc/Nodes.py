@@ -259,7 +259,7 @@ macro_re = re.compile('|'.join([
     r'(?P<newline>\n)'
     ]))
 
-class Node:
+class Node(object):
     nodeName     = "<none>"
     acceptAttrs  = Attrs()
     contIter     = None
@@ -2938,21 +2938,6 @@ class ReferenceNode(Node):
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
     paragraphElement = False
 
-class MetaReferenceNode(Node):
-    nodeName    = 'ref'
-    macroMode   = MacroMode.Text
-    acceptAttrs = Attrs([ Attr('class'), 
-                          Attr('ref',descr='A globally unique ID of another element'),
-                          Attr('type'),
-                          Attr('exuri'),
-                          Attr('trace:file'),
-                          Attr('trace:line'),
-                          Attr('xmlns:trace'),
-                  ])
-    traceInfo   = False
-    contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
-    paragraphElement = False
-
 class ParagraphNode(Node):
     nodeName    = 'ref'
     macroMode   = MacroMode.Text
@@ -3956,7 +3941,6 @@ metaNodeDict = globalNodeDict.copy()
 metaNodeDict.update({
                     'sdocmlx': MetaDocumentRoot,
                     'body' : BodyNode,
-                    'ref' : MetaReferenceNode,
                     'p' : ParagraphNode,
                     'pre' : MetaPreformattedNode,
                     'bibliography' : metaBibliographyNode,
