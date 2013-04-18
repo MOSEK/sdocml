@@ -478,10 +478,6 @@ class Node(object):
             self.__data = self.__data + data
 
     def append(self,item):
-        #if len(self.__cstack) > 1:
-        #    #dgb('Append item. Cstack = \n\t%s' % '\n\t'.join([ repr(i) for i in self.__cstack]))
-        #    pass
-        #assert len(self.__cstack) == 1
         assert not self.__closed
         if   self.__sealed:
             print item
@@ -3671,6 +3667,21 @@ class Manager:
 
         self.__cached_file = {}
 
+    def getids(self):
+        return self.__ids
+    def getconds(self):
+        return self.__conds
+    def getAttributes(self):
+        attrs = {'conds':self.__conds,
+                'incpaths':self.__incpaths,
+                'maxsectdetphs':self.__maxsectdepth,
+                'entityresolver':self.__entityresolver;
+                'ids':self.__ids,
+                'reqids':self.__reqids,
+                'cached_file':self.__cached_file,
+                }
+        return attrs
+
     def getCiteRefs(self):
         #print  [ (k,n.getAttr('type')) for (k,n) in self.__reqids ]
         return [ (k,n) for (k,n) in self.__reqids if n.getAttr('type') == 'cite' ] 
@@ -3831,6 +3842,12 @@ class Manager:
     def getCond(self,key):
         return self.__conds[key]
 
+class ReParsingManager(Manager):
+    def saveID(self,key,item):
+        self.__ids[key] = item
+    def __init__(self,manager):
+        attrs = manager.getAttributes()
+        
 ######################################################################
 #  Node dictionary      
 ######################################################################
