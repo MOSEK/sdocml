@@ -380,9 +380,9 @@ if __name__ == "__main__":
             msg('Parse and expand: %.1f sec.' % (time1-time0))
             time0 = time1
 
-
             msg('Convert to XML')
             doc = docRoot.toXMLLite()
+            print unescape(doc.toxml('utf-8'))
 
             if macroref is not None:
                 try:
@@ -410,8 +410,6 @@ if __name__ == "__main__":
                             stack.extend(n.childNodes)
                             if n.nodeType == n.TEXT_NODE:
                                 if not isinstance(n.data,basestring):
-                                    print "parent =",n.parentNode.nodeName
-                                    print "data =",repr(n.data)
                                     assert isinstance(n.data, unicode)
                             elif n.nodeType == n.ELEMENT_NODE:
                                 for i in range(n.attributes.length):

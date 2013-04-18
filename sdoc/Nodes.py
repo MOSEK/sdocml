@@ -379,8 +379,6 @@ class Node(object):
             for k,v in attrs.items():
                 if self.__attrs.has_key(k):
                     self.__attrs[k] = v
-                elif k == 'xmlns' or 'trace' in k:
-                    pass
                 else:
                     raise NodeError('Invalid attribute "%s" in <%s> at %s' % (k,self.nodeName,pos))
 
@@ -440,7 +438,6 @@ class Node(object):
         pass
 
     def startElement(self,name,attrs,pos):
-        print self.__nodeDict
         try:
             nodecon = self.__nodeDict[name]
         except KeyError:
@@ -2938,14 +2935,27 @@ class ReferenceNode(Node):
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
     paragraphElement = False
 
+class MetaReferenceNode(Node):
+    nodeName    = 'ref'
+    macroMode   = MacroMode.Text
+    acceptAttrs = Attrs([ Attr('class'), 
+                          Attr('ref',descr='A globally unique ID of another element'),
+                          Attr('type'),
+                          Attr('exuri'),
+                          Attr('trace:line'),
+                          Attr('trace:file'),
+                          Attr('xmlns:trace'),
+                  ])
+    traceInfo   = True
+    contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
+    paragraphElement = False
+
 class ParagraphNode(Node):
     nodeName    = 'ref'
     macroMode   = MacroMode.Text
     traceInfo   = True
     contIter    = ' [ T %s ]* ' % (_simpleTextNodes)
     paragraphElement = False
-    
-
 
 class LinkTextNode(Node):
     nodeName    = 'linktext'
@@ -3944,4 +3954,5 @@ metaNodeDict.update({
                     'p' : ParagraphNode,
                     'pre' : MetaPreformattedNode,
                     'bibliography' : metaBibliographyNode,
+                    'ref' : MetaReferenceNode,
                 })
