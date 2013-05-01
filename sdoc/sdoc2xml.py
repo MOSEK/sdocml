@@ -424,14 +424,15 @@ if __name__ == "__main__":
                     doc = docRoot.toXMLLite()
                     doc = doc.toxml('utf-8')
                     doc = unescape(doc)
-                    #tmpmanager = Nodes.ReParsingManager(conds=conf['define'],
-                    #                        incpaths=conf['incpath'],
-                    #                        maxsectdepth=conf['maxsectiondepth'],
-                    #                        dtdpaths=conf['dtdpath'])
-                    tmpmanager = Nodes.ReParsingManager(manager)
-                    docRoot = Nodes.MetaDocumentRoot(tmpmanager,None,None,Nodes.metaNodeDict,Pos('<root>',0))
+                    reparsedmanager = Nodes.ReParsingManager(conds=conf['define'],
+                                            incpaths=conf['incpath'],
+                                            maxsectdepth=conf['maxsectiondepth'],
+                                            dtdpaths=conf['dtdpath'])
+                    reparsedmanager.update(manager)
+                    #reparsedmanager = Nodes.ReParsingManager(manager)
+                    docRoot = Nodes.MetaDocumentRoot(reparsedmanager,None,None,Nodes.metaNodeDict,Pos('<root>',0))
                     #docRoot = Nodes.MetaDocumentRoot(manager,None,None,Nodes.metaNodeDict,Pos('<root>',0))
-                    pars = ReParsingSAXHandler(Nodes.metaNodeDict,tmpmanager,docRoot)
+                    pars = ReParsingSAXHandler(Nodes.metaNodeDict,reparsedmanager,docRoot)
                     #pars = ReParsingSAXHandler(Nodes.metaNodeDict,manager,docRoot)
                     xml.sax.parseString(doc,pars)
                     doc = docRoot.toXML()

@@ -3674,8 +3674,8 @@ class Manager:
     def getAttributes(self):
         attrs = {'conds':self.__conds,
                 'incpaths':self.__incpaths,
-                'maxsectdetphs':self.__maxsectdepth,
-                'entityresolver':self.__entityresolver;
+                'maxsectdepth':self.__maxsectdepth,
+                'entityresolver':self.__entityresolver,
                 'ids':self.__ids,
                 'reqids':self.__reqids,
                 'cached_file':self.__cached_file,
@@ -3845,8 +3845,14 @@ class Manager:
 class ReParsingManager(Manager):
     def saveID(self,key,item):
         self.__ids[key] = item
-    def __init__(self,manager):
+    def update(self,manager):
         attrs = manager.getAttributes()
+        self.__conds = attrs['conds']
+        self.__incpaths = attrs['incpaths']
+        self.__maxsectdepth = attrs['maxsectdepth']
+        self.__ids = attrs['ids']
+        self.__reqids = attrs['reqids']
+        self.__cached_file = attrs['cached_file']
         
 ######################################################################
 #  Node dictionary      
