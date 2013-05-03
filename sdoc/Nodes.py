@@ -503,9 +503,8 @@ class Node(object):
             #assert 0
     #please use this sparsely
     def mapOverContent(self,f):
-        print self.__content
         self.__content = map(f,self.__content) 
-        print self.__content
+
     def handleRawText(self,data,pos):
         """
         Handle text without expansion.
