@@ -95,7 +95,7 @@ def escape(s):
         elif   o.group(0) == '<': return '&lt;'
         elif o.group(0) == '>': return '&gt;'
         elif o.group(0) == '&': return '&amp;'
-    return re.sub(r'\\\>|\\\<|<|>|&',repl,s)
+    return re.sub(r'\\>|\\<|<|>|&',repl,s)
     #return re.sub(r'<|>|&',repl,s)
 
 def xescape(s):
@@ -123,6 +123,12 @@ def unescape(s):
         if o.group(0) == '\\&gt;': return '>'
         elif o.group(0) == '\\&lt;': return '<'
     return re.sub(r'\\\&gt;|\\\&lt;',repl,s)
+
+def unescapemacro(s):
+    def repl(o):
+        if o.group(0) == '\\>': return '>'
+        elif o.group(0) == '\\<': return '<'
+    return re.sub(r'\\\>|\\\<',repl,s)
     
 
 class Attr:
@@ -495,7 +501,11 @@ class Node(object):
         else:
             print item,repr(item)
             #assert 0
-
+    #please use this sparsely
+    def mapOverContent(self,f):
+        print self.__content
+        self.__content = map(f,self.__content) 
+        print self.__content
     def handleRawText(self,data,pos):
         """
         Handle text without expansion.
@@ -1478,7 +1488,7 @@ class BibliographyNode(_SectionBaseElement):
         assert 0
 
     def postprocess(self): 
-        print "PostProcess Bibliograpy Node"
+        #print "PostProcess Bibliograpy Node"
         if not self.__pp:
             self.__pp = True
             if self.__bibdb:
@@ -1486,14 +1496,14 @@ class BibliographyNode(_SectionBaseElement):
                 cites = []
                 citedb = DfltDict(list) 
                 for k,n in self.__manager.getCiteRefs():
-                    print "-- Lookup cite key '%s'" % k
+                    #print "-- Lookup cite key '%s'" % k
                     if k not in bibkeys:
-                        print "-- Cite key %s must be externally resolved" % k
+                        #print "-- Cite key %s must be externally resolved" % k
                         if not citedb.has_key(k):
                             cites.append(k)
                         citedb[k].append(n)
                     else:
-                        print "-- Cite key %s found in local definitions" % k
+                        #print "-- Cite key %s found in local definitions" % k
                         pass
 
                 for k in cites:
@@ -1502,7 +1512,7 @@ class BibliographyNode(_SectionBaseElement):
                     else:
                         item = self.__bibdb[k]
                         
-                        print "-- Adding bibitem node for cite key %s" % k
+                        #print "-- Adding bibitem node for cite key %s" % k
                         node = BibItemNode(self.__manager,
                                            self,
                                            self.__cmddict,
@@ -1621,6 +1631,14 @@ class BibItemNode(Node):
     def __handleText(self,text):
         #print "GOT : %s" % text
         self.handleText(text,self.pos)
+
+    def macroUnEscape(self,node):
+        def helper(x):
+            if isinstance(x,basestring):
+                x = unescapemacro(x)
+            return x
+        node.mapOverContent(helper)
+            
     def formatBibEntry(self,node):
         #
         #!!TODO!! Bib entry formatting should be handled in a more flexible way.
@@ -1634,6 +1652,8 @@ class BibItemNode(Node):
             if isinstance(items,str) or isinstance(items,unicode):
                 n = self.startChildElement('span',{ 'class' : 'bib-item-%s' % k},pos)
                 n.handleText(items,pos)                
+                n.evaluate("bibitem",pos)
+                self.macroUnEscape(n)
                 n.end(pos)
                 self.endChildElement('span',pos)
             else:
@@ -1642,6 +1662,9 @@ class BibItemNode(Node):
                     
                 n = self.startChildElement('span',{ 'class' : 'bib-item-%s' % k},pos)
                 n.handleText(items[0],pos)
+                n.evaluate("bibitem",pos)
+                #n.append(items[0])
+                self.macroUnEscape(n)
                 n.end(pos)
                 self.endChildElement('span',pos)
                 if   len(items) > 1:
@@ -1649,9 +1672,10 @@ class BibItemNode(Node):
                         self.handleText(sep,pos)
                         n = self.startChildElement('span',{ 'class' : 'bib-item-%s' % k},pos)
                         n.handleText(i,pos)
+                        n.evaluate("bibitem",pos)
+                        self.macroUnEscape(n)
                         n.end(pos)
                         self.endChildElement('span',pos)
-
 
         def formatref(ref):
             refs = [ r for r in ref.split('|') if d.has_key(r) ]

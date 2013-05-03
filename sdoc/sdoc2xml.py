@@ -424,6 +424,7 @@ if __name__ == "__main__":
                     msg('Reparsing document')
                     doc = doc.toxml('utf-8')
                     doc = unescape(doc)
+                    print doc
                     reparsedmanager = Nodes.ReParsingManager(conds=conf['define'],
                                             incpaths=conf['incpath'],
                                             maxsectdepth=conf['maxsectiondepth'],
