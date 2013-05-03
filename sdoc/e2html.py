@@ -3518,9 +3518,6 @@ class SymIDRef:
             else:
                 return n.getFilename(),self.__key
         except KeyError:
-            print "looking for :" + self.__key
-            print "in:"
-            print self.__manager.getIDDict()
             return '','??'
     def linkText(self):
         try:

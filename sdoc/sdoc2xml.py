@@ -420,8 +420,8 @@ if __name__ == "__main__":
                                         assert isinstance(a.value,basestring) 
 
                     #f.write(unescape(doc.toxml('utf-8')) )
-                    msg('Reparsing document')
                     doc = docRoot.toXMLLite()
+                    msg('Reparsing document')
                     doc = doc.toxml('utf-8')
                     doc = unescape(doc)
                     reparsedmanager = Nodes.ReParsingManager(conds=conf['define'],

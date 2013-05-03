@@ -1456,9 +1456,13 @@ class BibliographyNode(_SectionBaseElement):
         self.__nodedict = nodeDict
         self.__manager  = manager
 
+            
         if self.hasAttr('url'):
             print "url... ", self.getAttr('url')
-            biburl = 'file://' + manager.findFile(self.getAttr('url'),pos.filename).replace('\\','/')
+            if self.hasAttr('trace:file'):
+                biburl = 'file://' + manager.findFile(self.getAttr('url'),self.getAttr('trace:file')).replace('\\','/')
+            else:
+                biburl = 'file://' + manager.findFile(self.getAttr('url'),pos.filename).replace('\\','/')
             self.__bibdb = BibDB(biburl)
         else:
             self.__bibdb = None
@@ -1482,14 +1486,14 @@ class BibliographyNode(_SectionBaseElement):
                 cites = []
                 citedb = DfltDict(list) 
                 for k,n in self.__manager.getCiteRefs():
-                    #print "-- Lookup cite key '%s'" % k
+                    print "-- Lookup cite key '%s'" % k
                     if k not in bibkeys:
-                        #print "-- Cite key %s must be externally resolved" % k
+                        print "-- Cite key %s must be externally resolved" % k
                         if not citedb.has_key(k):
                             cites.append(k)
                         citedb[k].append(n)
                     else:
-                        #print "-- Cite key %s found in local definitions" % k
+                        print "-- Cite key %s found in local definitions" % k
                         pass
 
                 for k in cites:
@@ -1498,7 +1502,7 @@ class BibliographyNode(_SectionBaseElement):
                     else:
                         item = self.__bibdb[k]
                         
-                        #print "-- Adding bibitem node for cite key %s" % k
+                        print "-- Adding bibitem node for cite key %s" % k
                         node = BibItemNode(self.__manager,
                                            self,
                                            self.__cmddict,
@@ -1510,15 +1514,18 @@ class BibliographyNode(_SectionBaseElement):
                         self.__genitems.append(node)
             else:
                 Warning('No bibliography database found')
+                assert(0)
 
-
-    def toXMLLIte(self,doc):
+    def toXMLLite(self,doc):
         node = doc.createElement(self.nodeName)
         for i in self:
             if isinstance(i,Node):
-                node.appendChild(n.toXMLListe(doc))
+                node.appendChild(i.toXMLLite(doc))
             elif isinstance(i,basestring):
                 node.append(child(doc.createTextNode(i)))
+        node.setAttribute('url',self.getAttr('url'))
+        node.setAttribute('trace:file',self.pos.filename)
+        node.setAttribute('trace:line',str(self.pos.line))
         return node
         
     def toXML(self,doc):
@@ -1551,7 +1558,7 @@ class BibliographyNode(_SectionBaseElement):
         assert not isinstance(node,list)
         return node
 
-class metaBibliographyNode(Node):
+class metaBibliographyNode(BibliographyNode):
     comment     = '''
                     Defines the bibliography section.
 
@@ -1568,18 +1575,14 @@ class metaBibliographyNode(Node):
     nodeName    = 'bibliography'
     macroMode   = MacroMode.Invalid
     acceptAttrs = Attrs([Attr('id'), 
-                         Attr('url',descr='Adderess of the external bibliography database to use.')])
+                         Attr('url',descr='Adderess of the external bibliography database to use.'),
+                         Attr('trace:line'),
+                         Attr('trace:file'),
+                         Attr('xmlns:trace'),
+                         ])
     #contIter    = ' <head>  <bibitem> * '
     contIter    = ' <bibitem> * '
 
-    def __init__(self, manager, parent, cmddict, nodeDict, attrs, pos):
-        #_SectionBaseElement.__init__(self,manager,parent,CommandDict(cmddict),nodeDict,attrs,pos)
-        self.__bibdb = None
-        self.__cmddict  = cmddict
-        self.__nodedict = nodeDict
-        self.__manager  = manager
-    def postprocess(self):
-        pass
 
 class BibItemNode(Node):
     nodeName = 'bibitem'
@@ -3734,7 +3737,7 @@ class Manager:
 
             for p in self.__incpaths:
                 fullname = os.path.join(p,path)
-                #print "check: %s" % fullname
+                print "check: %s" % fullname
                 if os.path.exists(fullname) and os.path.isfile(fullname):
                     return fullname
             raise NodeError('File "%s" not found' % url) 
