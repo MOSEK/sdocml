@@ -332,7 +332,7 @@ class texCollector(UserList.UserList):
                 elif _mathUnicodeToTex.unicodetotex.has_key(uidx):
                     r.append('$%s$' % _mathUnicodeToTex.unicodetotex[uidx])
                 else: 
-                    self.Warning('Unicode in verbatim field: %d' % uidx)
+                    #self.Warning('Unicode in verbatim field: %d' % uidx)
                     r.append('\\#4%d' % uidx)
             elif o.group('lf'):
                 #r.append('\\par%\n')

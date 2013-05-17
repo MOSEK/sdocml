@@ -64,10 +64,12 @@ class Manager:
         self.__error = False
 
         self.__log = logging.getLogger("SdocTeX")
+
+    def singlePage(self): True
+
     def getConfigEntry(self,name):
       return self.__config[name]
 
-    def singlePage(self): True
     def failed(self): return self.__error
 
     def writeInTemplate(self,filename,repl):
@@ -219,13 +221,13 @@ class Manager:
         s = s.strip()
         if self.__eqndict.has_key(s):
             self.__eqnsrcdict[s].append((filename,line))
-            return self.__eqndict[s], None, None
+            return self.__eqndict[s], None
         else:
             idx = len(self.__eqnlist)
             self.__eqndict[s] = idx
             self.__eqnlist.append(s)
             self.__eqnsrcdict[s] = [(filename,line)]
-            return idx, None,None
+            return idx, None
     def resolveIDTarget(self,name):
         return self.__iddict[name]
     def addIDTarget(self,name,target):
@@ -406,12 +408,6 @@ if __name__ == "__main__":
             'titlepagebg' : config.UniqueDirEntry('titlepagebg'),
             'pagebg'      : config.UniqueDirEntry('pagebg'),
             'template'    : config.UniqueDirEntry('template',defaulttemplate),
-            
-            'usetoc'     : config.UniqueBoolEntry('usetoc',   default=True),
-            'indextoc'   : config.UniqueBoolEntry('indextoc', default=True),
-            'usesectionnumbers' : config.UniqueBoolEntry('usesectionnumbers', default=True),
-            'usenavigation' : config.UniqueBoolEntry('usenavigation', default=True),
-            'useindex'   : config.UniqueBoolEntry('useindex', default=True),
             }
         )
     
