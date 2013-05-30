@@ -234,8 +234,8 @@ class texCollector(UserList.UserList):
                     if self.__mode == self.MathMode:
                         r.append('\\%s' % str(t))
                     else:
-                        if t == '_': r.append('\\_')
-                        else:        r.append('\\^')
+                        if t == '_': r.append('\\_{}')
+                        else:        r.append('\\^{}')
                 elif t in [ '<', '>' ]:
                     if self.__mode == self.MathMode:
                         r.append(str(t))
